@@ -150,17 +150,30 @@ export default async function UserPage({ params }: { params: Promise<{ username:
   const favShare = favTeamId ? await teamShare(flowAddress, favTeamId) : null;
   const echo = archetypeEcho(agg, visible.length);
 
-  // Portfolio rough proxy value: sum of valuation engine on the visible cap.
-  // We use lastPurchasePrice as base (since full lowAsk per-moment would be expensive — defer to iteration).
+  // Portfolio rollup: sum the valuation engine across visible moments.
+  // P&L proxy: for each moment with BOTH a cost basis (lastPurchasePrice)
+  // and a current floor signal (lowAsk OR fair value), compute the diff.
   let portfolioValue = 0;
   let portfolioValuedCount = 0;
+  let plBasisSum = 0;
+  let plCurrentSum = 0;
+  let plCount = 0;
   for (const m of visible) {
     const v = valueMoment(m, { recentSales: [] });
     if (v.fairValue != null) {
       portfolioValue += v.fairValue;
       portfolioValuedCount++;
     }
+    const basis = m.lastPurchasePrice != null ? Number(m.lastPurchasePrice) : null;
+    const current = v.fairValue;
+    if (basis != null && isFinite(basis) && basis > 0 && current != null) {
+      plBasisSum += basis;
+      plCurrentSum += current;
+      plCount++;
+    }
   }
+  const plDelta = plCurrentSum - plBasisSum;
+  const plPct = plBasisSum > 0 ? (plDelta / plBasisSum) * 100 : null;
 
   return (
     <div className="max-w-portal mx-auto px-3 sm:px-6 py-4 sm:py-6">
@@ -193,12 +206,21 @@ export default async function UserPage({ params }: { params: Promise<{ username:
             </div>
             <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Visible-bag value*</div>
           </div>
-          {favShare != null && total != null && total > 0 && (
-            <div>
-              <div className="text-2xl font-semibold tnum">{Math.round((favShare / total) * 100)}%</div>
-              <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">{favTeamName}</div>
+          <div>
+            <div
+              className={`text-2xl font-semibold tnum ${plDelta >= 0 ? "text-[var(--up)]" : "text-[var(--down)]"}`}
+            >
+              {plCount > 0
+                ? `${plDelta >= 0 ? "+" : ""}${formatUsd(plDelta)}`
+                : "—"}
+              {plPct != null && (
+                <span className="text-xs text-[var(--text-faint)] ml-1">
+                  {plDelta >= 0 ? "+" : ""}{plPct.toFixed(0)}%
+                </span>
+              )}
             </div>
-          )}
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Unrealized P/L · {plCount} priced</div>
+          </div>
         </div>
       </header>
 

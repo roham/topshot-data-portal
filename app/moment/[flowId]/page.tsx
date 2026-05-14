@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMoment } from "@/lib/topshot/queries";
+import { getMoment, editionsForPlay } from "@/lib/topshot/queries";
 import { ownerAddr } from "@/lib/topshot/types";
 import { formatNumber, formatUsd, mediaUrl, shortAddr, tierLabel, timeAgo } from "@/lib/utils";
 import { Card } from "@/components/Card";
+import { ParallelMatrix } from "@/components/ParallelMatrix";
 import { TierPill } from "@/components/Tier";
 import { valueMoment, DEFAULT_RULES } from "@/lib/valuation";
 import type { Adjustment } from "@/lib/valuation";
@@ -16,6 +17,7 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
   if (!m) notFound();
 
   const v = valueMoment(m, { recentSales: [] });
+  const editions = m.play?.id ? await editionsForPlay(m.play.id) : [];
   const serial = Number(m.flowSerialNumber);
   const jersey = m.play?.stats?.jerseyNumber ? Number(m.play.stats.jerseyNumber) : null;
   const jerseyMatch = jersey && serial === jersey;
@@ -139,6 +141,14 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
                 see bag →
               </Link>
             </div>
+          </Card>
+
+          {/* Parallels — V3, the parallel matrix */}
+          <Card title={`Parallels for this play`} subtitle={`V3 · ${editions.length} edition${editions.length === 1 ? "" : "s"} found`} className="mb-4">
+            <ParallelMatrix
+              editions={editions}
+              current={{ parallelID: m.edition?.parallelID, editionId: m.edition?.id }}
+            />
           </Card>
 
           {/* Play description */}

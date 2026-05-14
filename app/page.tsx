@@ -3,6 +3,7 @@ import { recentSales, searchMomentsByPlayers, getLeaderboard } from "@/lib/topsh
 import { FEATURED_PLAYERS, TEAM_NAMES } from "@/lib/topshot/teams";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Card } from "@/components/Card";
+import { MarketStats } from "@/components/MarketStats";
 import { MomentMedia } from "@/components/MomentMedia";
 import { TierPill } from "@/components/Tier";
 import { formatNumber, formatUsd } from "@/lib/utils";
@@ -52,6 +53,9 @@ export default async function Home() {
           Upstream error: {error}
         </div>
       )}
+
+      {/* Market signal strip */}
+      {data?.txns && <MarketStats txns={data.txns} />}
 
       <div className="grid lg:grid-cols-3 gap-4 mb-6">
         {/* Live activity — main column */}

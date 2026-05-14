@@ -28,13 +28,17 @@ const MINTED_MOMENT_FRAGMENT = `
   }
 `;
 
-// Lighter fragment for paginated bag pulls (no lowAsk to avoid the 12k+ moment timeout).
+// Lite fragment for paginated bag pulls; includes lowAsk + forSale so the
+// portfolio P&L view can compute cost-basis vs current floor without a
+// second pass per moment.
 const MINTED_MOMENT_LITE = `
   flowId
   flowSerialNumber
   tier
   acquiredAt
   lastPurchasePrice
+  lowAsk
+  forSale
   assetPathPrefix
   play { headline stats { playerName teamAtMoment dateOfMoment jerseyNumber playCategory } }
   set { flowName flowSeriesNumber flowId }
@@ -175,6 +179,38 @@ export async function getMoment(flowId: string): Promise<MintedMoment | null> {
     return d.getMintedMoment?.data ?? null;
   } catch {
     return null;
+  }
+}
+
+// ---- ALL EDITIONS FOR A PLAY (parallel matrix) ----
+export interface EditionRow {
+  id: string;
+  circulationCount: number;
+  parallelID: number;
+  tier: string;
+  set: { flowName: string; flowSeriesNumber?: number };
+}
+export async function editionsForPlay(playUuid: string): Promise<EditionRow[]> {
+  const q = `query($p: [ID]) {
+    searchEditions(input: {
+      filters: { byPlayIDs: $p }
+      searchInput: { pagination: { cursor: "", direction: RIGHT, limit: 30 } }
+    }) {
+      searchSummary {
+        data { ... on Editions { data { id circulationCount parallelID tier set { flowName flowSeriesNumber } } } }
+      }
+    }
+  }`;
+  type R = {
+    searchEditions: {
+      searchSummary: { data: { data: EditionRow[] } };
+    };
+  };
+  try {
+    const d = await gqlFetch<R>(q, { p: [playUuid] }, { ttlMs: 60 * 60_000 });
+    return d.searchEditions.searchSummary.data.data;
+  } catch {
+    return [];
   }
 }
 
