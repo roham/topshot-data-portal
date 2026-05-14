@@ -184,8 +184,10 @@ export default async function UserPage({ params }: { params: Promise<{ username:
   let plBasisSum = 0;
   let plCurrentSum = 0;
   let plCount = 0;
+  const confidenceCounts: Record<string, number> = { high: 0, medium: 0, low: 0, none: 0 };
   for (const m of visible) {
     const v = valueMoment(m, { recentSales: [] });
+    confidenceCounts[v.confidence] = (confidenceCounts[v.confidence] ?? 0) + 1;
     if (v.fairValue != null) {
       portfolioValue += v.fairValue;
       portfolioValuedCount++;
@@ -308,6 +310,25 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         </div>
       </header>
 
+      {/* Confidence breakdown strip */}
+      <div className="grid grid-cols-4 gap-px bg-[var(--border)] rounded overflow-hidden mb-4 text-[11px]">
+        <div className="bg-[var(--bg-card)] p-2 text-center">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--up)]">High conf</div>
+          <div className="tnum text-sm font-semibold mt-0.5">{confidenceCounts.high}</div>
+        </div>
+        <div className="bg-[var(--bg-card)] p-2 text-center">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)]">Medium conf</div>
+          <div className="tnum text-sm font-semibold mt-0.5">{confidenceCounts.medium}</div>
+        </div>
+        <div className="bg-[var(--bg-card)] p-2 text-center">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Low conf</div>
+          <div className="tnum text-sm font-semibold mt-0.5">{confidenceCounts.low}</div>
+        </div>
+        <div className="bg-[var(--bg-card)] p-2 text-center">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">No price</div>
+          <div className="tnum text-sm font-semibold mt-0.5">{confidenceCounts.none}</div>
+        </div>
+      </div>
       {pullError && (
         <div className="bg-[var(--down)]/10 border border-[var(--down)]/30 text-[var(--down)] text-sm px-4 py-2 rounded mb-4">
           Partial pull — upstream returned: {pullError}. Showing what we have.
