@@ -32,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/teams" className="hover:text-[var(--text)]">Teams</Link>
               <Link href="/sets" className="hover:text-[var(--text)]">Sets</Link>
               <Link href="/collectors" className="hover:text-[var(--text)]">Collectors</Link>
+              <Link href="/compare" className="hover:text-[var(--text)]">Compare</Link>
               <Link href="/rules" className="hover:text-[var(--text)]">Rules</Link>
               <Link href="/methodology" className="hover:text-[var(--text)]">Methodology</Link>
             </nav>
