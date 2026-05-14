@@ -182,6 +182,52 @@ export async function getMoment(flowId: string): Promise<MintedMoment | null> {
   }
 }
 
+// ---- EDITIONS PER SET (for completion math) ----
+export async function editionsInSet(setUuid: string): Promise<Array<{ id: string; playId: string; circulationCount: number; tier: string; parallelID: number }>> {
+  const PAGE = 100;
+  const out: Array<{ id: string; playId: string; circulationCount: number; tier: string; parallelID: number }> = [];
+  let cursor = "";
+  for (let i = 0; i < 6; i++) {
+    const q = `query($s: [ID], $c: Cursor!, $l: Int!) {
+      searchEditions(input: {
+        filters: { bySetIDs: $s }
+        searchInput: { pagination: { cursor: $c, direction: RIGHT, limit: $l } }
+      }) {
+        searchSummary {
+          pagination { rightCursor }
+          data { ... on Editions { data { id circulationCount tier parallelID play { id } } } }
+        }
+      }
+    }`;
+    type R = {
+      searchEditions: {
+        searchSummary: {
+          pagination?: { rightCursor?: string };
+          data: { data: Array<{ id: string; play?: { id: string }; circulationCount: number; tier: string; parallelID: number }> };
+        };
+      };
+    };
+    try {
+      const d = await gqlFetch<R>(q, { s: [setUuid], c: cursor, l: PAGE }, { ttlMs: 12 * 60 * 60_000 });
+      const items = d.searchEditions.searchSummary.data.data;
+      out.push(
+        ...items.map((it) => ({
+          id: it.id,
+          playId: it.play?.id ?? "",
+          circulationCount: it.circulationCount,
+          tier: it.tier,
+          parallelID: it.parallelID,
+        }))
+      );
+      cursor = d.searchEditions.searchSummary.pagination?.rightCursor ?? "";
+      if (!cursor || items.length < PAGE) break;
+    } catch {
+      break;
+    }
+  }
+  return out;
+}
+
 // ---- ALL EDITIONS FOR A PLAY (parallel matrix) ----
 export interface EditionRow {
   id: string;

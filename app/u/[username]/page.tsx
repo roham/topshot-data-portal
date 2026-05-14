@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getUserByFlow, getUserByUsername, fetchBagPage, teamShare } from "@/lib/topshot/queries";
+import { getUserByFlow, getUserByUsername, fetchBagPage, teamShare, editionsInSet, allSets } from "@/lib/topshot/queries";
 import { TEAM_NAMES } from "@/lib/topshot/teams";
 import { formatNumber, formatUsd, mediaUrl, shortAddr, timeAgo } from "@/lib/utils";
 import { TierPill } from "@/components/Tier";
@@ -175,6 +175,41 @@ export default async function UserPage({ params }: { params: Promise<{ username:
   const plDelta = plCurrentSum - plBasisSum;
   const plPct = plBasisSum > 0 ? (plDelta / plBasisSum) * 100 : null;
 
+  // PC4 — set-completion math for the top 5 sets in the user's bag.
+  // Map set flowName → flowId via the visible moments, then look up the set UUID
+  // via allSets(), then count total editions in the set.
+  const setsCatalog = await allSets(200);
+  const flowIdToUuid = new Map<number, string>();
+  for (const s of setsCatalog) flowIdToUuid.set(s.flowId, s.id);
+  // Count user's UNIQUE editions per set (count distinct edition.id within a set)
+  const setHoldings = new Map<string, { setName: string; flowId: number; uuid: string; uniqueEditions: Set<string>; totalHeld: number }>();
+  for (const m of visible) {
+    if (!m.set?.flowId || !m.edition?.id) continue;
+    const uuid = flowIdToUuid.get(m.set.flowId);
+    if (!uuid) continue;
+    const key = uuid;
+    const e = setHoldings.get(key) ?? {
+      setName: m.set.flowName,
+      flowId: m.set.flowId,
+      uuid,
+      uniqueEditions: new Set<string>(),
+      totalHeld: 0,
+    };
+    e.uniqueEditions.add(m.edition.id);
+    e.totalHeld += 1;
+    setHoldings.set(key, e);
+  }
+  const topSets = [...setHoldings.values()].sort((a, b) => b.totalHeld - a.totalHeld).slice(0, 6);
+  const setCompletions = await Promise.all(
+    topSets.map(async (s) => {
+      const editions = await editionsInSet(s.uuid);
+      const total = editions.length;
+      const held = s.uniqueEditions.size;
+      const pct = total > 0 ? (held / total) * 100 : 0;
+      return { ...s, totalEditions: total, heldEditions: held, pct };
+    })
+  );
+
   return (
     <div className="max-w-portal mx-auto px-3 sm:px-6 py-4 sm:py-6">
       {/* Header */}
@@ -274,6 +309,38 @@ export default async function UserPage({ params }: { params: Promise<{ username:
           </div>
         </Card>
       </div>
+
+      {/* PC4 — set-completion strip */}
+      {setCompletions.length > 0 && (
+        <Card title="Set completion" subtitle={`PC4 · top ${setCompletions.length} sets by held count · unique editions vs total`} className="mb-6">
+          <div className="divide-y divide-[var(--border)]">
+            {setCompletions.map((s) => (
+              <div key={s.uuid} className="px-4 py-2">
+                <div className="flex items-baseline gap-3 text-sm">
+                  <span className="flex-1 truncate font-medium">{s.setName}</span>
+                  <span className="tnum text-xs text-[var(--text-dim)]">
+                    {s.heldEditions}/{s.totalEditions} editions
+                  </span>
+                  <span className="tnum text-xs text-[var(--text-faint)] w-12 text-right">{s.pct.toFixed(0)}%</span>
+                  <span className="tnum text-xs text-[var(--text-faint)] w-16 text-right">{s.totalHeld} held</span>
+                </div>
+                <div className="h-1 bg-[var(--bg-elev)] mt-1 rounded">
+                  <div
+                    className="h-1 rounded"
+                    style={{
+                      width: `${s.pct}%`,
+                      background: s.pct >= 80 ? "var(--up)" : s.pct >= 30 ? "var(--accent)" : "var(--text-faint)",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-[var(--text-faint)] px-4 pb-3">
+            Each parallel + tier within a set counts as a distinct edition. 100% means you hold one of every edition. WNBA / older sets may have fewer editions than recent ones.
+          </p>
+        </Card>
+      )}
 
       {/* Holdings grid */}
       <Card
