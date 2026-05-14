@@ -5,6 +5,7 @@ import { TopSales } from "@/components/TopSales";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { MoversDown } from "@/components/MoversDown";
 import { SeriesMomentum } from "@/components/SeriesMomentum";
+import { BargainBoard } from "@/components/BargainBoard";
 import { formatUsd, formatNumber } from "@/lib/utils";
 
 export const revalidate = 60;
@@ -40,6 +41,9 @@ export default async function MovementPage() {
       <div className="mt-4 grid lg:grid-cols-2 gap-4">
         <Card title="Set momentum" subtitle="M5 · sets ranked by sale count in window">
           <SeriesMomentum txns={txns} />
+        </Card>
+        <Card title="Bargain board" subtitle="sales <50% of tier median in window">
+          <BargainBoard txns={txns} limit={10} />
         </Card>
       </div>
 
