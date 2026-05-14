@@ -6,6 +6,7 @@ import { formatNumber, formatUsd, mediaUrl, shortAddr, timeAgo } from "@/lib/uti
 import { TierPill } from "@/components/Tier";
 import { Card } from "@/components/Card";
 import { WatchToggle } from "@/components/WatchToggle";
+import { HoldingsGrid } from "@/components/HoldingsGrid";
 import type { MintedMoment, UserPublicInfo } from "@/lib/topshot/types";
 import { valueMoment } from "@/lib/valuation";
 
@@ -364,42 +365,12 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         </Card>
       )}
 
-      {/* Holdings grid */}
+      {/* Holdings grid w/ filters (Tradeblock-style) */}
       <Card
         title="Holdings"
-        subtitle={`Showing ${visible.length} of ${formatNumber(total ?? 0)} · acquired ${timeAgo(agg.newestAcquired)} ago → ${timeAgo(agg.oldestAcquired)} ago`}
+        subtitle={`Showing ${visible.length} of ${formatNumber(total ?? 0)} · acquired ${timeAgo(agg.newestAcquired)} ago → ${timeAgo(agg.oldestAcquired)} ago · filterable + sortable`}
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 p-3">
-          {visible.map((m) => {
-            const serial = Number(m.flowSerialNumber);
-            const jersey = Number(m.play?.stats?.jerseyNumber);
-            const jerseyMatch = jersey && serial === jersey;
-            return (
-              <Link
-                key={m.flowId}
-                href={`/moment/${m.flowId}`}
-                className="block bg-[var(--bg-elev)] border border-[var(--border)] rounded overflow-hidden card-hover"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={mediaUrl(m.flowId, "hero", { width: 240 })}
-                  alt={m.play?.stats?.playerName ?? ""}
-                  className="w-full aspect-square object-cover bg-[var(--bg)]"
-                  loading="lazy"
-                />
-                <div className="p-2">
-                  <div className="text-xs font-medium truncate">{m.play?.stats?.playerName ?? "—"}</div>
-                  <div className="text-[10px] text-[var(--text-faint)] truncate flex items-center justify-between mt-0.5">
-                    <span className={jerseyMatch ? "text-[var(--accent)]" : ""}>
-                      #{serial}/{m.edition?.circulationCount ?? "?"}
-                    </span>
-                    <TierPill tier={m.tier} />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <HoldingsGrid items={visible} />
         <p className="text-[10px] text-[var(--text-faint)] px-3 pb-3">
           * Visible-bag value sums the valuation engine across the first {VISIBLE_CAP} moments shown. Bags larger than {VISIBLE_CAP} are not fully revalued at this layer — see /methodology for the load-tradeoff explanation.
         </p>
