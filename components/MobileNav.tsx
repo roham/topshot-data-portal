@@ -7,7 +7,7 @@ const ROUTES: Array<[string, Array<[string, string]>]> = [
   ["Discovery", [["/players", "Players"], ["/teams", "Teams"], ["/sets", "Sets"], ["/leaderboards", "Ladders"]]],
   ["Collectors", [["/collectors", "Collectors"], ["/compare", "Compare"], ["/watching", "Watching"]]],
   ["Time", [["/trends", "Trends"], ["/archive", "Archive"], ["/on-this-day", "OnThisDay"]]],
-  ["Meta", [["/rules", "Rules"], ["/methodology", "Methodology"]]],
+  ["Meta", [["/rules", "Rules"], ["/methodology", "Methodology"], ["/changelog", "Changelog"]]],
 ];
 
 export function MobileNav() {

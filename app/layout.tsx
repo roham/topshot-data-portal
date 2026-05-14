@@ -49,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="text-[var(--text-faint)]">·</span>
               <Link href="/rules" className="hover:text-[var(--text)]">Rules</Link>
               <Link href="/methodology" className="hover:text-[var(--text)]">Methodology</Link>
+              <Link href="/changelog" className="hover:text-[var(--text)]">Changelog</Link>
             </nav>
             <div className="ml-auto flex items-center gap-2 text-[10px] sm:text-xs text-[var(--text-faint)]">
               <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--up)] inline-block" />
