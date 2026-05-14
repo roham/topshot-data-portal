@@ -1,15 +1,19 @@
-import { recentSalesBulk } from "@/lib/topshot/queries";
+import { recentSalesBulk, allSets } from "@/lib/topshot/queries";
 import { Card } from "@/components/Card";
 import { formatUsd, formatNumber, tierLabel } from "@/lib/utils";
 
 export const revalidate = 120;
 
 export default async function TrendsPage() {
-  const txns = await recentSalesBulk(200);
+  const [txns, setsCatalog] = await Promise.all([recentSalesBulk(200), allSets(300)]);
+  const seriesBySetName = new Map<string, number>();
+  for (const s of setsCatalog) {
+    if (s.flowSeriesNumber != null) seriesBySetName.set(s.flowName, s.flowSeriesNumber);
+  }
   // T2 — tier breakdown
   const byTier = new Map<string, { count: number; volume: number; prices: number[] }>();
-  // T3 — series breakdown
-  const bySeries = new Map<number, { count: number; volume: number; prices: number[] }>();
+  // T3 — series breakdown (joined via setName→series cache)
+  const bySeries = new Map<number, { count: number; volume: number; prices: number[]; setNames: Set<string> }>();
   // T1 — per-player aggregate (also on /movement but rendered with deltas here)
   const byPlayer = new Map<string, { count: number; volume: number; prices: number[] }>();
   // Date histogram by hour of day for time-of-day signal
@@ -26,8 +30,16 @@ export default async function TrendsPage() {
       e.prices.push(price);
       byTier.set(tier, e);
     }
-    const sr = t.moment?.set?.flowName?.match(/^(.+)$/) ? Number((t.moment?.flowSerialNumber ?? 0)) : 0;
-    void sr; // series not in transaction-level moment; derive via moment.set lookup if needed
+    const setName = t.moment?.set?.flowName;
+    const series = setName ? seriesBySetName.get(setName) : undefined;
+    if (series != null) {
+      const e = bySeries.get(series) ?? { count: 0, volume: 0, prices: [], setNames: new Set<string>() };
+      e.count += 1;
+      e.volume += price;
+      e.prices.push(price);
+      if (setName) e.setNames.add(setName);
+      bySeries.set(series, e);
+    }
     const player = t.moment?.play?.stats?.playerName;
     if (player) {
       const e = byPlayer.get(player) ?? { count: 0, volume: 0, prices: [] };
@@ -61,6 +73,19 @@ export default async function TrendsPage() {
   const playerRows = rowsOf(byPlayer).slice(0, 15);
   const tierMax = tierRows[0]?.volume ?? 1;
   const playerMax = playerRows[0]?.volume ?? 1;
+  const seriesRows = [...bySeries.entries()]
+    .map(([sr, e]) => {
+      const sorted = [...e.prices].sort((a, b) => a - b);
+      return {
+        series: sr,
+        count: e.count,
+        volume: e.volume,
+        median: sorted[Math.floor(sorted.length / 2)] ?? 0,
+        sets: e.setNames.size,
+      };
+    })
+    .sort((a, b) => b.series - a.series);
+  const seriesMax = Math.max(...seriesRows.map((r) => r.volume), 1);
 
   return (
     <div className="max-w-portal mx-auto px-3 sm:px-6 py-6">
@@ -77,6 +102,25 @@ export default async function TrendsPage() {
           requires per-edition floor history which the public API does not expose.
         </p>
       </header>
+      <div className="grid lg:grid-cols-3 gap-4 mb-4">
+        <Card title="By series" subtitle="T3 · across all sets in series">
+          <div className="divide-y divide-[var(--border)]">
+            {seriesRows.map((r) => (
+              <div key={r.series} className="px-4 py-2">
+                <div className="flex items-baseline gap-2 text-sm">
+                  <span className="flex-1 font-medium">Series {r.series}</span>
+                  <span className="tnum text-xs text-[var(--text-dim)]">{r.count}</span>
+                  <span className="tnum text-xs text-[var(--text-faint)] w-14 text-right">{r.sets} sets</span>
+                  <span className="tnum text-xs text-[var(--accent)] w-20 text-right">{formatUsd(r.volume)}</span>
+                </div>
+                <div className="h-1 bg-[var(--bg-elev)] mt-1 rounded">
+                  <div className="h-1 bg-[var(--legendary)] rounded" style={{ width: `${(r.volume / seriesMax) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
       <div className="grid lg:grid-cols-2 gap-4">
         <Card title="By tier" subtitle="T2 · volume / count / median in window">
           <div className="divide-y divide-[var(--border)]">
