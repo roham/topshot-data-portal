@@ -31,6 +31,33 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="text-lg font-semibold mt-6 mb-2">Routes</h2>
+        <p className="text-sm text-[var(--text-dim)] mb-2">Each surface, what it does, what API call powers it.</p>
+        <table className="text-xs w-full font-mono">
+          <thead>
+            <tr className="text-[var(--text-faint)]"><th className="px-2 py-1 text-left">Route</th><th className="px-2 py-1 text-left">What</th><th className="px-2 py-1 text-left">Powered by</th></tr>
+          </thead>
+          <tbody className="text-[var(--text-dim)]">
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/</td><td className="px-2 py-1">Market hub</td><td className="px-2 py-1">searchMarketplaceTransactions + searchMintedMoments(byPlayers)</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/movement</td><td className="px-2 py-1">Vol / movers / bargains / set momentum</td><td className="px-2 py-1">searchMarketplaceTransactions x200</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/whales</td><td className="px-2 py-1">Top buyers / sellers in window</td><td className="px-2 py-1">searchMarketplaceTransactions x300</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/specials</td><td className="px-2 py-1">Jersey + #1 + low-serial + last-serial</td><td className="px-2 py-1">window filter</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/anomalies</td><td className="px-2 py-1">Players by price CV</td><td className="px-2 py-1">window stddev/mean</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/archive</td><td className="px-2 py-1">All-time biggest sales</td><td className="px-2 py-1">searchMarketplaceTransactions sortBy: PRICE_DESC</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/trends</td><td className="px-2 py-1">By tier / player / series + tier×series matrix</td><td className="px-2 py-1">window + searchSets join</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/on-this-day</td><td className="px-2 py-1">Plays matching today&apos;s date</td><td className="px-2 py-1">searchPlays paginated</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/leaderboards</td><td className="px-2 py-1">Anonymous player + team ladders</td><td className="px-2 py-1">getLeaderboard(kind: PLAYER\|TEAM)</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/players, /teams, /sets</td><td className="px-2 py-1">Directories + per-entity detail</td><td className="px-2 py-1">allPlayers / TEAM_NAMES / searchSets</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/u/[username]</td><td className="px-2 py-1">Personal bag + portfolio + P&amp;L + set completion + holdings filter</td><td className="px-2 py-1">getUserProfileByUsername → searchMintedMoments(byOwnerFlowAddress) + searchEditions(bySetIDs)</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/compare</td><td className="px-2 py-1">Two-bag overlap math</td><td className="px-2 py-1">parallel byOwnerFlowAddress pulls</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/watching</td><td className="px-2 py-1">Watchlist w/ window activity</td><td className="px-2 py-1">localStorage + window scan</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/moment/[flowId]</td><td className="px-2 py-1">Full valuation + rarity + velocity + edge board + parallel matrix + sparkline</td><td className="px-2 py-1">getMintedMoment + searchEditions(byPlayIDs) + searchMarketplaceTransactions(byEditions) + searchMintedMoments(byEditions, byForSale)</td></tr>
+            <tr className="border-t border-[var(--border)]"><td className="px-2 py-1">/api/stats, /api/og/u/[u]</td><td className="px-2 py-1">JSON stats + og-image route</td><td className="px-2 py-1">composes above</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section className="mb-8">
         <h2 className="text-lg font-semibold mt-6 mb-2">What we can&apos;t show (yet)</h2>
         <ul className="text-sm leading-7 text-[var(--text-dim)] list-disc pl-5 space-y-1">
           <li><strong>Full transfer history per moment.</strong> The public API exposes <em>acquiredAt</em> for the current owner only. Prior holders are reachable via Flowscan but not via this API.</li>
