@@ -109,6 +109,12 @@ export default function RulesPage() {
           Tune the rules below and watch every sample moment re-value live. Every adjustment is auditable — no black box.
           This page exists because the financial-gambler-collector deserves to see the math, not be told it.
         </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-wider">
+          <span className="border border-[var(--accent)]/40 text-[var(--accent)] rounded px-2 py-1">22 unit tests passing</span>
+          <span className="border border-[var(--border)] text-[var(--text-dim)] rounded px-2 py-1">pure function</span>
+          <span className="border border-[var(--border)] text-[var(--text-dim)] rounded px-2 py-1">in-memory only</span>
+          <span className="border border-[var(--border)] text-[var(--text-dim)] rounded px-2 py-1">resets on reload</span>
+        </div>
       </header>
 
       <div className="grid lg:grid-cols-[420px_1fr] gap-6">
