@@ -6,6 +6,7 @@ import { Card } from "@/components/Card";
 import { MarketStats } from "@/components/MarketStats";
 import { MomentMedia } from "@/components/MomentMedia";
 import { TierPill } from "@/components/Tier";
+import { TopSales } from "@/components/TopSales";
 import { formatNumber, formatUsd } from "@/lib/utils";
 import { CollectorSearch } from "@/components/CollectorSearch";
 
@@ -75,30 +76,35 @@ export default async function Home() {
         </Card>
 
         {/* Discovery rail */}
-        <Card title="Featured players" subtitle="D1 · top collector-demand">
-          <div className="divide-y divide-[var(--border)]">
-            {data?.players.map((p) => (
-              <Link
-                key={p.player.id}
-                href={`/player/${p.player.id}`}
-                className="px-4 py-3 flex items-center gap-3 hover:bg-[var(--bg-elev)] transition-colors"
-              >
-                <div className="flex -space-x-2">
-                  {p.items.slice(0, 3).map((m) => (
-                    <MomentMedia key={m.flowId} flowId={m.flowId} type="player" width={36} className="w-7 h-7 rounded-full ring-1 ring-[var(--border)] bg-[var(--bg-elev)] object-cover" />
-                  ))}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{p.player.name}</div>
-                  <div className="text-[10px] text-[var(--text-faint)] tnum">
-                    {p.totalCount != null ? `${formatNumber(p.totalCount)} moments minted` : "—"}
+        <div className="space-y-4">
+          <Card title="Top sales · window" subtitle={`M1 · top by price`}>
+            <TopSales txns={data?.txns ?? []} limit={5} />
+          </Card>
+          <Card title="Featured players" subtitle="D1 · top collector-demand">
+            <div className="divide-y divide-[var(--border)]">
+              {data?.players.map((p) => (
+                <Link
+                  key={p.player.id}
+                  href={`/player/${p.player.id}`}
+                  className="px-4 py-3 flex items-center gap-3 hover:bg-[var(--bg-elev)] transition-colors"
+                >
+                  <div className="flex -space-x-2">
+                    {p.items.slice(0, 3).map((m) => (
+                      <MomentMedia key={m.flowId} flowId={m.flowId} type="player" width={36} className="w-7 h-7 rounded-full ring-1 ring-[var(--border)] bg-[var(--bg-elev)] object-cover" />
+                    ))}
                   </div>
-                </div>
-                <span className="text-[var(--text-faint)] text-xs">→</span>
-              </Link>
-            ))}
-          </div>
-        </Card>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{p.player.name}</div>
+                    <div className="text-[10px] text-[var(--text-faint)] tnum">
+                      {p.totalCount != null ? `${formatNumber(p.totalCount)} moments minted` : "—"}
+                    </div>
+                  </div>
+                  <span className="text-[var(--text-faint)] text-xs">→</span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
 
       {/* Voice block — the "we get you" register */}

@@ -350,6 +350,30 @@ export async function fetchBagPage(
   };
 }
 
+// ---- SETS DIRECTORY ----
+export interface SetRow {
+  id: string;
+  flowId: number;
+  flowName: string;
+  flowSeriesNumber?: number;
+}
+export async function allSets(limit: number = 200): Promise<SetRow[]> {
+  const q = `query($lim: Int!) {
+    searchSets(input: { searchInput: { pagination: { cursor: "", direction: RIGHT, limit: $lim } } }) {
+      searchSummary {
+        data { ... on Sets { data { id flowId flowName flowSeriesNumber } } }
+      }
+    }
+  }`;
+  type R = { searchSets: { searchSummary: { data: { data: SetRow[] } } } };
+  try {
+    const d = await gqlFetch<R>(q, { lim: limit }, { ttlMs: 24 * 60 * 60_000 });
+    return d.searchSets.searchSummary.data.data;
+  } catch {
+    return [];
+  }
+}
+
 // ---- PLAYERS DIRECTORY ----
 export async function allPlayers(): Promise<Array<{ id: string; name: string }>> {
   const q = `query { allPlayers { data { id name } } }`;

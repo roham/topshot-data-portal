@@ -28,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="hidden sm:flex items-center gap-4 text-xs text-[var(--text-dim)]">
               <Link href="/" className="hover:text-[var(--text)]">Market</Link>
               <Link href="/players" className="hover:text-[var(--text)]">Players</Link>
+              <Link href="/sets" className="hover:text-[var(--text)]">Sets</Link>
               <Link href="/collectors" className="hover:text-[var(--text)]">Collectors</Link>
               <Link href="/rules" className="hover:text-[var(--text)]">Rules</Link>
               <Link href="/methodology" className="hover:text-[var(--text)]">Methodology</Link>
