@@ -6,6 +6,7 @@ import { formatNumber, formatUsd, mediaUrl, shortAddr, tierLabel, timeAgo } from
 import { Card } from "@/components/Card";
 import { ParallelMatrix } from "@/components/ParallelMatrix";
 import { EdgeBoard } from "@/components/EdgeBoard";
+import { Sparkline } from "@/components/Sparkline";
 import { TierPill } from "@/components/Tier";
 import { valueMoment, DEFAULT_RULES } from "@/lib/valuation";
 import type { Adjustment } from "@/lib/valuation";
@@ -217,6 +218,10 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
           {/* V5 — recent comps for this edition */}
           {recentSales.length > 0 && (
             <Card title="Recent comps for this edition" subtitle={`V5 · ${recentSales.length} most-recent sales · same edition`} className="mb-4">
+              <div className="px-4 py-3 flex items-center gap-4 border-b border-[var(--border)]">
+                <div className="text-[var(--accent)]"><Sparkline data={recentSales.slice().reverse().map((s) => s.price)} width={240} height={40} /></div>
+                <div className="text-[10px] text-[var(--text-faint)]">trace · oldest → newest in window</div>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-px bg-[var(--border)] rounded overflow-hidden">
                 {recentSales.slice(0, 12).map((s, idx) => (
                   <div key={idx} className="bg-[var(--bg-card)] p-2 text-center">
