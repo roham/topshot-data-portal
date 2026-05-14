@@ -28,12 +28,16 @@ export function EdgeBoard({
   const sorted = [...listed].sort((a, b) => a.lowAsk - b.lowAsk);
   const cheapest = sorted[0];
   const mostExpensive = sorted[sorted.length - 1];
+  // T4 — floor compression: how many listings sit within +20% of the cheapest.
+  const compressionCount = sorted.filter((l) => l.lowAsk <= cheapest.lowAsk * 1.2).length;
+  const compressionPct = (compressionCount / sorted.length) * 100;
   return (
     <div>
-      <div className="grid sm:grid-cols-3 gap-px bg-[var(--border)] text-[12px]">
+      <div className="grid sm:grid-cols-4 gap-px bg-[var(--border)] text-[12px]">
         <Cell label="Listed serials" value={`${listed.length}`} />
         <Cell label="Cheapest" value={formatUsd(cheapest.lowAsk)} sub={`#${cheapest.serial}`} />
         <Cell label="Most expensive" value={formatUsd(mostExpensive.lowAsk)} sub={`#${mostExpensive.serial}`} />
+        <Cell label="Floor compression" value={`${compressionPct.toFixed(0)}%`} sub={`${compressionCount} within +20%`} />
       </div>
       <div className="divide-y divide-[var(--border)] text-[12px] font-mono mt-2">
         {sorted.slice(0, 12).map((l) => {
