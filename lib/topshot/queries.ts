@@ -314,6 +314,44 @@ export async function recentSales(limit: number = 30): Promise<MarketplaceTransa
   return d.searchMarketplaceTransactions.data.searchSummary.data.data;
 }
 
+// ---- ALL-TIME BIGGEST SALES (sortBy: PRICE_DESC) ----
+export async function biggestSalesAllTime(limit: number = 25): Promise<import("./types").MarketplaceTransaction[]> {
+  const q = `query($lim: Int!) {
+    searchMarketplaceTransactions(input: {
+      filters: {}
+      sortBy: PRICE_DESC
+      searchInput: { pagination: { cursor: "", direction: RIGHT, limit: $lim } }
+    }) {
+      data {
+        searchSummary {
+          data { ... on MarketplaceTransactions { data {
+            id price txHash
+            buyer { username flowAddress dapperID }
+            seller { username flowAddress dapperID }
+            moment {
+              flowId flowSerialNumber tier
+              set { flowName flowId flowSeriesNumber }
+              play { stats { playerName jerseyNumber teamAtMoment dateOfMoment } }
+              edition { circulationCount tier parallelID }
+            }
+          } } }
+        }
+      }
+    }
+  }`;
+  type R = {
+    searchMarketplaceTransactions: {
+      data: { searchSummary: { data: { data: import("./types").MarketplaceTransaction[] } } };
+    };
+  };
+  try {
+    const d = await gqlFetch<R>(q, { lim: limit }, { ttlMs: 60 * 60_000 });
+    return d.searchMarketplaceTransactions.data.searchSummary.data.data;
+  } catch {
+    return [];
+  }
+}
+
 // ---- RECENT SALES BULK (for volume + trend analysis) ----
 // Pulls a larger window of recent transactions to enable
 // sliding-window sale-count and per-player volume metrics.
