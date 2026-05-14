@@ -10,14 +10,14 @@ export function ActivityFeed({ txns, dense = false }: { txns: MarketplaceTransac
   }
   return (
     <div className="font-mono text-[12px]">
-      {/* Header */}
-      <div className="grid grid-cols-[44px_minmax(0,1fr)_70px_60px_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-[var(--text-faint)] uppercase tracking-wider px-2 py-1 border-b border-[var(--border)]">
+      {/* Header — hide buyer/seller cols on narrow */}
+      <div className="grid grid-cols-[44px_minmax(0,1fr)_70px_60px] sm:grid-cols-[44px_minmax(0,1fr)_70px_60px_minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-[var(--text-faint)] uppercase tracking-wider px-2 py-1 border-b border-[var(--border)]">
         <span></span>
         <span>Moment</span>
         <span className="text-right">Serial</span>
         <span className="text-right">Price</span>
-        <span className="truncate">Buyer</span>
-        <span className="truncate">Seller</span>
+        <span className="truncate hidden sm:inline">Buyer</span>
+        <span className="truncate hidden sm:inline">Seller</span>
       </div>
       <div>
         {txns.map((t) => {
@@ -30,7 +30,7 @@ export function ActivityFeed({ txns, dense = false }: { txns: MarketplaceTransac
             <Link
               href={m?.flowId ? `/moment/${m.flowId}` : "#"}
               key={t.id}
-              className="grid grid-cols-[44px_minmax(0,1fr)_70px_60px_minmax(0,1fr)_minmax(0,1fr)] gap-2 px-2 py-1.5 bloomberg-row items-center hover:bg-[var(--bg-elev)] transition-colors"
+              className="grid grid-cols-[44px_minmax(0,1fr)_70px_60px] sm:grid-cols-[44px_minmax(0,1fr)_70px_60px_minmax(0,1fr)_minmax(0,1fr)] gap-2 px-2 py-1.5 bloomberg-row items-center hover:bg-[var(--bg-elev)] transition-colors"
             >
               {m?.flowId ? (
                 <MomentMedia flowId={m.flowId} type="hero" width={40} className="rounded w-9 h-9 object-cover bg-[var(--bg-elev)]" />
@@ -56,7 +56,7 @@ export function ActivityFeed({ txns, dense = false }: { txns: MarketplaceTransac
                 ) : null}
               </div>
               <div className="tnum text-right text-[var(--text)] font-semibold">{formatUsd(Number(t.price))}</div>
-              <div className="truncate text-[var(--text-dim)]">
+              <div className="truncate text-[var(--text-dim)] hidden sm:block">
                 {t.buyer?.username ? (
                   <Link href={`/u/${encodeURIComponent(t.buyer.username)}`} className="hover:text-[var(--accent)]">
                     {t.buyer.username}
@@ -65,7 +65,7 @@ export function ActivityFeed({ txns, dense = false }: { txns: MarketplaceTransac
                   <span>{shortAddr(t.buyer?.flowAddress)}</span>
                 )}
               </div>
-              <div className="truncate text-[var(--text-dim)]">
+              <div className="truncate text-[var(--text-dim)] hidden sm:block">
                 {t.seller?.username ? (
                   <Link href={`/u/${encodeURIComponent(t.seller.username)}`} className="hover:text-[var(--accent)]">
                     {t.seller.username}
