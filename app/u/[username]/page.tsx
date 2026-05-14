@@ -264,10 +264,16 @@ export default async function UserPage({ params }: { params: Promise<{ username:
             <div className="mt-2"><WatchToggle username={profile.username} /></div>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-right">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-right">
           <div>
             <div className="text-2xl font-semibold tnum">{formatNumber(total ?? 0)}</div>
             <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Moments</div>
+          </div>
+          <div>
+            <div className="text-2xl font-semibold tnum">
+              {agg.oldestAcquired ? new Date(agg.oldestAcquired).getFullYear() : "—"}
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Earliest acquired (visible)</div>
           </div>
           <div>
             <div className="text-2xl font-semibold tnum">
