@@ -91,6 +91,16 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="text-lg font-semibold mt-6 mb-2">Build provenance</h2>
+        <p className="text-sm leading-7 text-[var(--text-dim)]">
+          This portal was built in a single autonomous build session: foundation in ~45 minutes, then 50+ STAGE-7 iteration commits expanding surface area. Every commit lives in <a href="https://github.com/roham/topshot-data-portal" className="text-[var(--accent)] underline">roham/topshot-data-portal</a>; the iteration scorecard and screenshots are in <code className="font-mono">kaaos-knowledge/answers/topshot-data-portal-2026-05-14/</code>.
+        </p>
+        <p className="text-xs leading-6 text-[var(--text-faint)] mt-2">
+          Iter highlights: foundation (queries + valuation engine + foundation pages) → PC3 P&L → /sets D4 → /teams D2 → /movement M3 + M1 → PC4 set completion → M2 movers down → PC5 compare → D5 spotlight → S4 trending → S2 watching → M5 set momentum + V4 rollup → A1 archive → T1+T2 trends → T3 series → A2 on-this-day → A4 set retro → A3 leaderboards → V5 confidence amplifier → filterable holdings → edge board → anomaly detector → histograms → /whales M4 → T4 floor compression → T5 velocity → serial rarity → specials → archetype groups → bargain board → og image → nav reorg → team enrich → sparkline → cache TTL hardening → persona callouts → tier×series matrix → /api/stats → tier-median context → set enrich → screenshots → spotlight avatar → methodology table → mobile burger nav → / keyboard → acquired filter → tri-rollup → tenure → /players velocity → footer.
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="text-lg font-semibold mt-6 mb-2">Honesty notes</h2>
         <ul className="text-sm leading-7 text-[var(--text-dim)] list-disc pl-5 space-y-1">
           <li>This site is not affiliated with Dapper Labs or NBA Top Shot. It&apos;s built on top of the same public API that any third-party tool uses.</li>
