@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { MobileNav } from "@/components/MobileNav";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -20,11 +21,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <body className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
-        <header className="border-b border-[var(--border)] sticky top-0 z-30 bg-[var(--bg)]/95 backdrop-blur">
+        <header className="border-b border-[var(--border)] sticky top-0 z-30 bg-[var(--bg)]/95 backdrop-blur relative">
           <div className="max-w-portal mx-auto px-4 sm:px-6 h-12 flex items-center gap-4 sm:gap-6">
             <Link href="/" className="font-mono text-sm tracking-tight font-semibold whitespace-nowrap">
               TOPSHOT<span className="text-[var(--accent)]">·</span>TERMINAL
             </Link>
+            <MobileNav />
             <nav className="hidden sm:flex items-center gap-3 text-xs text-[var(--text-dim)] flex-wrap">
               <Link href="/" className="hover:text-[var(--text)]">Market</Link>
               <Link href="/movement" className="hover:text-[var(--text)]">Movement</Link>
