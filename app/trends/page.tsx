@@ -73,6 +73,23 @@ export default async function TrendsPage() {
   const playerRows = rowsOf(byPlayer).slice(0, 15);
   const tierMax = tierRows[0]?.volume ?? 1;
   const playerMax = playerRows[0]?.volume ?? 1;
+  // T-cross — tier × series matrix
+  const cross = new Map<string, number>(); // key: tier|series
+  const tierKeys = new Set<string>();
+  const seriesKeys = new Set<number>();
+  for (const t of txns) {
+    const tier = t.moment?.tier;
+    const set = t.moment?.set?.flowName;
+    const sr = set ? seriesBySetName.get(set) : undefined;
+    if (!tier || sr == null) continue;
+    tierKeys.add(tier);
+    seriesKeys.add(sr);
+    const k = `${tier}|${sr}`;
+    cross.set(k, (cross.get(k) ?? 0) + 1);
+  }
+  const tierList = [...tierKeys].sort();
+  const seriesList = [...seriesKeys].sort((a, b) => b - a);
+
   const seriesRows = [...bySeries.entries()]
     .map(([sr, e]) => {
       const sorted = [...e.prices].sort((a, b) => a - b);
@@ -102,6 +119,31 @@ export default async function TrendsPage() {
           requires per-edition floor history which the public API does not expose.
         </p>
       </header>
+      <div className="mb-4">
+        <Card title="Tier × series matrix" subtitle="sale count cross-tab from window">
+          <div className="overflow-x-auto">
+            <table className="text-[12px] font-mono w-full">
+              <thead>
+                <tr className="text-[var(--text-faint)]">
+                  <th className="px-3 py-1 text-left">tier ↓ / series →</th>
+                  {seriesList.map((s) => <th key={s} className="px-3 py-1 text-right tnum">S{s}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {tierList.map((t) => (
+                  <tr key={t} className="border-t border-[var(--border)]">
+                    <td className="px-3 py-1">{tierLabel(t)}</td>
+                    {seriesList.map((s) => {
+                      const v = cross.get(`${t}|${s}`) ?? 0;
+                      return <td key={s} className={`px-3 py-1 text-right tnum ${v > 0 ? "text-[var(--text)]" : "text-[var(--text-faint)]"}`}>{v || "—"}</td>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
       <div className="grid lg:grid-cols-3 gap-4 mb-4">
         <Card title="By series" subtitle="T3 · across all sets in series">
           <div className="divide-y divide-[var(--border)]">
