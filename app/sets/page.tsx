@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { allSets } from "@/lib/topshot/queries";
 import { Card } from "@/components/Card";
 
@@ -29,10 +30,14 @@ export default async function SetsIndex() {
                 {list
                   .sort((a, b) => a.flowName.localeCompare(b.flowName))
                   .map((s) => (
-                    <div key={s.id} className="px-4 py-2 flex items-baseline justify-between text-sm">
+                    <Link
+                      key={s.id}
+                      href={`/set/${s.id}`}
+                      className="px-4 py-2 flex items-baseline justify-between text-sm hover:bg-[var(--bg-elev)]"
+                    >
                       <span className="truncate">{s.flowName}</span>
                       <span className="tnum text-xs text-[var(--text-faint)]">flowId {s.flowId}</span>
-                    </div>
+                    </Link>
                   ))}
               </div>
             </Card>

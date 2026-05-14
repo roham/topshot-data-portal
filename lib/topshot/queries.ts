@@ -228,6 +228,35 @@ export async function editionsInSet(setUuid: string): Promise<Array<{ id: string
   return out;
 }
 
+// ---- SET METADATA + ALL PLAYS ----
+export async function setDetail(setUuid: string) {
+  const q = `query($s: ID!) {
+    getSet(input: { setID: $s }) {
+      set {
+        id flowId flowName flowSeriesNumber
+        plays { id headline }
+      }
+    }
+  }`;
+  type R = {
+    getSet: {
+      set: {
+        id: string;
+        flowId: number;
+        flowName: string;
+        flowSeriesNumber?: number;
+        plays?: Array<{ id: string; headline?: string }>;
+      } | null;
+    } | null;
+  };
+  try {
+    const d = await gqlFetch<R>(q, { s: setUuid }, { ttlMs: 24 * 60 * 60_000 });
+    return d.getSet?.set ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- ALL EDITIONS FOR A PLAY (parallel matrix) ----
 export interface EditionRow {
   id: string;
