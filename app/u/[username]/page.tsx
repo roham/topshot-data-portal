@@ -175,6 +175,8 @@ export default async function UserPage({ params }: { params: Promise<{ username:
   // V4 — set value rollup: per-set sum of valuation across visible moments.
   // Built alongside the portfolio rollup pass below.
   const valueBySet = new Map<string, number>();
+  const valueByTeam = new Map<string, number>();
+  const valueByPlayer = new Map<string, number>();
   // P&L proxy: for each moment with BOTH a cost basis (lastPurchasePrice)
   // and a current floor signal (lowAsk OR fair value), compute the diff.
   let portfolioValue = 0;
@@ -189,6 +191,10 @@ export default async function UserPage({ params }: { params: Promise<{ username:
       portfolioValuedCount++;
       const setKey = m.set?.flowName ?? "Unknown";
       valueBySet.set(setKey, (valueBySet.get(setKey) ?? 0) + v.fairValue);
+      const teamKey = m.play?.stats?.teamAtMoment ?? "Unknown";
+      valueByTeam.set(teamKey, (valueByTeam.get(teamKey) ?? 0) + v.fairValue);
+      const playerKey = m.play?.stats?.playerName ?? "Unknown";
+      valueByPlayer.set(playerKey, (valueByPlayer.get(playerKey) ?? 0) + v.fairValue);
     }
     const basis = m.lastPurchasePrice != null ? Number(m.lastPurchasePrice) : null;
     const current = v.fairValue;
@@ -344,18 +350,40 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         </Card>
       </div>
 
-      {/* V4 — set value rollup */}
+      {/* V4 — set / team / player value rollup */}
       {valueBySet.size > 0 && (
-        <Card title="Value by set" subtitle="V4 · sum of valuation per set across visible moments" className="mb-6">
-          <div className="divide-y divide-[var(--border)]">
-            {[...valueBySet.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([set, val]) => (
-              <div key={set} className="px-4 py-2 flex items-baseline gap-3 text-sm">
-                <span className="flex-1 truncate">{set}</span>
-                <span className="tnum text-[var(--accent)] font-semibold">{formatUsd(val)}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div className="grid lg:grid-cols-3 gap-4 mb-6">
+          <Card title="Value by set" subtitle="V4 · per-set sum across visible">
+            <div className="divide-y divide-[var(--border)]">
+              {[...valueBySet.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([set, val]) => (
+                <div key={set} className="px-4 py-2 flex items-baseline gap-3 text-sm">
+                  <span className="flex-1 truncate">{set}</span>
+                  <span className="tnum text-[var(--accent)] font-semibold">{formatUsd(val)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card title="Value by team" subtitle="per-team sum across visible">
+            <div className="divide-y divide-[var(--border)]">
+              {[...valueByTeam.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([team, val]) => (
+                <div key={team} className="px-4 py-2 flex items-baseline gap-3 text-sm">
+                  <span className="flex-1 truncate">{team}</span>
+                  <span className="tnum text-[var(--accent)] font-semibold">{formatUsd(val)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card title="Value by player" subtitle="per-player sum across visible">
+            <div className="divide-y divide-[var(--border)]">
+              {[...valueByPlayer.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p, val]) => (
+                <div key={p} className="px-4 py-2 flex items-baseline gap-3 text-sm">
+                  <span className="flex-1 truncate">{p}</span>
+                  <span className="tnum text-[var(--accent)] font-semibold">{formatUsd(val)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* PC4 — set-completion strip */}
