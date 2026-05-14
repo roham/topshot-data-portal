@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { searchMomentsByPlayers, getLeaderboard } from "@/lib/topshot/queries";
+import { searchMomentsByPlayers, getLeaderboard, recentSalesBulk } from "@/lib/topshot/queries";
 import { FEATURED_PLAYERS } from "@/lib/topshot/teams";
 import { formatNumber, mediaUrl } from "@/lib/utils";
 import { Card } from "@/components/Card";
 import { TierPill } from "@/components/Tier";
+import { PriceHistogram } from "@/components/PriceHistogram";
 
 export const revalidate = 120;
 
@@ -12,6 +13,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   let bag: Awaited<ReturnType<typeof searchMomentsByPlayers>> | null = null;
   let ladder: Awaited<ReturnType<typeof getLeaderboard>> = [];
+  let recentTxns: Awaited<ReturnType<typeof recentSalesBulk>> = [];
   let bagErr: string | null = null;
   try {
     bag = await searchMomentsByPlayers([id], "", 24);
@@ -20,6 +22,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   }
   try {
     ladder = await getLeaderboard("PLAYER", id, 10);
+  } catch {}
+  try {
+    recentTxns = await recentSalesBulk(300);
   } catch {}
   if (!bag) {
     return (
@@ -65,6 +70,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         </Card>
 
         <div className="space-y-4">
+          <Card title="Sale price distribution" subtitle="Window · log-scale buckets">
+            <PriceHistogram txns={recentTxns} playerName={playerName} />
+          </Card>
           <Card title="Score ladder" subtitle="D3 · anonymous · top 10 collectors of this player">
             {ladder.length === 0 ? (
               <div className="text-sm text-[var(--text-dim)] px-4 py-3">Leaderboard data unavailable for this player.</div>
