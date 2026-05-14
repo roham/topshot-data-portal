@@ -12,6 +12,20 @@ import { valueMoment } from "@/lib/valuation";
 
 export const revalidate = 120;
 
+import type { Metadata } from "next";
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+  const { username } = await params;
+  const u = decodeURIComponent(username);
+  return {
+    title: `${u} · TOPSHOT TERMINAL`,
+    description: `${u}'s collection on TOPSHOT TERMINAL.`,
+    openGraph: {
+      images: [{ url: `/api/og/u/${encodeURIComponent(u)}`, width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", images: [`/api/og/u/${encodeURIComponent(u)}`] },
+  };
+}
+
 interface PortfolioAgg {
   totalCount: number | null;
   byPlayer: Array<{ name: string; count: number }>;
