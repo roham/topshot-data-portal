@@ -152,12 +152,18 @@ export default async function UserPage({ params }: { params: Promise<{ username:
   const pages: MintedMoment[] = [];
   let cursor = "";
   let total: number | null = null;
+  let pullError: string | null = null;
   for (let i = 0; i < Math.ceil(VISIBLE_CAP / PAGE_SIZE); i++) {
-    const page = await fetchBagPage(flowAddress, cursor, PAGE_SIZE);
-    if (total == null) total = page.totalCount;
-    pages.push(...page.items);
-    cursor = page.rightCursor ?? "";
-    if (!cursor || pages.length >= VISIBLE_CAP) break;
+    try {
+      const page = await fetchBagPage(flowAddress, cursor, PAGE_SIZE);
+      if (total == null) total = page.totalCount;
+      pages.push(...page.items);
+      cursor = page.rightCursor ?? "";
+      if (!cursor || pages.length >= VISIBLE_CAP) break;
+    } catch (e) {
+      pullError = (e as Error).message;
+      break;
+    }
   }
   const visible = pages.slice(0, VISIBLE_CAP);
   const agg = aggregate(visible, total);
@@ -282,6 +288,11 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         </div>
       </header>
 
+      {pullError && (
+        <div className="bg-[var(--down)]/10 border border-[var(--down)]/30 text-[var(--down)] text-sm px-4 py-2 rounded mb-4">
+          Partial pull — upstream returned: {pullError}. Showing what we have.
+        </div>
+      )}
       {echo && (
         <div className="bg-[var(--accent)]/8 border-l-2 border-[var(--accent)] px-4 py-3 mb-6 text-sm">
           <div className="font-semibold mb-0.5">{echo.label}</div>

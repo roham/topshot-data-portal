@@ -10,7 +10,8 @@ const TIERS = ["COMMON", "FANDOM", "RARE", "LEGENDARY", "ULTIMATE"];
 export function HoldingsGrid({ items }: { items: MintedMoment[] }) {
   const [tier, setTier] = useState<string>("ALL");
   const [team, setTeam] = useState<string>("ALL");
-  const [sort, setSort] = useState<"recent" | "serial-asc" | "serial-desc" | "tier">("recent");
+  const [sort, setSort] = useState<"recent" | "serial-asc" | "serial-desc" | "tier" | "value-desc">("recent");
+  const [recency, setRecency] = useState<"all" | "30d" | "7d" | "1d">("all");
 
   const teams = useMemo(() => {
     const s = new Set<string>();
@@ -22,11 +23,17 @@ export function HoldingsGrid({ items }: { items: MintedMoment[] }) {
     let r = items;
     if (tier !== "ALL") r = r.filter((m) => (m.tier ?? "").endsWith(tier));
     if (team !== "ALL") r = r.filter((m) => m.play?.stats?.teamAtMoment === team);
+    if (recency !== "all") {
+      const days = { "30d": 30, "7d": 7, "1d": 1 }[recency];
+      const cutoff = Date.now() - days * 24 * 3600_000;
+      r = r.filter((m) => m.acquiredAt && new Date(m.acquiredAt).getTime() >= cutoff);
+    }
     if (sort === "serial-asc") r = [...r].sort((a, b) => Number(a.flowSerialNumber) - Number(b.flowSerialNumber));
     if (sort === "serial-desc") r = [...r].sort((a, b) => Number(b.flowSerialNumber) - Number(a.flowSerialNumber));
     if (sort === "tier") r = [...r].sort((a, b) => (a.tier ?? "").localeCompare(b.tier ?? ""));
+    if (sort === "value-desc") r = [...r].sort((a, b) => Number(b.lastPurchasePrice ?? 0) - Number(a.lastPurchasePrice ?? 0));
     return r;
-  }, [items, tier, team, sort]);
+  }, [items, tier, team, sort, recency]);
 
   return (
     <div>
@@ -42,12 +49,20 @@ export function HoldingsGrid({ items }: { items: MintedMoment[] }) {
           <option value="ALL">All teams</option>
           {teams.map((t) => <option key={t}>{t}</option>)}
         </select>
+        <span className="text-[var(--text-faint)] uppercase tracking-wider ml-2">Acquired</span>
+        <select value={recency} onChange={(e) => setRecency(e.target.value as typeof recency)} className="bg-[var(--bg-elev)] border border-[var(--border)] rounded px-2 py-1 text-xs">
+          <option value="all">All time</option>
+          <option value="30d">Last 30d</option>
+          <option value="7d">Last 7d</option>
+          <option value="1d">Last 24h</option>
+        </select>
         <span className="text-[var(--text-faint)] uppercase tracking-wider ml-2">Sort</span>
         <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="bg-[var(--bg-elev)] border border-[var(--border)] rounded px-2 py-1 text-xs">
           <option value="recent">Recently acquired</option>
           <option value="serial-asc">Serial low → high</option>
           <option value="serial-desc">Serial high → low</option>
           <option value="tier">Tier</option>
+          <option value="value-desc">Cost basis high → low</option>
         </select>
         <span className="ml-auto tnum text-[var(--text-faint)]">{filtered.length} / {items.length}</span>
       </div>
