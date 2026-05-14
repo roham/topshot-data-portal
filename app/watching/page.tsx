@@ -11,6 +11,8 @@ interface BagSummary {
   total: number | null;
   favTeam: string | null;
   topPlayer: { name: string; count: number } | null;
+  recentBuys: number;
+  recentSells: number;
   loading: boolean;
   error?: string;
 }
@@ -32,7 +34,22 @@ export default function WatchingPage() {
     if (!list.length) return;
     let cancelled = false;
     (async () => {
-      const out: BagSummary[] = list.map((u) => ({ username: u, flowAddress: null, total: null, favTeam: null, topPlayer: null, loading: true }));
+      const out: BagSummary[] = list.map((u) => ({ username: u, flowAddress: null, total: null, favTeam: null, topPlayer: null, recentBuys: 0, recentSells: 0, loading: true }));
+      // Fetch recent window once
+      const recentRes = await fetch("/api/topshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `query{searchMarketplaceTransactions(input:{filters:{},searchInput:{pagination:{cursor:"",direction:RIGHT,limit:200}}}){data{searchSummary{data{... on MarketplaceTransactions{data{id buyer{username}seller{username}}}}}}}}`,
+        }),
+      }).then((r) => r.json()).catch(() => null);
+      const txns = recentRes?.data?.searchMarketplaceTransactions?.data?.searchSummary?.data?.data ?? [];
+      const buys = new Map<string, number>();
+      const sells = new Map<string, number>();
+      for (const t of txns) {
+        if (t.buyer?.username) buys.set(t.buyer.username, (buys.get(t.buyer.username) ?? 0) + 1);
+        if (t.seller?.username) sells.set(t.seller.username, (sells.get(t.seller.username) ?? 0) + 1);
+      }
       setSummaries(out);
       for (let i = 0; i < list.length; i++) {
         const u = list[i];
@@ -73,6 +90,8 @@ export default function WatchingPage() {
             total: ss?.totalCount ?? null,
             favTeam: profile.favoriteTeamID ?? null,
             topPlayer: top ? { name: top[0], count: top[1] } : null,
+            recentBuys: buys.get(profile.username) ?? 0,
+            recentSells: sells.get(profile.username) ?? 0,
             loading: false,
           };
           if (!cancelled) setSummaries([...out]);
@@ -120,7 +139,19 @@ export default function WatchingPage() {
                   <div className="text-[10px] text-[var(--text-faint)] tnum">
                     {s.loading ? "loading…" :
                       s.error ? <span className="text-[var(--down)]">{s.error}</span> :
-                        `${(s.total ?? 0).toLocaleString()} moments${s.topPlayer ? ` · top ${s.topPlayer.name} (${s.topPlayer.count})` : ""}`}
+                        <>
+                          {(s.total ?? 0).toLocaleString()} moments
+                          {s.topPlayer ? <> · top {s.topPlayer.name} ({s.topPlayer.count})</> : null}
+                          {(s.recentBuys + s.recentSells) > 0 && (
+                            <>
+                              {" · "}
+                              <span className="text-[var(--up)]">+{s.recentBuys} buys</span>
+                              {" · "}
+                              <span className="text-[var(--down)]">−{s.recentSells} sells</span>
+                              <span className="text-[var(--text-faint)]"> (last 200 sales window)</span>
+                            </>
+                          )}
+                        </>}
                   </div>
                 </div>
                 <button
