@@ -261,7 +261,15 @@ export default async function UserPage({ params }: { params: Promise<{ username:
             {flowAddress} {favTeamName && <span className="ml-2">· favorite {favTeamName}</span>}
           </div>
           {profile?.username && (
-            <div className="mt-2"><WatchToggle username={profile.username} /></div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <WatchToggle username={profile.username} />
+              <Link
+                href={`/compare?a=${encodeURIComponent(profile.username)}&b=BostonBased`}
+                className="text-xs px-3 py-1 rounded border border-[var(--border)] text-[var(--text-dim)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                Compare ↔
+              </Link>
+            </div>
           )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-right">
