@@ -5,6 +5,7 @@ import { TEAM_NAMES } from "@/lib/topshot/teams";
 import { formatNumber, formatUsd, mediaUrl, shortAddr, timeAgo } from "@/lib/utils";
 import { TierPill } from "@/components/Tier";
 import { Card } from "@/components/Card";
+import { WatchToggle } from "@/components/WatchToggle";
 import type { MintedMoment, UserPublicInfo } from "@/lib/topshot/types";
 import { valueMoment } from "@/lib/valuation";
 
@@ -228,6 +229,9 @@ export default async function UserPage({ params }: { params: Promise<{ username:
           <div className="text-[var(--text-dim)] text-sm font-mono mt-1">
             {flowAddress} {favTeamName && <span className="ml-2">· favorite {favTeamName}</span>}
           </div>
+          {profile?.username && (
+            <div className="mt-2"><WatchToggle username={profile.username} /></div>
+          )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-right">
           <div>
