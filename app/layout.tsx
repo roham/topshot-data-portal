@@ -61,7 +61,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="border-t border-[var(--border)] text-xs text-[var(--text-faint)] py-6 mt-12">
           <div className="max-w-portal mx-auto px-4 sm:px-6 flex flex-wrap gap-x-6 gap-y-1">
             <span>Built on the public NBA Top Shot GraphQL API. No affiliation with Dapper Labs / NBA Top Shot.</span>
-            <span className="sm:ml-auto">Numbers update on each pageview. Cache ≤60s.</span>
+            <span className="sm:ml-auto flex gap-3">
+              <Link href="/api/stats" className="hover:text-[var(--text)]">/api/stats</Link>
+              <Link href="/methodology" className="hover:text-[var(--text)]">methodology</Link>
+              <Link href="/rules" className="hover:text-[var(--text)]">rules</Link>
+              <span>· cache ≤60s</span>
+            </span>
           </div>
         </footer>
       </body>
