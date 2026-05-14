@@ -1,6 +1,16 @@
 import type { EditionRow } from "@/lib/topshot/queries";
-import { formatNumber, tierLabel } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { TierPill } from "./Tier";
+
+// Known parallel labels (heuristic — varies by set).
+const PARALLEL_LABEL: Record<number, string> = {
+  0: "Base",
+  1: "Anthology",
+  2: "Holo",
+  3: "In Color",
+  4: "Torn",
+  5: "Rippled",
+};
 
 export function ParallelMatrix({ editions, current }: { editions: EditionRow[]; current?: { parallelID?: number; editionId?: string } }) {
   // Compute total circulation and base reference (parallelID 0 of any tier)
@@ -30,8 +40,8 @@ export function ParallelMatrix({ editions, current }: { editions: EditionRow[]; 
             >
               <TierPill tier={e.tier} />
               <span className="text-sm font-medium">
-                Parallel #{e.parallelID}
-                {e.parallelID === 0 && <span className="text-[var(--text-faint)] ml-1">(base)</span>}
+                #{e.parallelID}
+                <span className="text-[var(--text-faint)] ml-1">{PARALLEL_LABEL[e.parallelID] ?? "Parallel"}</span>
               </span>
               <span className="tnum text-xs text-[var(--text-faint)] flex-1">
                 {e.set.flowName} · Series {e.set.flowSeriesNumber ?? "?"}
