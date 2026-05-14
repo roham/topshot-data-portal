@@ -7,6 +7,7 @@ import { MarketStats } from "@/components/MarketStats";
 import { MomentMedia } from "@/components/MomentMedia";
 import { TierPill } from "@/components/Tier";
 import { TopSales } from "@/components/TopSales";
+import { SpotlightCollector, buildSpotlight } from "@/components/SpotlightCollector";
 import { formatNumber, formatUsd } from "@/lib/utils";
 import { CollectorSearch } from "@/components/CollectorSearch";
 
@@ -54,6 +55,9 @@ export default async function Home() {
           Upstream error: {error}
         </div>
       )}
+
+      {/* D5 collector spotlight */}
+      {data?.txns && <SpotlightCollector spotlight={buildSpotlight(data.txns)} />}
 
       {/* Market signal strip */}
       {data?.txns && <MarketStats txns={data.txns} />}
