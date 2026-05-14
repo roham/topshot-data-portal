@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMoment, editionsForPlay, editionRecentSales, editionListedSerials } from "@/lib/topshot/queries";
+import { getMoment, editionsForPlay, editionRecentSales, editionListedSerials, recentSalesBulk } from "@/lib/topshot/queries";
 import { ownerAddr } from "@/lib/topshot/types";
 import { formatNumber, formatUsd, mediaUrl, shortAddr, tierLabel, timeAgo } from "@/lib/utils";
 import { Card } from "@/components/Card";
@@ -40,6 +40,14 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
   if (circ > 0 && serialN === circ) rarityScores.push({ label: "Last serial", value: `#${circ} of ${circ}` });
   const editions = m.play?.id ? await editionsForPlay(m.play.id) : [];
   const listed = m.set?.id && m.play?.id ? await editionListedSerials(m.set.id, m.play.id, 50) : [];
+  // Tier-context: median price within tier in window
+  const windowTxns = await recentSalesBulk(200);
+  const tierPrices = windowTxns
+    .filter((t) => t.moment?.tier === m.tier)
+    .map((t) => Number(t.price ?? 0))
+    .filter((p) => p > 0)
+    .sort((a, b) => a - b);
+  const tierMedian = tierPrices.length ? tierPrices[Math.floor(tierPrices.length / 2)] : null;
   const serial = Number(m.flowSerialNumber);
   const jersey = m.play?.stats?.jerseyNumber ? Number(m.play.stats.jerseyNumber) : null;
   const jerseyMatch = jersey && serial === jersey;
@@ -81,11 +89,21 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
               <span>{m.play?.stats?.playCategory ?? "—"} · {m.play?.stats?.teamAtMoment ?? "—"}</span>
               {m.play?.stats?.dateOfMoment && <span>· {new Date(m.play.stats.dateOfMoment).toLocaleDateString()}</span>}
             </div>
-            {jerseyMatch && (
-              <div className="mt-3 inline-block text-[var(--accent)] text-xs font-semibold border border-[var(--accent)] rounded px-2 py-1">
-                JERSEY MATCH · serial = #{jersey}
-              </div>
-            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {jerseyMatch && (
+                <span className="inline-block text-[var(--accent)] text-xs font-semibold border border-[var(--accent)] rounded px-2 py-1">
+                  JERSEY MATCH · serial = #{jersey}
+                </span>
+              )}
+              {tierMedian != null && v.fairValue != null && (
+                <span className="inline-block text-xs border border-[var(--border)] rounded px-2 py-1 text-[var(--text-dim)]">
+                  Tier median (window): {formatUsd(tierMedian)}
+                  <span className={`ml-1 ${v.fairValue >= tierMedian ? "text-[var(--up)]" : "text-[var(--down)]"}`}>
+                    ({v.fairValue >= tierMedian ? "+" : ""}{(((v.fairValue - tierMedian) / tierMedian) * 100).toFixed(0)}% vs)
+                  </span>
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Valuation block */}
