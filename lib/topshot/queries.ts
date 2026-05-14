@@ -268,6 +268,62 @@ export async function recentSales(limit: number = 30): Promise<MarketplaceTransa
   return d.searchMarketplaceTransactions.data.searchSummary.data.data;
 }
 
+// ---- RECENT SALES BULK (for volume + trend analysis) ----
+// Pulls a larger window of recent transactions to enable
+// sliding-window sale-count and per-player volume metrics.
+export async function recentSalesBulk(limit: number = 200): Promise<import("./types").MarketplaceTransaction[]> {
+  // The public API paginates via cursor; pull in chunks until target.
+  const PAGE = 50;
+  const out: import("./types").MarketplaceTransaction[] = [];
+  let cursor = "";
+  while (out.length < limit) {
+    const q = `query($cur: Cursor!, $lim: Int!) {
+      searchMarketplaceTransactions(input: {
+        filters: {}
+        searchInput: { pagination: { cursor: $cur, direction: RIGHT, limit: $lim } }
+      }) {
+        data {
+          searchSummary {
+            pagination { rightCursor }
+            data { ... on MarketplaceTransactions { data {
+              id price txHash
+              buyer { username flowAddress dapperID }
+              seller { username flowAddress dapperID }
+              moment {
+                flowId flowSerialNumber tier lowAsk forSale
+                set { flowName flowId }
+                play { stats { playerName jerseyNumber teamAtMoment } }
+                edition { circulationCount tier parallelID }
+              }
+            } } }
+          }
+        }
+      }
+    }`;
+    type R = {
+      searchMarketplaceTransactions: {
+        data: {
+          searchSummary: {
+            pagination?: { rightCursor?: string };
+            data: { data: import("./types").MarketplaceTransaction[] };
+          };
+        };
+      };
+    };
+    try {
+      const d = await gqlFetch<R>(q, { cur: cursor, lim: PAGE }, { ttlMs: 30_000 });
+      const ss = d.searchMarketplaceTransactions.data.searchSummary;
+      const items = ss.data.data;
+      out.push(...items);
+      cursor = ss.pagination?.rightCursor ?? "";
+      if (!cursor || items.length === 0) break;
+    } catch {
+      break;
+    }
+  }
+  return out.slice(0, limit);
+}
+
 // ---- LEADERBOARD (anonymous score ladder per player/team) ----
 export async function getLeaderboard(
   kind: "PLAYER" | "TEAM",
