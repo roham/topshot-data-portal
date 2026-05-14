@@ -404,7 +404,7 @@ export async function recentSales(limit: number = 30): Promise<MarketplaceTransa
       };
     };
   };
-  const d = await gqlFetch<R>(q, { lim: limit }, { ttlMs: 20_000 });
+  const d = await gqlFetch<R>(q, { lim: limit }, { ttlMs: 60_000 });
   return d.searchMarketplaceTransactions.data.searchSummary.data.data;
 }
 
@@ -535,7 +535,7 @@ export async function recentSalesBulk(limit: number = 200): Promise<import("./ty
       };
     };
     try {
-      const d = await gqlFetch<R>(q, { cur: cursor, lim: PAGE }, { ttlMs: 30_000 });
+      const d = await gqlFetch<R>(q, { cur: cursor, lim: PAGE }, { ttlMs: 90_000 });
       const ss = d.searchMarketplaceTransactions.data.searchSummary;
       const items = ss.data.data;
       out.push(...items);

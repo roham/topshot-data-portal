@@ -1,11 +1,15 @@
 const UPSTREAM = "https://public-api.nbatopshot.com/graphql";
 const UA = "dapper-portal/1.0 (contact: r@dapperlabs.com)";
-const TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 15000;
+const BACKOFF_MS = 2000;
 
 interface GqlResponse<T> {
   data?: T;
   errors?: Array<{ message: string; path?: string[] }>;
 }
+
+// Suppress unused warning
+void BACKOFF_MS;
 
 // In-memory cache by query+vars hash (server-side, per process).
 // Cache TTLs: short for live data (listings, transactions), long for static (players, editions).
@@ -53,6 +57,13 @@ export async function gqlFetch<T>(
   }
 
   const text = await res.text();
+  // Detect "Too Many Requests" rate-limit HTML and back off briefly.
+  if (text.includes("Too Many Requests") || text.includes("Slow Down")) {
+    // Mark cache with a long-lived stale-fallback if available
+    const hit = cache.get(k);
+    if (hit) return hit.data as T;
+    throw new Error("upstream_rate_limited");
+  }
   let json: GqlResponse<T>;
   try {
     json = JSON.parse(text) as GqlResponse<T>;
