@@ -49,16 +49,27 @@ export default async function AnomaliesPage() {
             <span className="text-right">Max</span>
             <span className="text-right">CV</span>
           </div>
-          {rows.map((r) => (
-            <div key={r.player} className="grid grid-cols-[minmax(0,1fr)_50px_70px_70px_70px_70px] gap-2 px-4 py-1.5 text-sm">
-              <span className="truncate">{r.player}</span>
-              <span className="tnum text-right text-[var(--text-dim)]">{r.count}</span>
-              <span className="tnum text-right text-[var(--text-faint)]">{formatUsd(r.min)}</span>
-              <span className="tnum text-right">{formatUsd(r.mean)}</span>
-              <span className="tnum text-right">{formatUsd(r.max)}</span>
-              <span className="tnum text-right text-[var(--accent)] font-semibold">{(r.cv * 100).toFixed(0)}%</span>
-            </div>
-          ))}
+          {rows.map((r) => {
+            // Position mean within min/max range as a percentile
+            const range = r.max - r.min || 1;
+            const meanPct = ((r.mean - r.min) / range) * 100;
+            return (
+              <div key={r.player} className="px-4 py-1.5">
+                <div className="grid grid-cols-[minmax(0,1fr)_50px_70px_70px_70px_70px] gap-2 text-sm">
+                  <span className="truncate">{r.player}</span>
+                  <span className="tnum text-right text-[var(--text-dim)]">{r.count}</span>
+                  <span className="tnum text-right text-[var(--text-faint)]">{formatUsd(r.min)}</span>
+                  <span className="tnum text-right">{formatUsd(r.mean)}</span>
+                  <span className="tnum text-right">{formatUsd(r.max)}</span>
+                  <span className="tnum text-right text-[var(--accent)] font-semibold">{(r.cv * 100).toFixed(0)}%</span>
+                </div>
+                <div className="relative h-1 bg-[var(--bg-elev)] rounded mt-1">
+                  <div className="absolute left-0 top-0 bottom-0 bg-[var(--accent)]/30 rounded" style={{ width: "100%" }} />
+                  <div className="absolute top-0 bottom-0 w-0.5 bg-[var(--accent)]" style={{ left: `${meanPct}%` }} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </Card>
     </div>
