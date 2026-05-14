@@ -149,6 +149,35 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
             </div>
           </Card>
 
+          {/* Velocity scorecard */}
+          {m.edition?.circulationCount && recentSales.length > 0 && (
+            <Card title="Velocity" subtitle="T5 · sale velocity from recent comps vs edition size" className="mb-4">
+              <div className="grid grid-cols-3 gap-px bg-[var(--border)] text-[12px]">
+                <div className="bg-[var(--bg-card)] p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Recent sales / circulation</div>
+                  <div className="text-lg font-semibold tnum mt-0.5">
+                    {((recentSales.length / m.edition.circulationCount) * 100).toFixed(1)}%
+                  </div>
+                  <div className="text-[10px] text-[var(--text-faint)]">
+                    {recentSales.length} sold / {m.edition.circulationCount} minted
+                  </div>
+                </div>
+                <div className="bg-[var(--bg-card)] p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Avg sale price (recent)</div>
+                  <div className="text-lg font-semibold tnum mt-0.5">
+                    {formatUsd(recentSales.reduce((s, x) => s + x.price, 0) / recentSales.length)}
+                  </div>
+                </div>
+                <div className="bg-[var(--bg-card)] p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Velocity verdict</div>
+                  <div className="text-lg font-semibold tnum mt-0.5">
+                    {recentSales.length / m.edition.circulationCount > 0.05 ? "HOT" : recentSales.length / m.edition.circulationCount > 0.01 ? "ACTIVE" : "QUIET"}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Edge board — listed serials vs fair value */}
           {listed.length > 0 && (
             <Card title="Edge board" subtitle={`Competitive · ${listed.length} listed serials in this edition`} className="mb-4">
