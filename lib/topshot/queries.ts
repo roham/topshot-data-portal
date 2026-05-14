@@ -257,6 +257,36 @@ export async function setDetail(setUuid: string) {
   }
 }
 
+// ---- PER-EDITION RECENT SALES (for V5 confidence amplifier) ----
+export async function editionRecentSales(setUuid: string, playUuid: string, limit: number = 20): Promise<Array<{ price: number; date?: string; serial: string }>> {
+  const q = `query($s: ID!, $p: ID!, $lim: Int!) {
+    searchMarketplaceTransactions(input: {
+      filters: { byEditions: [{ setID: $s, playID: $p }] }
+      searchInput: { pagination: { cursor: "", direction: RIGHT, limit: $lim } }
+    }) {
+      data {
+        searchSummary {
+          data { ... on MarketplaceTransactions { data { id price moment { flowSerialNumber } } } }
+        }
+      }
+    }
+  }`;
+  type R = {
+    searchMarketplaceTransactions: {
+      data: { searchSummary: { data: { data: Array<{ price: string; moment?: { flowSerialNumber?: string } }> } } };
+    };
+  };
+  try {
+    const d = await gqlFetch<R>(q, { s: setUuid, p: playUuid, lim: limit }, { ttlMs: 30 * 60_000 });
+    return d.searchMarketplaceTransactions.data.searchSummary.data.data.map((t) => ({
+      price: Number(t.price),
+      serial: t.moment?.flowSerialNumber ?? "?",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // ---- ALL EDITIONS FOR A PLAY (parallel matrix) ----
 export interface EditionRow {
   id: string;

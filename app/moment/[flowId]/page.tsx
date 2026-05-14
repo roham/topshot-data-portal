@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMoment, editionsForPlay } from "@/lib/topshot/queries";
+import { getMoment, editionsForPlay, editionRecentSales } from "@/lib/topshot/queries";
 import { ownerAddr } from "@/lib/topshot/types";
 import { formatNumber, formatUsd, mediaUrl, shortAddr, tierLabel, timeAgo } from "@/lib/utils";
 import { Card } from "@/components/Card";
@@ -16,7 +16,11 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
   const m = await getMoment(flowId);
   if (!m) notFound();
 
-  const v = valueMoment(m, { recentSales: [] });
+  // V5 — pre-fetch per-edition recent sales for stronger confidence label.
+  const recentSales =
+    m.set?.id && m.play?.id ? await editionRecentSales(m.set.id, m.play.id, 20) : [];
+
+  const v = valueMoment(m, { recentSales });
   const editions = m.play?.id ? await editionsForPlay(m.play.id) : [];
   const serial = Number(m.flowSerialNumber);
   const jersey = m.play?.stats?.jerseyNumber ? Number(m.play.stats.jerseyNumber) : null;
@@ -142,6 +146,20 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
               </Link>
             </div>
           </Card>
+
+          {/* V5 — recent comps for this edition */}
+          {recentSales.length > 0 && (
+            <Card title="Recent comps for this edition" subtitle={`V5 · ${recentSales.length} most-recent sales · same edition`} className="mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-px bg-[var(--border)] rounded overflow-hidden">
+                {recentSales.slice(0, 12).map((s, idx) => (
+                  <div key={idx} className="bg-[var(--bg-card)] p-2 text-center">
+                    <div className="tnum text-sm font-semibold">{formatUsd(s.price)}</div>
+                    <div className="text-[10px] text-[var(--text-faint)] tnum">#{s.serial}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Parallels — V3, the parallel matrix */}
           <Card title={`Parallels for this play`} subtitle={`V3 · ${editions.length} edition${editions.length === 1 ? "" : "s"} found`} className="mb-4">
