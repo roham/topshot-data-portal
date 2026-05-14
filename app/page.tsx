@@ -8,6 +8,7 @@ import { MomentMedia } from "@/components/MomentMedia";
 import { TierPill } from "@/components/Tier";
 import { TopSales } from "@/components/TopSales";
 import { SpotlightCollector, buildSpotlight } from "@/components/SpotlightCollector";
+import { TrendingNow } from "@/components/TrendingNow";
 import { formatNumber, formatUsd } from "@/lib/utils";
 import { CollectorSearch } from "@/components/CollectorSearch";
 
@@ -110,6 +111,13 @@ export default async function Home() {
           </Card>
         </div>
       </div>
+
+      {/* S4 trending now */}
+      {data?.txns && (
+        <Card title="Trending right now" subtitle="S4 · top players + sets by sale count in window" className="mb-6">
+          <TrendingNow txns={data.txns} />
+        </Card>
+      )}
 
       {/* Voice block — the "we get you" register */}
       <div className="grid sm:grid-cols-3 gap-3 mb-6 text-[12px]">
