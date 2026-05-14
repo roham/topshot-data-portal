@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { MarketplaceTransaction } from "@/lib/topshot/types";
 import { formatUsd, formatNumber, mediaUrl } from "@/lib/utils";
 
-interface Spotlight {
+export interface Spotlight {
   username: string;
   flowAddress: string;
   txCount: number;
@@ -11,7 +11,7 @@ interface Spotlight {
   profileImageUrl?: string;
 }
 
-export function buildSpotlight(txns: MarketplaceTransaction[]): Spotlight | null {
+export function buildSpotlight(txns: MarketplaceTransaction[], profileImageUrl?: string): Spotlight | null {
   const byBuyer = new Map<string, { username: string; flowAddress: string; count: number; spent: number; buys: MarketplaceTransaction[] }>();
   for (const t of txns) {
     const u = t.buyer?.username;
@@ -30,6 +30,7 @@ export function buildSpotlight(txns: MarketplaceTransaction[]): Spotlight | null
     txCount: top.count,
     spent: top.spent,
     recentBuys: top.buys.slice(0, 4),
+    profileImageUrl,
   };
 }
 
@@ -38,9 +39,14 @@ export function SpotlightCollector({ spotlight }: { spotlight: Spotlight | null 
   return (
     <div className="border border-[var(--accent)]/30 bg-gradient-to-r from-[var(--accent)]/8 to-transparent rounded p-3 mb-4 flex flex-col sm:flex-row gap-4 items-start">
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className="w-12 h-12 rounded-full bg-[var(--bg-elev)] flex items-center justify-center text-2xl text-[var(--accent)] font-mono">
-          {spotlight.username.charAt(0).toUpperCase()}
-        </div>
+        {spotlight.profileImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={spotlight.profileImageUrl} alt={spotlight.username} className="w-12 h-12 rounded-full ring-1 ring-[var(--accent)]" />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-[var(--bg-elev)] flex items-center justify-center text-2xl text-[var(--accent)] font-mono">
+            {spotlight.username.charAt(0).toUpperCase()}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-[var(--accent)]">D5 · Collector spotlight · window</div>
           <Link

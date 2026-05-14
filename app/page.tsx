@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { recentSales, searchMomentsByPlayers, getLeaderboard } from "@/lib/topshot/queries";
+import { recentSales, searchMomentsByPlayers, getLeaderboard, getUserByUsername } from "@/lib/topshot/queries";
 import { FEATURED_PLAYERS, TEAM_NAMES } from "@/lib/topshot/teams";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Card } from "@/components/Card";
@@ -22,7 +22,15 @@ async function loadHome() {
       searchMomentsByPlayers([p.id], "", 6).then((r) => ({ player: p, items: r.items, totalCount: r.totalCount }))
     ),
   ]);
-  return { txns, players };
+  // Find top buyer for spotlight profile pull
+  const buyerSpend = new Map<string, number>();
+  for (const t of txns) {
+    const u = t.buyer?.username;
+    if (u) buyerSpend.set(u, (buyerSpend.get(u) ?? 0) + Number(t.price ?? 0));
+  }
+  const topBuyer = [...buyerSpend.entries()].sort((a, b) => b[1] - a[1])[0];
+  const spotlightProfile = topBuyer ? await getUserByUsername(topBuyer[0]) : null;
+  return { txns, players, spotlightProfile };
 }
 
 export default async function Home() {
@@ -58,7 +66,7 @@ export default async function Home() {
       )}
 
       {/* D5 collector spotlight */}
-      {data?.txns && <SpotlightCollector spotlight={buildSpotlight(data.txns)} />}
+      {data?.txns && <SpotlightCollector spotlight={buildSpotlight(data.txns, data.spotlightProfile?.profileImageUrl)} />}
 
       {/* Market signal strip */}
       {data?.txns && <MarketStats txns={data.txns} />}

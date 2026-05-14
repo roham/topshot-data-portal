@@ -9,7 +9,7 @@ const OUT = resolve(process.argv[2] ?? "./qa-screenshots");
 
 const PAGES = [
   { name: "01-home-mobile", path: "/", viewport: { width: 375, height: 1200 } },
-  { name: "02-home-desktop", path: "/", viewport: { width: 1440, height: 1100 } },
+  { name: "02-home-desktop", path: "/", viewport: { width: 1440, height: 1300 } },
   { name: "03-rules-desktop", path: "/rules", viewport: { width: 1440, height: 1300 } },
   { name: "04-u-bostonbased-desktop", path: "/u/BostonBased", viewport: { width: 1440, height: 1500 } },
   { name: "05-u-bigdaddabear-mobile", path: "/u/BigDaddaBear", viewport: { width: 375, height: 2200 } },
@@ -17,6 +17,15 @@ const PAGES = [
   { name: "07-collectors-desktop", path: "/collectors", viewport: { width: 1440, height: 900 } },
   { name: "08-methodology-desktop", path: "/methodology", viewport: { width: 1440, height: 1400 } },
   { name: "09-sets-desktop", path: "/sets", viewport: { width: 1440, height: 1200 } },
+  { name: "11-movement-desktop", path: "/movement", viewport: { width: 1440, height: 1300 } },
+  { name: "12-whales-desktop", path: "/whales", viewport: { width: 1440, height: 1100 } },
+  { name: "13-anomalies-desktop", path: "/anomalies", viewport: { width: 1440, height: 1100 } },
+  { name: "14-archive-desktop", path: "/archive", viewport: { width: 1440, height: 1100 } },
+  { name: "15-trends-desktop", path: "/trends", viewport: { width: 1440, height: 1200 } },
+  { name: "16-teams-desktop", path: "/teams", viewport: { width: 1440, height: 1100 } },
+  { name: "17-leaderboards-desktop", path: "/leaderboards", viewport: { width: 1440, height: 1100 } },
+  { name: "18-compare-desktop", path: "/compare?a=BostonBased&b=BigDaddaBear", viewport: { width: 1440, height: 1100 } },
+  { name: "19-specials-desktop", path: "/specials", viewport: { width: 1440, height: 1100 } },
 ];
 
 async function main() {
