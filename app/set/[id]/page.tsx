@@ -1,16 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { setDetail, editionsInSet } from "@/lib/topshot/queries";
+import { setDetail, editionsInSet, recentSalesBulk } from "@/lib/topshot/queries";
 import { Card } from "@/components/Card";
 import { TierPill } from "@/components/Tier";
-import { formatNumber, tierLabel } from "@/lib/utils";
+import { formatNumber, formatUsd, tierLabel } from "@/lib/utils";
 
 export const revalidate = 86400;
 
 export default async function SetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [set, editions] = await Promise.all([setDetail(id), editionsInSet(id)]);
+  const [set, editions, txns] = await Promise.all([setDetail(id), editionsInSet(id), recentSalesBulk(200)]);
   if (!set) notFound();
+  const setSales = txns.filter((t) => t.moment?.set?.flowName === set.flowName);
+  const setVol = setSales.reduce((s, t) => s + Number(t.price ?? 0), 0);
+  const setAvg = setSales.length ? setVol / setSales.length : 0;
 
   // Group editions by tier × parallel.
   const byTier = new Map<string, number>();
@@ -33,6 +36,21 @@ export default async function SetPage({ params }: { params: Promise<{ id: string
         <p className="text-[var(--text-dim)] text-sm mt-1">
           {formatNumber(playCount)} plays · {formatNumber(editions.length)} editions · {formatNumber(totalCirculation)} total minted
         </p>
+        <div className="grid grid-cols-3 gap-px bg-[var(--border)] rounded overflow-hidden mt-3 text-[12px]">
+          <div className="bg-[var(--bg-card)] p-2.5">
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Recent sales</div>
+            <div className="text-lg font-semibold tnum mt-0.5">{setSales.length}</div>
+            <div className="text-[10px] text-[var(--text-faint)]">in 200-tx window</div>
+          </div>
+          <div className="bg-[var(--bg-card)] p-2.5">
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Recent volume</div>
+            <div className="text-lg font-semibold tnum mt-0.5">{formatUsd(setVol)}</div>
+          </div>
+          <div className="bg-[var(--bg-card)] p-2.5">
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">Avg sale</div>
+            <div className="text-lg font-semibold tnum mt-0.5">{formatUsd(setAvg)}</div>
+          </div>
+        </div>
       </header>
 
       <div className="grid lg:grid-cols-3 gap-4 mb-4">
