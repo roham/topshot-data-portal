@@ -287,6 +287,41 @@ export async function editionRecentSales(setUuid: string, playUuid: string, limi
   }
 }
 
+// ---- LISTED SERIALS IN AN EDITION (for edge / arbitrage) ----
+export async function editionListedSerials(setUuid: string, playUuid: string, limit: number = 50): Promise<Array<{ flowId: string; serial: number; lowAsk: number; circulation: number }>> {
+  const q = `query($s: ID!, $p: ID!, $lim: Int!) {
+    searchMintedMoments(input: {
+      filters: { byEditions: { setID: $s, playID: $p }, byForSale: FOR_SALE }
+      searchInput: { pagination: { cursor: "", direction: RIGHT, limit: $lim } }
+    }) {
+      data {
+        searchSummary {
+          totalCount
+          data { ... on MintedMoments { data {
+            flowId flowSerialNumber lowAsk edition { circulationCount }
+          } } }
+        }
+      }
+    }
+  }`;
+  type R = {
+    searchMintedMoments: {
+      data: { searchSummary: { totalCount: number | null; data: { data: Array<{ flowId: string; flowSerialNumber: string; lowAsk: number; edition?: { circulationCount: number } }> } } };
+    };
+  };
+  try {
+    const d = await gqlFetch<R>(q, { s: setUuid, p: playUuid, lim: limit }, { ttlMs: 5 * 60_000 });
+    return d.searchMintedMoments.data.searchSummary.data.data.map((m) => ({
+      flowId: m.flowId,
+      serial: Number(m.flowSerialNumber),
+      lowAsk: Number(m.lowAsk ?? 0),
+      circulation: m.edition?.circulationCount ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // ---- ALL EDITIONS FOR A PLAY (parallel matrix) ----
 export interface EditionRow {
   id: string;

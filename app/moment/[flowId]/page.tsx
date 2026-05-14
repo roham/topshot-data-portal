@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMoment, editionsForPlay, editionRecentSales } from "@/lib/topshot/queries";
+import { getMoment, editionsForPlay, editionRecentSales, editionListedSerials } from "@/lib/topshot/queries";
 import { ownerAddr } from "@/lib/topshot/types";
 import { formatNumber, formatUsd, mediaUrl, shortAddr, tierLabel, timeAgo } from "@/lib/utils";
 import { Card } from "@/components/Card";
 import { ParallelMatrix } from "@/components/ParallelMatrix";
+import { EdgeBoard } from "@/components/EdgeBoard";
 import { TierPill } from "@/components/Tier";
 import { valueMoment, DEFAULT_RULES } from "@/lib/valuation";
 import type { Adjustment } from "@/lib/valuation";
@@ -22,6 +23,7 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
 
   const v = valueMoment(m, { recentSales });
   const editions = m.play?.id ? await editionsForPlay(m.play.id) : [];
+  const listed = m.set?.id && m.play?.id ? await editionListedSerials(m.set.id, m.play.id, 50) : [];
   const serial = Number(m.flowSerialNumber);
   const jersey = m.play?.stats?.jerseyNumber ? Number(m.play.stats.jerseyNumber) : null;
   const jerseyMatch = jersey && serial === jersey;
@@ -146,6 +148,13 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
               </Link>
             </div>
           </Card>
+
+          {/* Edge board — listed serials vs fair value */}
+          {listed.length > 0 && (
+            <Card title="Edge board" subtitle={`Competitive · ${listed.length} listed serials in this edition`} className="mb-4">
+              <EdgeBoard listed={listed} currentSerial={Number(m.flowSerialNumber)} fairValue={v.fairValue} />
+            </Card>
+          )}
 
           {/* V5 — recent comps for this edition */}
           {recentSales.length > 0 && (
