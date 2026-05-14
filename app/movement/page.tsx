@@ -3,6 +3,7 @@ import { Card } from "@/components/Card";
 import { VolumeSpikes } from "@/components/VolumeSpikes";
 import { TopSales } from "@/components/TopSales";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { MoversDown } from "@/components/MoversDown";
 import { formatUsd, formatNumber } from "@/lib/utils";
 
 export const revalidate = 60;
@@ -30,6 +31,9 @@ export default async function MovementPage() {
         </Card>
         <Card title="Top sales by price" subtitle="M1 · biggest single sales in window">
           <TopSales txns={txns} limit={10} />
+        </Card>
+        <Card title="Movers down" subtitle="M2 · sales below per-player median in window">
+          <MoversDown txns={txns} limit={10} />
         </Card>
       </div>
       <div className="mt-4">
