@@ -22,6 +22,21 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
     m.set?.id && m.play?.id ? await editionRecentSales(m.set.id, m.play.id, 20) : [];
 
   const v = valueMoment(m, { recentSales });
+
+  // Serial-rarity scoring
+  const serialN = Number(m.flowSerialNumber);
+  const circ = m.edition?.circulationCount ?? 0;
+  const jerseyN = m.play?.stats?.jerseyNumber ? Number(m.play.stats.jerseyNumber) : NaN;
+  const rarityScores: Array<{ label: string; value: string }> = [];
+  if (circ > 0) {
+    const percentile = (serialN / circ) * 100;
+    rarityScores.push({ label: "Serial percentile", value: `${percentile.toFixed(1)}%` });
+  }
+  if (isFinite(jerseyN) && jerseyN === serialN) rarityScores.push({ label: "Jersey match", value: `#${serialN} = J${jerseyN}` });
+  if (serialN === 1) rarityScores.push({ label: "Serial #1", value: "rookie/cap" });
+  if (serialN <= 10 && serialN > 1) rarityScores.push({ label: "Top-10 serial", value: `#${serialN}` });
+  if (serialN <= 100 && serialN > 10) rarityScores.push({ label: "Top-100 serial", value: `#${serialN}` });
+  if (circ > 0 && serialN === circ) rarityScores.push({ label: "Last serial", value: `#${circ} of ${circ}` });
   const editions = m.play?.id ? await editionsForPlay(m.play.id) : [];
   const listed = m.set?.id && m.play?.id ? await editionListedSerials(m.set.id, m.play.id, 50) : [];
   const serial = Number(m.flowSerialNumber);
@@ -148,6 +163,20 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
               </Link>
             </div>
           </Card>
+
+          {/* Serial rarity scorecard */}
+          {rarityScores.length > 0 && (
+            <Card title="Serial rarity" subtitle="What makes #" className="mb-4">
+              <div className="px-4 py-3 grid sm:grid-cols-2 gap-2">
+                {rarityScores.map((r, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-[var(--text-dim)]">{r.label}</span>
+                    <span className="tnum text-[var(--accent)]">{r.value}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Velocity scorecard */}
           {m.edition?.circulationCount && recentSales.length > 0 && (
