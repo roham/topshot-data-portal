@@ -314,6 +314,52 @@ export async function recentSales(limit: number = 30): Promise<MarketplaceTransa
   return d.searchMarketplaceTransactions.data.searchSummary.data.data;
 }
 
+// ---- PLAY HISTORY (paginate searchPlays for date-of-moment matching) ----
+export interface PlayRow {
+  id: string;
+  headline?: string;
+  stats?: {
+    playerName?: string;
+    dateOfMoment?: string;
+    teamAtMoment?: string;
+    playCategory?: string;
+  };
+}
+export async function paginatedPlays(maxPages: number = 4, perPage: number = 100): Promise<PlayRow[]> {
+  const out: PlayRow[] = [];
+  let cursor = "";
+  for (let i = 0; i < maxPages; i++) {
+    const q = `query($c: Cursor!, $l: Int!) {
+      searchPlays(input: {
+        searchInput: { pagination: { cursor: $c, direction: LEFT, limit: $l } }
+      }) {
+        searchSummary {
+          pagination { rightCursor leftCursor }
+          data { ... on Plays { data { id headline stats { playerName dateOfMoment teamAtMoment playCategory } } } }
+        }
+      }
+    }`;
+    type R = {
+      searchPlays: {
+        searchSummary: {
+          pagination?: { rightCursor?: string; leftCursor?: string };
+          data: { data: PlayRow[] };
+        };
+      };
+    };
+    try {
+      const d = await gqlFetch<R>(q, { c: cursor, l: perPage }, { ttlMs: 60 * 60_000 });
+      const items = d.searchPlays.searchSummary.data.data;
+      out.push(...items);
+      cursor = d.searchPlays.searchSummary.pagination?.leftCursor ?? "";
+      if (!cursor || !items.length) break;
+    } catch {
+      break;
+    }
+  }
+  return out;
+}
+
 // ---- ALL-TIME BIGGEST SALES (sortBy: PRICE_DESC) ----
 export async function biggestSalesAllTime(limit: number = 25): Promise<import("./types").MarketplaceTransaction[]> {
   const q = `query($lim: Int!) {
