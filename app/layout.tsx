@@ -25,18 +25,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="font-mono text-sm tracking-tight font-semibold whitespace-nowrap">
               TOPSHOT<span className="text-[var(--accent)]">·</span>TERMINAL
             </Link>
-            <nav className="hidden sm:flex items-center gap-4 text-xs text-[var(--text-dim)]">
+            <nav className="hidden sm:flex items-center gap-3 text-xs text-[var(--text-dim)] flex-wrap">
               <Link href="/" className="hover:text-[var(--text)]">Market</Link>
               <Link href="/movement" className="hover:text-[var(--text)]">Movement</Link>
               <Link href="/whales" className="hover:text-[var(--text)]">Whales</Link>
-              <Link href="/archive" className="hover:text-[var(--text)]">Archive</Link>
-              <Link href="/trends" className="hover:text-[var(--text)]">Trends</Link>
+              <Link href="/specials" className="hover:text-[var(--text)]">Specials</Link>
+              <Link href="/anomalies" className="hover:text-[var(--text)]">Anomalies</Link>
+              <span className="text-[var(--text-faint)]">·</span>
               <Link href="/players" className="hover:text-[var(--text)]">Players</Link>
               <Link href="/teams" className="hover:text-[var(--text)]">Teams</Link>
               <Link href="/sets" className="hover:text-[var(--text)]">Sets</Link>
+              <Link href="/leaderboards" className="hover:text-[var(--text)]">Ladders</Link>
+              <span className="text-[var(--text-faint)]">·</span>
               <Link href="/collectors" className="hover:text-[var(--text)]">Collectors</Link>
               <Link href="/compare" className="hover:text-[var(--text)]">Compare</Link>
               <Link href="/watching" className="hover:text-[var(--text)]">Watching</Link>
+              <span className="text-[var(--text-faint)]">·</span>
+              <Link href="/trends" className="hover:text-[var(--text)]">Trends</Link>
+              <Link href="/archive" className="hover:text-[var(--text)]">Archive</Link>
+              <Link href="/on-this-day" className="hover:text-[var(--text)]">OnThisDay</Link>
+              <span className="text-[var(--text-faint)]">·</span>
               <Link href="/rules" className="hover:text-[var(--text)]">Rules</Link>
               <Link href="/methodology" className="hover:text-[var(--text)]">Methodology</Link>
             </nav>
