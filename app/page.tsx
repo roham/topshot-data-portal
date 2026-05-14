@@ -119,20 +119,28 @@ export default async function Home() {
         </Card>
       )}
 
-      {/* Voice block — the "we get you" register */}
-      <div className="grid sm:grid-cols-3 gap-3 mb-6 text-[12px]">
-        <div className="border border-[var(--border)] rounded p-3 text-[var(--text-dim)]">
-          <div className="text-[var(--text)] font-semibold mb-1">Numbers, not adjectives.</div>
-          Every value here comes from `MintedMoment.lowAsk` or recent comps. No marketing-speak. No "many." No "several."
-        </div>
-        <div className="border border-[var(--border)] rounded p-3 text-[var(--text-dim)]">
-          <div className="text-[var(--text)] font-semibold mb-1">Parallels are first-class.</div>
-          Anthology, Holo, In-Color — each parallel has its own floor and serial space. We never collapse them.
-        </div>
-        <div className="border border-[var(--border)] rounded p-3 text-[var(--text-dim)]">
-          <div className="text-[var(--text)] font-semibold mb-1">Your bag, your math.</div>
-          Drop a username — we resolve the flow address, pull the full bag, run the valuation engine, show the work.
-        </div>
+      {/* Persona-tagged callouts */}
+      <div className="grid sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-6 text-[12px]">
+        <Link href="/whales" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A1 OG Whale</div>
+          <div className="text-[var(--text)] text-sm">Where the bag-holders are moving today.</div>
+        </Link>
+        <Link href="/specials" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A2 Set Completionist</div>
+          <div className="text-[var(--text)] text-sm">Jersey matches and serial #1s sold tonight.</div>
+        </Link>
+        <Link href="/movement" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A3 Re-Activator</div>
+          <div className="text-[var(--text)] text-sm">Bargain board · markdowns vs tier median.</div>
+        </Link>
+        <Link href="/anomalies" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A4 Strategist</div>
+          <div className="text-[var(--text)] text-sm">Players with the wildest price variance.</div>
+        </Link>
+        <Link href="/collectors" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A5 Onboarder</div>
+          <div className="text-[var(--text)] text-sm">Reference bags · learn by example.</div>
+        </Link>
       </div>
 
       <p className="text-[10px] text-[var(--text-faint)] tnum mt-3">
