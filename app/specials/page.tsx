@@ -26,6 +26,10 @@ export default async function SpecialsPage() {
     return s > 1 && s <= 10;
   });
 
+  const avg = (arr: typeof txns) => {
+    if (!arr.length) return 0;
+    return arr.reduce((s, t) => s + Number(t.price ?? 0), 0) / arr.length;
+  };
   return (
     <div className="max-w-portal mx-auto px-3 sm:px-6 py-6">
       <header className="mb-4 pb-4 border-b border-[var(--border)]">
@@ -34,6 +38,12 @@ export default async function SpecialsPage() {
           Trophy-tier sales filtered from the {txns.length}-sale window — jersey matches, #1 serials,
           top-10 serials, and last-serial mints.
         </p>
+        <div className="grid grid-cols-4 gap-px bg-[var(--border)] rounded overflow-hidden mt-3 text-[12px]">
+          <Cell label="Jersey matches" count={jerseyMatches.length} avg={avg(jerseyMatches)} />
+          <Cell label="Serial #1" count={serial1.length} avg={avg(serial1)} />
+          <Cell label="Top-10" count={lowSerial.length} avg={avg(lowSerial)} />
+          <Cell label="Last-serial" count={lastSerial.length} avg={avg(lastSerial)} />
+        </div>
       </header>
       <div className="grid lg:grid-cols-2 gap-4">
         <Card title="Jersey matches" subtitle={`${jerseyMatches.length} in window`}>
@@ -49,6 +59,16 @@ export default async function SpecialsPage() {
           <Strip items={lastSerial} />
         </Card>
       </div>
+    </div>
+  );
+}
+
+function Cell({ label, count, avg }: { label: string; count: number; avg: number }) {
+  return (
+    <div className="bg-[var(--bg-card)] p-2.5">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--text-faint)]">{label}</div>
+      <div className="text-sm font-semibold tnum mt-0.5">{count}</div>
+      {avg > 0 && <div className="text-[10px] text-[var(--text-faint)] tnum">avg {formatUsd(avg)}</div>}
     </div>
   );
 }
