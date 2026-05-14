@@ -4,6 +4,7 @@ import { VolumeSpikes } from "@/components/VolumeSpikes";
 import { TopSales } from "@/components/TopSales";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { MoversDown } from "@/components/MoversDown";
+import { SeriesMomentum } from "@/components/SeriesMomentum";
 import { formatUsd, formatNumber } from "@/lib/utils";
 
 export const revalidate = 60;
@@ -36,6 +37,12 @@ export default async function MovementPage() {
           <MoversDown txns={txns} limit={10} />
         </Card>
       </div>
+      <div className="mt-4 grid lg:grid-cols-2 gap-4">
+        <Card title="Set momentum" subtitle="M5 · sets ranked by sale count in window">
+          <SeriesMomentum txns={txns} />
+        </Card>
+      </div>
+
       <div className="mt-4">
         <Card title="Full window feed" subtitle="S5 · all recent sales">
           <div className="max-h-[640px] overflow-y-auto">

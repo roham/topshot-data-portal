@@ -24,6 +24,7 @@ export function TrendingNow({ txns }: { txns: MarketplaceTransaction[] }) {
       sets.set(s, e);
     }
   }
+  // M5 series momentum is rendered separately via SeriesMomentum component using same txns.
   const topPlayers = [...players.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 5);
   const topSets = [...sets.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 5);
   const maxP = topPlayers[0]?.[1].count ?? 1;
