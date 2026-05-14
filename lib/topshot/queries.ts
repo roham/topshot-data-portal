@@ -350,6 +350,49 @@ export async function fetchBagPage(
   };
 }
 
+// ---- TEAM TOTAL MINTED (per-team aggregate) ----
+export async function teamTotalMinted(teamId: string): Promise<number | null> {
+  const q = `query($t: [ID]) {
+    searchMintedMoments(input: {
+      filters: { byTeams: $t }
+      searchInput: { pagination: { cursor: "", direction: RIGHT, limit: 1 } }
+    }) { data { searchSummary { totalCount } } }
+  }`;
+  type R = { searchMintedMoments: { data: { searchSummary: { totalCount: number | null } } } };
+  try {
+    const d = await gqlFetch<R>(q, { t: [teamId] }, { ttlMs: 60 * 60_000 });
+    return d.searchMintedMoments.data.searchSummary.totalCount ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ---- TEAM RECENT MINTS (per-team newest moments) ----
+export async function teamRecentMints(teamId: string, limit: number = 12) {
+  const q = `query($t: [ID], $lim: Int!) {
+    searchMintedMoments(input: {
+      filters: { byTeams: $t }
+      searchInput: { pagination: { cursor: "", direction: RIGHT, limit: $lim } }
+    }) {
+      data { searchSummary { totalCount data { ... on MintedMoments { data { ${MINTED_MOMENT_LITE} } } } } }
+    }
+  }`;
+  type R = {
+    searchMintedMoments: {
+      data: { searchSummary: { totalCount: number | null; data: { data: import("./types").MintedMoment[] } } };
+    };
+  };
+  try {
+    const d = await gqlFetch<R>(q, { t: [teamId], lim: limit }, { ttlMs: 5 * 60_000 });
+    return {
+      total: d.searchMintedMoments.data.searchSummary.totalCount ?? 0,
+      items: d.searchMintedMoments.data.searchSummary.data.data,
+    };
+  } catch {
+    return { total: 0, items: [] };
+  }
+}
+
 // ---- SETS DIRECTORY ----
 export interface SetRow {
   id: string;
