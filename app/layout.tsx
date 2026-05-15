@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { MobileNav } from "@/components/MobileNav";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const inter = Inter({ variable: "--font-sans-stack", subsets: ["latin"], display: "swap" });
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono-stack",
+  subsets: ["latin"],
+  display: "swap",
+  // Tabular figures available via font-feature-settings in globals.css
+});
 
 export const metadata: Metadata = {
   title: "TOPSHOT TERMINAL — collector-first market intelligence",
@@ -19,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
       <body className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
         <header className="border-b border-[var(--border)] sticky top-0 z-30 bg-[var(--bg)]/95 backdrop-blur relative">
           <div className="max-w-portal mx-auto px-4 sm:px-6 h-12 flex items-center gap-4 sm:gap-6">
@@ -61,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1">{children}</main>
         <footer className="border-t border-[var(--border)] text-xs text-[var(--text-faint)] py-6 mt-12">
           <div className="max-w-portal mx-auto px-4 sm:px-6 flex flex-wrap gap-x-6 gap-y-1">
-            <span>Built on the public NBA Top Shot GraphQL API. No affiliation with Dapper Labs / NBA Top Shot.</span>
+            <span>Dapper-internal data portal for NBA Top Shot. Built on the public Top Shot GraphQL API.</span>
             <span className="sm:ml-auto flex gap-3">
               <Link href="/api/stats" className="hover:text-[var(--text)]">/api/stats</Link>
               <Link href="/methodology" className="hover:text-[var(--text)]">methodology</Link>

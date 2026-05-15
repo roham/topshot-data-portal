@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const UPSTREAM = "https://public-api.nbatopshot.com/graphql";
-const UA = "dapper-portal/1.0 (contact: r@dapperlabs.com)";
+const UA = "dapper-portal/2.0 (contact: r@dapperlabs.com)";
 const TIMEOUT_MS = 12000;
 
 export const runtime = "nodejs";
