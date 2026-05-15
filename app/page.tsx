@@ -893,7 +893,7 @@ async function loadSetMomentum7d(
 // ──────────────────────────────────────────────────────────────────────────
 
 interface IndexCell {
-  slug: "ts500" | "tier-common" | "tier-rare" | "tier-legendary" | "tier-ultimate" | "series-of-the-moment";
+  slug: "ts500" | "tier-common" | "tier-rare" | "tier-fandom" | "tier-legendary" | "tier-ultimate" | "series-of-the-moment";
   label: string;
   value: string | null;
   pct24h: number | null;
@@ -932,12 +932,37 @@ async function loadIndicesStrip24h(
   // for Ultimate). The reader checks this layer BEFORE largestSales because
   // medianByTier surveys every tx in the window — Ultimate gets a numeric even
   // when only 1-3 sales cleared in the day.
-  const snapWithMedianByTier = sortedDay.find(
+  //
+  // iter-10: read day-tier first (canonical 24h window when the workflow
+  // blocker resolves); fall through to market-tier (now populated by the
+  // iter-9 writer change to scripts/snapshot-market.mjs) when day-tier is
+  // empty. The caption template branches on `snapMbtSrc` so the window source
+  // is disclosed honestly: "day-aggregate" vs "30m market-aggregate".
+  let snapMbtSrc: "day" | "market" | null = null;
+  let snapMedianByTier: NonNullable<MarketAggregateSnapshot["medianByTier"]> | null = null;
+  let snapMbtTs: number | null = null;
+  let snapMbtTxCount: number | null = null;
+  const dayWithMbt = sortedDay.find(
     (s) => s.data?.medianByTier != null && typeof s.data.medianByTier === "object",
   );
-  const snapMedianByTier = snapWithMedianByTier?.data.medianByTier ?? null;
-  const snapMbtTs = snapWithMedianByTier?.data.ts ?? null;
-  const snapMbtTxCount = snapWithMedianByTier?.data.txCount ?? null;
+  if (dayWithMbt) {
+    snapMedianByTier = dayWithMbt.data.medianByTier ?? null;
+    snapMbtTs = dayWithMbt.data.ts ?? null;
+    snapMbtTxCount = dayWithMbt.data.txCount ?? null;
+    snapMbtSrc = "day";
+  } else {
+    const marketSnaps = await readRecentSnapshots<MarketAggregateSnapshot>("market", 4).catch(() => []);
+    const sortedMarket = [...marketSnaps].sort((a, b) => (a.key < b.key ? 1 : -1));
+    const marketWithMbt = sortedMarket.find(
+      (s) => s.data?.medianByTier != null && typeof s.data.medianByTier === "object",
+    );
+    if (marketWithMbt) {
+      snapMedianByTier = marketWithMbt.data.medianByTier ?? null;
+      snapMbtTs = marketWithMbt.data.ts ?? null;
+      snapMbtTxCount = marketWithMbt.data.txCount ?? null;
+      snapMbtSrc = "market";
+    }
+  }
   const snapMbtAgeHours = snapMbtTs ? Math.max(1, Math.round((Date.now() - snapMbtTs) / 3_600_000)) : null;
 
   // Compute bulk window coverage (used in Ultimate fallback caption).
@@ -1019,12 +1044,17 @@ async function loadIndicesStrip24h(
     if (mbtCents != null && snapMbtAgeHours != null) {
       const usd = Math.round(mbtCents / 100);
       const mtx = snapMbtTxCount != null ? snapMbtTxCount.toLocaleString() : "?";
+      // iter-10: caption discloses the window source. The day-tier accumulator
+      // is a 24h-window aggregate; the market-tier accumulator is a 30m
+      // aggregate. The reader cascades day → market, so the template branches
+      // on `snapMbtSrc` to name the actual source honestly.
+      const windowSrcLabel = snapMbtSrc === "market" ? "30m market-aggregate" : "day-aggregate";
       return {
         slug,
         label,
         value: `$${usd.toLocaleString()}`,
         pct24h: null,
-        caption: `${cleanLabel} median: snapshot day-aggregate (${mtx} tx in window) — snapshot as of ${snapMbtAgeHours}h ago. Canonical index live 2026-06-09.`,
+        caption: `${cleanLabel} median: snapshot ${windowSrcLabel} (${mtx} tx in window) — snapshot as of ${snapMbtAgeHours}h ago. Canonical index live 2026-06-09.`,
       };
     }
     // iter-5 Fix R1: snapshot-fallback layer. When the bulk slice is also thin,
@@ -1125,6 +1155,13 @@ async function loadIndicesStrip24h(
     },
     tierCell("tier-common", "Common · median 24h", "MOMENT_TIER_COMMON"),
     tierCell("tier-rare", "Rare · median 24h", "MOMENT_TIER_RARE"),
+    // iter-10: Fandom tier added as a Block 6 cell. The iter-9 writer change
+    // emits Fandom in the 30m market-tier snapshot's medianByTier, so the
+    // market-tier fallback can now populate this cell even when the bulk
+    // window has few Fandom-tagged sales. The cascade is identical to the
+    // other tier cells; the source-redirect upstream means a populated
+    // numeric is more likely than an em-dash.
+    tierCell("tier-fandom", "Fandom · median 24h", "MOMENT_TIER_FANDOM"),
     tierCell("tier-legendary", "Legendary · median 24h", "MOMENT_TIER_LEGENDARY"),
     ultimateCell,
     {
@@ -1619,7 +1656,7 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
             see all →
           </Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-y md:divide-y-0 md:divide-x divide-[var(--border-subtle)]">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-[var(--border-subtle)]">
           {indices.map((idx) => (
             <Link
               key={idx.slug}
