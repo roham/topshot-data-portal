@@ -213,9 +213,10 @@ async function loadPlayerMovers24h(bulkRef: { txs: MarketplaceTransaction[] | nu
         } as CandidateWithPath;
       })
       .filter((r): r is CandidateWithPath => r !== null)
-      // iter-2 R1 fix: hard-gate Δ% to [-50%, +50%] regardless of path
-      // (spec §5.6 — values outside that range are statistical artifacts of thin trade counts).
-      .filter((r) => r.pct24h >= -50 && r.pct24h <= 50)
+      // iter-8 boundary tightening: drop |pct| ≥ 49.5 — values at the spec-band
+      // edge read as guard-rail artifacts even when honest (iter-7 P1-2). Carries
+      // forward iter-2 R1 hard-gate semantics; just tightens the ε boundary.
+      .filter((r) => r.pct24h > -49.5 && r.pct24h < 49.5)
       // iter-2 R1 fix: on the live-proxy path, also drop exact-zero Δ%
       // (first/second-half medians matched — degenerate sample split).
       .filter((r) => !(r.__liveProxy && r.pct24h === 0))
@@ -263,8 +264,10 @@ async function loadPlayerMovers24h(bulkRef: { txs: MarketplaceTransaction[] | nu
       } as FallbackCandidate;
     })
     .filter((r): r is FallbackCandidate => r !== null)
-    // iter-2 R1 fix: hard-gate Δ% to [-50%, +50%] for all candidates.
-    .filter((r) => r.pct24h >= -50 && r.pct24h <= 50)
+    // iter-8 boundary tightening: drop |pct| ≥ 49.5 — values at the spec-band
+    // edge read as guard-rail artifacts even when honest (iter-7 P1-2). Carries
+    // forward iter-2 R1 hard-gate semantics; just tightens the ε boundary.
+    .filter((r) => r.pct24h > -49.5 && r.pct24h < 49.5)
     // iter-2 R1 fix: live-proxy path also drops exact-zero Δ% (degenerate split).
     .filter((r) => !(r.__liveProxy && r.pct24h === 0))
     .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
