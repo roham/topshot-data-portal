@@ -150,3 +150,105 @@ export async function chronologicalTxBackfill(windowMs, hardCap = 5000) {
   }
   return out;
 }
+
+// Aggregator shared by every market-window snapshot script. Computes the
+// MarketAggregateSnapshot shape (matches lib/snapshots/types.ts) plus
+// topBuyers / topSellers (the ownership-graph wedge per design/03 § Social).
+//
+// `windowLabel` annotates the snapshot so readers know whether it's 30m / day /
+// week / month aggregate.
+export function aggregateMarketWindow(txs, windowMs, windowLabel) {
+  const pricesCents = txs.map((t) => Math.round(Number(t.price ?? 0) * 100));
+  const buyers = new Set();
+  const sellers = new Set();
+  const byPlayer = new Map(); // playerName -> price cents []
+  const bySet = new Map(); // setFlowName -> price cents []
+  const byBuyer = new Map(); // username -> { spend, count, biggest, biggestFlowId }
+  const bySeller = new Map(); // username -> { revenue, count, biggest, biggestFlowId }
+  for (let i = 0; i < txs.length; i++) {
+    const t = txs[i];
+    const cents = pricesCents[i];
+    if (t.buyer?.flowAddress) buyers.add(t.buyer.flowAddress);
+    if (t.seller?.flowAddress) sellers.add(t.seller.flowAddress);
+    const playerName = t.moment?.play?.stats?.playerName;
+    if (playerName) {
+      const arr = byPlayer.get(playerName) ?? [];
+      arr.push(cents);
+      byPlayer.set(playerName, arr);
+    }
+    const setFlowName = t.moment?.set?.flowName;
+    if (setFlowName) {
+      const arr = bySet.get(setFlowName) ?? [];
+      arr.push(cents);
+      bySet.set(setFlowName, arr);
+    }
+    const buyerUsername = t.buyer?.username;
+    if (buyerUsername) {
+      const cur = byBuyer.get(buyerUsername) ?? { spendCents: 0, count: 0, biggestCents: 0, biggestFlowId: null };
+      cur.spendCents += cents;
+      cur.count++;
+      if (cents > cur.biggestCents) {
+        cur.biggestCents = cents;
+        cur.biggestFlowId = t.moment?.flowId ?? null;
+      }
+      byBuyer.set(buyerUsername, cur);
+    }
+    const sellerUsername = t.seller?.username;
+    if (sellerUsername) {
+      const cur = bySeller.get(sellerUsername) ?? { revenueCents: 0, count: 0, biggestCents: 0, biggestFlowId: null };
+      cur.revenueCents += cents;
+      cur.count++;
+      if (cents > cur.biggestCents) {
+        cur.biggestCents = cents;
+        cur.biggestFlowId = t.moment?.flowId ?? null;
+      }
+      bySeller.set(sellerUsername, cur);
+    }
+  }
+  const topPlayersByVolume = Array.from(byPlayer.entries())
+    .map(([playerName, prices]) => ({ playerName, count: prices.length, medianPriceCents: median(prices) }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50);
+  const topSetsByVolume = Array.from(bySet.entries())
+    .map(([setFlowName, prices]) => ({ setFlowName, count: prices.length, medianPriceCents: median(prices) }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50);
+  const topBuyers = Array.from(byBuyer.entries())
+    .map(([username, v]) => ({ username, spendCents: v.spendCents, count: v.count, biggestCents: v.biggestCents, biggestFlowId: v.biggestFlowId }))
+    .sort((a, b) => b.spendCents - a.spendCents)
+    .slice(0, 50);
+  const topSellers = Array.from(bySeller.entries())
+    .map(([username, v]) => ({ username, revenueCents: v.revenueCents, count: v.count, biggestCents: v.biggestCents, biggestFlowId: v.biggestFlowId }))
+    .sort((a, b) => b.revenueCents - a.revenueCents)
+    .slice(0, 50);
+  // Largest sales — top 50 by price, with full identity inline for ownership-graph wedge.
+  const largestSales = [...txs]
+    .sort((a, b) => Number(b.price ?? 0) - Number(a.price ?? 0))
+    .slice(0, 50)
+    .map((t) => ({
+      priceCents: Math.round(Number(t.price ?? 0) * 100),
+      playerName: t.moment?.play?.stats?.playerName ?? null,
+      setFlowName: t.moment?.set?.flowName ?? null,
+      tier: t.moment?.tier ?? null,
+      serial: t.moment?.flowSerialNumber ?? null,
+      flowId: t.moment?.flowId ?? null,
+      buyerUsername: t.buyer?.username ?? null,
+      sellerUsername: t.seller?.username ?? null,
+      updatedAt: t.updatedAt ?? null,
+    }));
+  return {
+    ts: Date.now(),
+    windowMs,
+    windowLabel,
+    txCount: txs.length,
+    uniqueBuyers: buyers.size,
+    uniqueSellers: sellers.size,
+    medianPriceCents: median(pricesCents),
+    meanPriceCents: mean(pricesCents),
+    topPlayersByVolume,
+    topSetsByVolume,
+    topBuyers,
+    topSellers,
+    largestSales,
+  };
+}

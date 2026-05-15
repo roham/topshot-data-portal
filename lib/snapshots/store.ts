@@ -24,7 +24,12 @@ export type Cadence =
   | "market"
   | "players"
   | "portfolios"
-  | "nba-games";
+  | "nba-games"
+  // iter-16 long-window tier: each is one full aggregate over the named window
+  // computed by chronologicalTxBackfill. Day every 2h, week every 12h, month every 24h.
+  | "day"
+  | "week"
+  | "month";
 
 interface GhEntry {
   name: string;

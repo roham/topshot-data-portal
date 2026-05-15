@@ -2,15 +2,41 @@
 
 export interface MarketAggregateSnapshot {
   ts: number;            // unix ms
-  windowMs: number;      // 30 minutes typically
+  windowMs: number;      // 30m for /market; 24h/7d/30d for day/week/month tiers
+  windowLabel?: string;  // "30m" | "24h" | "7d" | "30d"
   txCount: number;
   uniqueBuyers: number;
   uniqueSellers: number;
   medianPriceCents: number;
   meanPriceCents: number;
-  // Top movers in the window (placeholder; iter-1 expands).
   topPlayersByVolume: Array<{ playerName: string; count: number; medianPriceCents: number }>;
   topSetsByVolume: Array<{ setFlowName: string; count: number; medianPriceCents: number }>;
+  // iter-16 additions — the ownership-graph wedge surfaced in the snapshot itself.
+  topBuyers?: Array<{
+    username: string;
+    spendCents: number;
+    count: number;
+    biggestCents: number;
+    biggestFlowId: string | null;
+  }>;
+  topSellers?: Array<{
+    username: string;
+    revenueCents: number;
+    count: number;
+    biggestCents: number;
+    biggestFlowId: string | null;
+  }>;
+  largestSales?: Array<{
+    priceCents: number;
+    playerName: string | null;
+    setFlowName: string | null;
+    tier: string | null;
+    serial: string | null;
+    flowId: string | null;
+    buyerUsername: string | null;
+    sellerUsername: string | null;
+    updatedAt: string | null;
+  }>;
 }
 
 export interface PerEditionFloorSnapshot {

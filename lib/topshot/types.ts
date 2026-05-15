@@ -76,6 +76,8 @@ export interface MarketplaceTransaction {
   id: string;
   price: string;
   txHash: string;
+  /** ISO timestamp; surfaced by STAGE-1 UNLOCK-02 (UPDATED_AT_DESC sort exposes this). */
+  updatedAt?: string;
   buyer?: { username?: string; flowAddress: string; dapperID?: string };
   seller?: { username?: string; flowAddress: string; dapperID?: string };
   moment?: MintedMoment;
