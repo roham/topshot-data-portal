@@ -1,160 +1,267 @@
-import Link from "next/link";
-import { recentSales, searchMomentsByPlayers, getLeaderboard, getUserByUsername } from "@/lib/topshot/queries";
-import { FEATURED_PLAYERS, TEAM_NAMES } from "@/lib/topshot/teams";
-import { ActivityFeed } from "@/components/ActivityFeed";
-import { Card } from "@/components/Card";
-import { MarketStats } from "@/components/MarketStats";
-import { MomentMedia } from "@/components/MomentMedia";
-import { TierPill } from "@/components/Tier";
-import { TopSales } from "@/components/TopSales";
-import { SpotlightCollector, buildSpotlight } from "@/components/SpotlightCollector";
-import { TrendingNow } from "@/components/TrendingNow";
-import { formatNumber, formatUsd } from "@/lib/utils";
-import { CollectorSearch } from "@/components/CollectorSearch";
+import { recentSales, recentSalesBulk } from "@/lib/topshot/queries";
+import { readRecentSnapshots } from "@/lib/snapshots/store";
+import { IndexStrip } from "@/components/IndexStrip";
+import { TickerTape } from "@/components/TickerTape";
+import { MoverColumn, type MoverRow } from "@/components/MoverColumn";
+import { FeaturedCollector, type FeaturedCollectorData } from "@/components/FeaturedCollector";
+import { Card } from "@/components/primitives/Card";
+import type { MarketplaceTransaction } from "@/lib/topshot/types";
 
 export const revalidate = 30;
 
-async function loadHome() {
-  // Pull in parallel — independent fetches.
-  const [txns, ...players] = await Promise.all([
-    recentSales(40),
-    ...FEATURED_PLAYERS.slice(0, 6).map((p) =>
-      searchMomentsByPlayers([p.id], "", 6).then((r) => ({ player: p, items: r.items, totalCount: r.totalCount }))
-    ),
-  ]);
-  // Find top buyer for spotlight profile pull
-  const buyerSpend = new Map<string, number>();
-  for (const t of txns) {
-    const u = t.buyer?.username;
-    if (u) buyerSpend.set(u, (buyerSpend.get(u) ?? 0) + Number(t.price ?? 0));
+// ---- pure derivers ----
+
+function aggregateBySet(txs: MarketplaceTransaction[]) {
+  const byKey = new Map<string, { flowName: string; flowId?: number; count: number; volume: number; samples: number[] }>();
+  for (const t of txs) {
+    const flowName = t.moment?.set?.flowName;
+    if (!flowName) continue;
+    const key = flowName;
+    const cur = byKey.get(key) ?? { flowName, flowId: t.moment?.set?.flowId, count: 0, volume: 0, samples: [] };
+    cur.count++;
+    const price = Number(t.price ?? 0);
+    cur.volume += price;
+    cur.samples.push(price);
+    byKey.set(key, cur);
   }
-  const topBuyer = [...buyerSpend.entries()].sort((a, b) => b[1] - a[1])[0];
-  const spotlightProfile = topBuyer ? await getUserByUsername(topBuyer[0]) : null;
-  return { txns, players, spotlightProfile };
+  return Array.from(byKey.values());
+}
+
+interface PriorMarket {
+  txCount: number;
+  medianPriceCents: number;
+  topPlayersByVolume: Array<{ playerName: string; count: number; medianPriceCents: number }>;
+}
+
+async function loadHomeData() {
+  // Run live + accumulator pulls in parallel.
+  const [liveTxs, bulkTxs, marketRecent] = await Promise.all([
+    recentSales(60).catch(() => []),
+    recentSalesBulk(400).catch(() => []),
+    readRecentSnapshots<PriorMarket>("market", 6).catch(() => []),
+  ]);
+
+  // ---- Index strip (placeholder until indices route renders real values) ----
+  // For phase 4.5 homepage we render the headline numbers from the LIVE bulk
+  // pull. Real index registry computation lives at /indices/[slug] and gets
+  // wired into the strip in a follow-up iter once /indices renders.
+  const totalVol = bulkTxs.reduce((s, t) => s + Number(t.price ?? 0), 0);
+  const liveCount = bulkTxs.length;
+  const meanPrice = liveCount > 0 ? totalVol / liveCount : 0;
+  // Compare to the snapshot 6 ticks back (≈3h ago) for a directional delta.
+  const oldest = marketRecent[marketRecent.length - 1]?.data;
+  const meanCentsNow = meanPrice * 100;
+  const meanCentsPrior = oldest?.medianPriceCents ?? meanCentsNow;
+  const meanDelta = meanCentsPrior > 0 ? ((meanCentsNow - meanCentsPrior) / meanCentsPrior) * 100 : null;
+
+  const tierBands = ["MOMENT_TIER_COMMON", "MOMENT_TIER_FANDOM", "MOMENT_TIER_RARE", "MOMENT_TIER_LEGENDARY"];
+  const tierMeans = tierBands.map((t) => {
+    const samples = bulkTxs.filter((x) => x.moment?.tier === t).map((x) => Number(x.price ?? 0));
+    return samples.length > 0 ? samples.reduce((a, b) => a + b, 0) / samples.length : null;
+  });
+
+  const indexCells = [
+    { slug: "ts500", label: "Mean ask", value: meanPrice || null, delta24h: meanDelta },
+    { slug: "tier-common", label: "Tier · common", value: tierMeans[0], delta24h: null },
+    { slug: "tier-fandom", label: "Tier · fandom", value: tierMeans[1], delta24h: null },
+    { slug: "tier-rare", label: "Tier · rare", value: tierMeans[2], delta24h: null },
+    { slug: "tier-legendary", label: "Tier · legendary", value: tierMeans[3], delta24h: null },
+  ];
+
+  // ---- Ticker tape — last 30 live sales ----
+  const ticker = liveTxs.slice(0, 30).map((t, i) => {
+    const playerName = t.moment?.play?.stats?.playerName ?? "—";
+    const setName = t.moment?.set?.flowName ?? "—";
+    const serial = t.moment?.flowSerialNumber ?? "?";
+    const buyer = t.buyer?.username ?? "anon";
+    const price = Number(t.price ?? 0);
+    return {
+      id: `${t.id}-${i}`,
+      label: `${buyer} bought ${playerName} #${serial} · ${setName}`,
+      price: price >= 1000 ? `$${(price / 1000).toFixed(1)}K` : `$${price.toFixed(0)}`,
+      href: t.moment?.flowId ? `/moment/${t.moment.flowId}` : "/",
+      isNew: i < 3, // first three flash
+    };
+  });
+
+  // ---- 3 mover columns: build from set-level aggregates over the bulk window ----
+  const setAggs = aggregateBySet(bulkTxs);
+  // Prior set state from older market snapshots (so we can compute deltas).
+  // For first pass we use mean-price-now vs mean-price-3-snapshots-ago; later
+  // iters will wire per-set series from snapshots.
+  const priorByPlayer = new Map<string, number>();
+  if (marketRecent.length >= 2) {
+    const older = marketRecent[Math.min(marketRecent.length - 1, 3)]?.data;
+    older?.topPlayersByVolume?.forEach((p) => {
+      priorByPlayer.set(p.playerName, p.medianPriceCents / 100);
+    });
+  }
+  // Top 5 by volume (always populated)
+  const volumeLeaders: MoverRow[] = [...setAggs]
+    .sort((a, b) => b.volume - a.volume)
+    .slice(0, 5)
+    .map((s) => ({
+      key: `vol-${s.flowName}`,
+      href: s.flowId ? `/sets?q=${encodeURIComponent(s.flowName)}` : "/",
+      primary: s.flowName,
+      secondary: `${s.count} sales · mean ${formatUsdCompact(s.volume / s.count)}`,
+      value: s.volume / s.count,
+      volumeUsd: s.volume,
+      spark: undefined,
+    }));
+
+  // Mean-per-set vs prior — approximate up/down rankings.
+  const setMovers = setAggs
+    .map((s) => {
+      const meanNow = s.volume / s.count;
+      // Compute "prior" as the bottom-half median vs top-half median proxy.
+      const sorted = [...s.samples].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const early = sorted.slice(0, Math.max(1, mid));
+      const late = sorted.slice(mid);
+      const earlyMean = early.reduce((a, b) => a + b, 0) / early.length;
+      const lateMean = late.reduce((a, b) => a + b, 0) / late.length;
+      const deltaPct = earlyMean > 0 ? ((lateMean - earlyMean) / earlyMean) * 100 : 0;
+      return { ...s, deltaPct, meanNow };
+    })
+    .filter((s) => s.count >= 4);
+
+  const moversUp: MoverRow[] = [...setMovers]
+    .sort((a, b) => b.deltaPct - a.deltaPct)
+    .slice(0, 5)
+    .map((s) => ({
+      key: `up-${s.flowName}`,
+      href: s.flowId ? `/sets?q=${encodeURIComponent(s.flowName)}` : "/",
+      primary: s.flowName,
+      secondary: `${s.count} sales · early→late mean`,
+      value: s.meanNow,
+      deltaPct: s.deltaPct,
+      spark: s.samples,
+    }));
+
+  const moversDown: MoverRow[] = [...setMovers]
+    .sort((a, b) => a.deltaPct - b.deltaPct)
+    .slice(0, 5)
+    .map((s) => ({
+      key: `dn-${s.flowName}`,
+      href: s.flowId ? `/sets?q=${encodeURIComponent(s.flowName)}` : "/",
+      primary: s.flowName,
+      secondary: `${s.count} sales · early→late mean`,
+      value: s.meanNow,
+      deltaPct: s.deltaPct,
+      spark: s.samples,
+    }));
+
+  // ---- Featured collector ----
+  const spendByBuyer = new Map<string, { spend: number; count: number; largest: number; largestHref: string | null; flowAddress: string | null }>();
+  for (const t of liveTxs) {
+    const u = t.buyer?.username;
+    if (!u) continue;
+    const price = Number(t.price ?? 0);
+    const cur = spendByBuyer.get(u) ?? { spend: 0, count: 0, largest: 0, largestHref: null, flowAddress: t.buyer?.flowAddress ?? null };
+    cur.spend += price;
+    cur.count++;
+    if (price > cur.largest) {
+      cur.largest = price;
+      cur.largestHref = t.moment?.flowId ? `/moment/${t.moment.flowId}` : null;
+    }
+    spendByBuyer.set(u, cur);
+  }
+  const topBuyer = [...spendByBuyer.entries()].sort((a, b) => b[1].spend - a[1].spend)[0];
+  const featured: FeaturedCollectorData | null = topBuyer
+    ? {
+        username: topBuyer[0],
+        flowAddress: topBuyer[1].flowAddress,
+        totalSpendWindowUsd: topBuyer[1].spend,
+        buyCountWindow: topBuyer[1].count,
+        largestSaleUsd: topBuyer[1].largest,
+        largestSaleHref: topBuyer[1].largestHref,
+        hint: hintForBuyer(topBuyer[1].spend, topBuyer[1].count),
+      }
+    : null;
+
+  return { indexCells, ticker, moversUp, moversDown, volumeLeaders, featured };
+}
+
+function hintForBuyer(spend: number, count: number): string {
+  if (spend >= 50_000) return "5-figure window spend";
+  if (count >= 10) return "high-frequency window";
+  if (spend >= 5_000) return "above-floor window spend";
+  return "leading window buyer";
+}
+
+function formatUsdCompact(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+  return `$${Math.round(v)}`;
 }
 
 export default async function Home() {
-  let data: Awaited<ReturnType<typeof loadHome>> | null = null;
-  let error: string | null = null;
-  try {
-    data = await loadHome();
-  } catch (e) {
-    error = (e as Error).message ?? "Failed to load";
+  const data = await loadHomeData().catch(() => null);
+  if (!data) {
+    return (
+      <div className="max-w-[1440px] mx-auto px-4 py-6 text-[11px] text-[var(--text-faint)] font-mono">
+        Upstream Top Shot API unreachable. Reload in a few seconds.
+      </div>
+    );
   }
-
+  const { indexCells, ticker, moversUp, moversDown, volumeLeaders, featured } = data;
   return (
-    <div className="max-w-portal mx-auto px-3 sm:px-6 py-4 sm:py-6">
-      {/* Hero stripe */}
-      <section className="mb-4 sm:mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-2">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-              <span className="text-[var(--accent)]">Live market.</span> Real names. Real moves.
-            </h1>
-            <p className="text-[var(--text-dim)] text-sm mt-1">
-              Built for the collector who needs the truth — every serial, every parallel, every premium accounted for.
-            </p>
-          </div>
-          <CollectorSearch />
-        </div>
-      </section>
+    <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-4">
+      {/* Page title — short, factual */}
+      <header>
+        <h1 className="text-[20px] font-semibold tracking-tight">Market</h1>
+        <p className="text-[12px] text-[var(--text-dim)]">
+          Live state of the NBA Top Shot resale market — indices, ticker tape, and the day&apos;s biggest moves.
+        </p>
+      </header>
 
-      {error && (
-        <div className="bg-[var(--down)]/10 border border-[var(--down)]/40 text-[var(--down)] text-sm px-4 py-2 rounded mb-4">
-          Upstream error: {error}
-        </div>
-      )}
+      {/* Index strip */}
+      <IndexStrip cells={indexCells} />
 
-      {/* D5 collector spotlight */}
-      {data?.txns && <SpotlightCollector spotlight={buildSpotlight(data.txns, data.spotlightProfile?.profileImageUrl)} />}
+      {/* Ticker tape */}
+      <TickerTape items={ticker} />
 
-      {/* Market signal strip */}
-      {data?.txns && <MarketStats txns={data.txns} />}
-
-      <div className="grid lg:grid-cols-3 gap-4 mb-6">
-        {/* Live activity — main column */}
-        <Card
-          className="lg:col-span-2"
-          title="Live sales"
-          subtitle={`S1 · ${data?.txns.length ?? 0} most recent · refreshes every 30s`}
-          right={
-            <span className="text-[10px] text-[var(--text-faint)] tnum hidden sm:inline">
-              global · searchMarketplaceTransactions
-            </span>
-          }
-        >
-          <div className="max-h-[640px] overflow-y-auto">
-            {data && <ActivityFeed txns={data.txns} />}
-          </div>
-        </Card>
-
-        {/* Discovery rail */}
-        <div className="space-y-4">
-          <Card title="Top sales · window" subtitle={`M1 · top by price`}>
-            <TopSales txns={data?.txns ?? []} limit={5} />
-          </Card>
-          <Card title="Featured players" subtitle="D1 · top collector-demand">
-            <div className="divide-y divide-[var(--border)]">
-              {data?.players.map((p) => (
-                <Link
-                  key={p.player.id}
-                  href={`/player/${p.player.id}`}
-                  className="px-4 py-3 flex items-center gap-3 hover:bg-[var(--bg-elev)] transition-colors"
-                >
-                  <div className="flex -space-x-2">
-                    {p.items.slice(0, 3).map((m) => (
-                      <MomentMedia key={m.flowId} flowId={m.flowId} type="player" width={36} className="w-7 h-7 rounded-full ring-1 ring-[var(--border)] bg-[var(--bg-elev)] object-cover" />
-                    ))}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{p.player.name}</div>
-                    <div className="text-[10px] text-[var(--text-faint)] tnum">
-                      {p.totalCount != null ? `${formatNumber(p.totalCount)} moments minted` : "—"}
-                    </div>
-                  </div>
-                  <span className="text-[var(--text-faint)] text-xs">→</span>
-                </Link>
-              ))}
-            </div>
-          </Card>
-        </div>
+      {/* 3 mover columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <MoverColumn
+          title="Top movers · up"
+          subtitle={`${moversUp.length} sets · early → late mean within window`}
+          methodology="Set-level mover from the 400-tx bulk window. Direction inferred from price-trajectory within the window (early half vs late half mean). Set price history at /set/[id]."
+          rows={moversUp}
+          side="up"
+        />
+        <MoverColumn
+          title="Top movers · down"
+          subtitle={`${moversDown.length} sets · early → late mean within window`}
+          methodology="Same methodology as movers-up; sorted descending on the negative side."
+          rows={moversDown}
+          side="down"
+        />
+        <MoverColumn
+          title="Volume leaders · window"
+          subtitle={`${volumeLeaders.length} sets · total spend within window`}
+          methodology="Sum of all transaction prices within the 400-tx bulk window grouped by set.flowName."
+          rows={volumeLeaders}
+          side="volume"
+        />
       </div>
 
-      {/* S4 trending now */}
-      {data?.txns && (
-        <Card title="Trending right now" subtitle="S4 · top players + sets by sale count in window" className="mb-6">
-          <TrendingNow txns={data.txns} />
-        </Card>
-      )}
+      {/* Featured collector */}
+      <FeaturedCollector data={featured} />
 
-      {/* Persona-tagged callouts */}
-      <div className="grid sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-6 text-[12px]">
-        <Link href="/whales" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A1 OG Whale</div>
-          <div className="text-[var(--text)] text-sm">Where the bag-holders are moving today.</div>
-        </Link>
-        <Link href="/specials" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A2 Set Completionist</div>
-          <div className="text-[var(--text)] text-sm">Jersey matches and serial #1s sold tonight.</div>
-        </Link>
-        <Link href="/movement" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A3 Re-Activator</div>
-          <div className="text-[var(--text)] text-sm">Bargain board · markdowns vs tier median.</div>
-        </Link>
-        <Link href="/anomalies" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A4 Strategist</div>
-          <div className="text-[var(--text)] text-sm">Players with the wildest price variance.</div>
-        </Link>
-        <Link href="/collectors" className="block border border-[var(--border)] rounded p-3 hover:bg-[var(--bg-elev)] card-hover">
-          <div className="text-[10px] uppercase tracking-wider text-[var(--accent)] mb-1">A5 Onboarder</div>
-          <div className="text-[var(--text)] text-sm">Reference bags · learn by example.</div>
-        </Link>
-      </div>
-
-      <p className="text-[10px] text-[var(--text-faint)] tnum mt-3">
-        Data: public-api.nbatopshot.com/graphql · S30/SWR300 edge cache · scoring rules at <Link className="underline" href="/rules">/rules</Link> ·
-        anchors validated against BostonBased (Celtics-heavy) + BigDaddaBear (Hornets-anchor).
-      </p>
+      {/* Honest absence: explain what's NOT here yet */}
+      <Card
+        title="What this page does not yet show"
+        methodology="Honest absence is part of the design. Surfaces below land in subsequent iters; data exists, the UI just hasn't been built yet."
+      >
+        <ul className="text-[11px] text-[var(--text-dim)] space-y-1 list-disc pl-5">
+          <li>True index series (TS500, per-tier, per-series) — gated on /indices/[slug] rebuild; the strip above shows live mean prices as a placeholder.</li>
+          <li>24h delta on each index cell — needs the snapshot accumulator at &gt;24h of depth. First snapshot landed 2026-05-15.</li>
+          <li>Per-set sparkline on the mover rows — gated on per-set snapshot history (the 1h-warm cron writes this).</li>
+          <li>Ticker tape pause-on-hover + click-to-pin — interaction iter follows.</li>
+        </ul>
+      </Card>
     </div>
   );
 }

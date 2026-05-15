@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
-import { MobileNav } from "@/components/MobileNav";
+import { TopNav } from "@/components/TopNav";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -10,77 +10,31 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono-stack",
   subsets: ["latin"],
   display: "swap",
-  // Tabular figures available via font-feature-settings in globals.css
 });
 
 export const metadata: Metadata = {
-  title: "TOPSHOT TERMINAL — collector-first market intelligence",
+  title: "TS·PORTAL — NBA Top Shot data terminal",
   description:
-    "Real numbers, real names, real moves. Live NBA Top Shot market data for the financial gambler-collector. Built on the public GraphQL API.",
+    "Dapper-internal market intelligence for NBA Top Shot. Real numbers, real names, real moves — for the trader-collector.",
   openGraph: {
-    title: "TOPSHOT TERMINAL",
-    description: "Real numbers, real names, real moves.",
+    title: "TS·PORTAL",
+    description: "NBA Top Shot data terminal.",
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
-      <body className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)] antialiased">
         <Providers>
-        <header className="border-b border-[var(--border)] sticky top-0 z-30 bg-[var(--bg)]/95 backdrop-blur relative">
-          <div className="max-w-portal mx-auto px-4 sm:px-6 h-12 flex items-center gap-4 sm:gap-6">
-            <Link href="/" className="font-mono text-sm tracking-tight font-semibold whitespace-nowrap">
-              TOPSHOT<span className="text-[var(--accent)]">·</span>TERMINAL
-            </Link>
-            <MobileNav />
-            <nav className="hidden sm:flex items-center gap-3 text-xs text-[var(--text-dim)] flex-wrap">
-              <Link href="/" className="hover:text-[var(--text)]">Market</Link>
-              <Link href="/movement" className="hover:text-[var(--text)]">Movement</Link>
-              <Link href="/whales" className="hover:text-[var(--text)]">Whales</Link>
-              <Link href="/specials" className="hover:text-[var(--text)]">Specials</Link>
-              <Link href="/anomalies" className="hover:text-[var(--text)]">Anomalies</Link>
-              <span className="text-[var(--text-faint)]">·</span>
-              <Link href="/players" className="hover:text-[var(--text)]">Players</Link>
-              <Link href="/teams" className="hover:text-[var(--text)]">Teams</Link>
-              <Link href="/sets" className="hover:text-[var(--text)]">Sets</Link>
-              <Link href="/leaderboards" className="hover:text-[var(--text)]">Ladders</Link>
-              <span className="text-[var(--text-faint)]">·</span>
-              <Link href="/collectors" className="hover:text-[var(--text)]">Collectors</Link>
-              <Link href="/compare" className="hover:text-[var(--text)]">Compare</Link>
-              <Link href="/watching" className="hover:text-[var(--text)]">Watching</Link>
-              <span className="text-[var(--text-faint)]">·</span>
-              <Link href="/trends" className="hover:text-[var(--text)]">Trends</Link>
-              <Link href="/archive" className="hover:text-[var(--text)]">Archive</Link>
-              <Link href="/on-this-day" className="hover:text-[var(--text)]">OnThisDay</Link>
-              <span className="text-[var(--text-faint)]">·</span>
-              <Link href="/rules" className="hover:text-[var(--text)]">Rules</Link>
-              <Link href="/methodology" className="hover:text-[var(--text)]">Methodology</Link>
-              <Link href="/changelog" className="hover:text-[var(--text)]">Changelog</Link>
-            </nav>
-            <div className="ml-auto flex items-center gap-3 text-[10px] sm:text-xs text-[var(--text-faint)]">
-              <kbd className="hidden md:inline px-1.5 py-0.5 border border-[var(--border)] rounded text-[10px] font-mono text-[var(--text-dim)]">
-                / or ⌘K
-              </kbd>
-              <span className="flex items-center gap-1.5">
-                <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--up)] inline-block" />
-                <span className="tnum hidden sm:inline">LIVE</span>
-              </span>
+          <TopNav />
+          <main className="flex-1">{children}</main>
+          <footer className="border-t border-[var(--border-subtle)] text-[10px] text-[var(--text-faint)] py-3 mt-12 font-mono">
+            <div className="max-w-[1440px] mx-auto px-4 flex items-center gap-4">
+              <span>Dapper-internal data portal for NBA Top Shot.</span>
+              <Link href="/methodology" className="hover:text-[var(--text)] tracking-data-label">methodology</Link>
             </div>
-          </div>
-        </header>
-        <main className="flex-1">{children}</main>
-        <footer className="border-t border-[var(--border)] text-xs text-[var(--text-faint)] py-6 mt-12">
-          <div className="max-w-portal mx-auto px-4 sm:px-6 flex flex-wrap gap-x-6 gap-y-1">
-            <span>Dapper-internal data portal for NBA Top Shot. Built on the public Top Shot GraphQL API.</span>
-            <span className="sm:ml-auto flex gap-3">
-              <Link href="/api/stats" className="hover:text-[var(--text)]">/api/stats</Link>
-              <Link href="/methodology" className="hover:text-[var(--text)]">methodology</Link>
-              <Link href="/rules" className="hover:text-[var(--text)]">rules</Link>
-              <span>· cache ≤60s</span>
-            </span>
-          </div>
-        </footer>
+          </footer>
         </Providers>
       </body>
     </html>
