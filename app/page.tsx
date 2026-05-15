@@ -305,7 +305,7 @@ async function loadEditionMostActive24h(
   rows: EditionActivityRow[];
   usedLiveFallback: boolean;
   filterRelaxed: boolean;
-  fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep";
+  fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep" | "cascade-exhausted";
   bulkWindowDaysApprox: number | null;
 }> {
   // Spec says the canonical source is a not-yet-built EditionActivitySnapshot
@@ -382,7 +382,8 @@ async function loadEditionMostActive24h(
     .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
   let rows = strict.slice(0, 20);
   let filterRelaxed = false;
-  let fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep" = strict.length >= 5 ? "none" : "none";
+  let fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep" | "cascade-exhausted" =
+    strict.length >= 5 ? "none" : "none";
   let bulkWindowDaysApprox: number | null = null;
   const computeBulkWindow = () => {
     const txs = bulkRef.txs ?? [];
@@ -422,22 +423,32 @@ async function loadEditionMostActive24h(
         fellback = "7d-bulk";
         computeBulkWindow();
       } else {
-        // Tier-4 (iter-2 R2 fix): deepest bulk slice — ≥1 trade, ≥$50 volume.
-        // This is the broadest filter before we declare honest-absence.
+        // Tier-4 (iter-3 Fix-1a): deepest bulk slice — ≥1 trade, ANY volume.
+        // The ≥1 trade constraint is implicit (buckets only exist if a trade
+        // occurred). Drop the $50 vol floor that iter-2 still carried — at
+        // bulk-window scale most buckets are single-trade Common/Fandom
+        // editions whose individual price is < $50. Ranking by descending
+        // aggregate volume and slicing top-20 lets the real depth come up.
         const deep = all
-          .filter((r) => r.trades24h >= 1 && r.vol24hUsd >= 50)
+          .filter((r) => r.trades24h >= 1)
           .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
         if (deep.length >= 5) {
           rows = deep.slice(0, 20);
           filterRelaxed = true;
           fellback = "7d-bulk-deep";
           computeBulkWindow();
-        } else if (relaxed.length > strict.length) {
-          // Even the deepest tier cleared < 5 — keep the relaxed surface
-          // (still < 5) as a best-effort. Empty/honest-absence copy fires
-          // upstream when row count is genuinely zero.
-          rows = relaxed.slice(0, 20);
+        } else if (deep.length > 0) {
+          // 1-4 buckets exist; still show them but mark cascade as exhausted
+          // (header truth — see render rule below).
+          rows = deep.slice(0, 20);
           filterRelaxed = true;
+          fellback = "cascade-exhausted";
+          computeBulkWindow();
+        } else {
+          // 0 buckets — genuine zero. Header reflects exhaustion.
+          rows = [];
+          fellback = "cascade-exhausted";
+          computeBulkWindow();
         }
       }
     }
@@ -644,39 +655,42 @@ interface SetMomentumCard {
 async function loadSetMomentum7d(
   bulkRef: { txs: MarketplaceTransaction[] | null },
   setUuidByName: Map<string, string>,
-): Promise<{ rows: SetMomentumCard[]; priorMissing: boolean; usedLiveFallback: boolean }> {
-  const pair = await readPair<MarketAggregateSnapshot>("week");
-  if (pair.now?.topSetsByVolume && pair.now.topSetsByVolume.length) {
-    const priorVol = new Map<string, number>();
-    if (pair.prior?.topSetsByVolume) {
-      for (const s of pair.prior.topSetsByVolume) {
-        priorVol.set(s.setFlowName, s.medianPriceCents * s.count);
-      }
-    }
-    const priorMissing = !pair.prior || !pair.prior.topSetsByVolume?.length;
-    const rows: SetMomentumCard[] = pair.now.topSetsByVolume.slice(0, 6).map((s) => {
-      const nowVol = s.medianPriceCents * s.count;
-      const prev = priorVol.get(s.setFlowName) ?? 0;
-      const pct = prev > 0 ? ((nowVol - prev) / prev) * 100 : 0;
-      return {
-        setUuid: setUuidByName.get(s.setFlowName) ?? null,
-        setFlowName: s.setFlowName,
-        vol7dUsd: nowVol / 100,
-        vol7dPrior: prev / 100,
-        volPctChange: pct,
-        trades7d: s.count,
-        medianUsd: s.medianPriceCents / 100,
-      };
-    });
-    return { rows, priorMissing, usedLiveFallback: false };
+): Promise<{
+  rows: SetMomentumCard[];
+  priorMissing: boolean;
+  usedLiveFallback: boolean;
+  bulkWindowDaysApprox: number | null;
+  bulkTxCount: number;
+}> {
+  // iter-3 Fix-2: compute true aggregate volume by summing per-tx prices from
+  // the bulk window, regardless of whether the week-tier snapshot has
+  // topSetsByVolume — that snapshot's `count × medianPrice` heuristic
+  // under-reports for sets with right-skewed price distributions, which is
+  // every Top Shot set. Caption discloses the bulk-window depth honestly.
+  if (!bulkRef.txs) bulkRef.txs = await recentSalesBulk(2000).catch(() => [] as MarketplaceTransaction[]);
+  const txs = bulkRef.txs;
+
+  // Compute bulk window coverage for the caption.
+  let bulkWindowDaysApprox: number | null = null;
+  let oldest = Infinity;
+  let newest = -Infinity;
+  for (const t of txs) {
+    const ts = t.updatedAt ? Date.parse(t.updatedAt) : NaN;
+    if (!isFinite(ts)) continue;
+    if (ts < oldest) oldest = ts;
+    if (ts > newest) newest = ts;
   }
-  // Live fallback (24h-bound; signal noisy but the surface stays alive)
-  if (!bulkRef.txs) bulkRef.txs = await recentSalesBulk(800).catch(() => [] as MarketplaceTransaction[]);
+  if (isFinite(oldest) && isFinite(newest) && newest > oldest) {
+    bulkWindowDaysApprox = Math.max(1, Math.round((newest - oldest) / 86_400_000));
+  }
+
+  // Aggregate per-tx volume by set.
   const bySet = new Map<string, { count: number; volCents: number; samples: number[] }>();
-  for (const t of bulkRef.txs) {
+  for (const t of txs) {
     const name = t.moment?.set?.flowName;
     if (!name) continue;
     const cents = Math.round(Number(t.price ?? 0) * 100);
+    if (cents <= 0) continue;
     const cur = bySet.get(name) ?? { count: 0, volCents: 0, samples: [] };
     cur.count += 1;
     cur.volCents += cents;
@@ -695,7 +709,7 @@ async function loadSetMomentum7d(
     }))
     .sort((a, b) => b.vol7dUsd - a.vol7dUsd)
     .slice(0, 6);
-  return { rows, priorMissing: true, usedLiveFallback: true };
+  return { rows, priorMissing: true, usedLiveFallback: true, bulkWindowDaysApprox, bulkTxCount: txs.length };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -717,22 +731,48 @@ async function loadIndicesStrip24h(
 ): Promise<IndexCell[]> {
   // P0-4: compute per-tier medians from the in-memory bulk pull. Group by
   // moment.tier (raw token), take median price across the last 800-2000 sales.
-  // Tiers with <10 sales in the window get an em-dash and the thin-sample caption.
+  // Tiers with <10 sales in the 24h sub-window get a fallback path (iter-3
+  // Fix-3: Ultimate uses bulk-window median when 24h is empty; other tiers
+  // keep the thin-sample em-dash).
   if (!bulkRef.txs) bulkRef.txs = await recentSalesBulk(2000).catch(() => [] as MarketplaceTransaction[]);
+  const txs = bulkRef.txs;
 
-  const byTier = new Map<string, number[]>(); // raw tier token -> sample prices in cents
-  for (const t of bulkRef.txs) {
+  // Compute bulk window coverage (used in Ultimate fallback caption).
+  let bulkWindowDaysApprox: number | null = null;
+  let oldest = Infinity;
+  let newest = -Infinity;
+  for (const t of txs) {
+    const ts = t.updatedAt ? Date.parse(t.updatedAt) : NaN;
+    if (!isFinite(ts)) continue;
+    if (ts < oldest) oldest = ts;
+    if (ts > newest) newest = ts;
+  }
+  if (isFinite(oldest) && isFinite(newest) && newest > oldest) {
+    bulkWindowDaysApprox = Math.max(1, Math.round((newest - oldest) / 86_400_000));
+  }
+  const last24hCutoff = Date.now() - 24 * 60 * 60 * 1000;
+
+  // Tier samples: 24h slice (last 24h by updatedAt) and full bulk slice.
+  const tier24h = new Map<string, number[]>();
+  const tierBulk = new Map<string, number[]>();
+  for (const t of txs) {
     const raw = t.moment?.edition?.tier ?? t.moment?.tier ?? null;
     if (!raw) continue;
     const cents = Math.round(Number(t.price ?? 0) * 100);
     if (cents <= 0) continue;
-    const arr = byTier.get(raw) ?? [];
-    arr.push(cents);
-    byTier.set(raw, arr);
+    const ts = t.updatedAt ? Date.parse(t.updatedAt) : NaN;
+    const bulkArr = tierBulk.get(raw) ?? [];
+    bulkArr.push(cents);
+    tierBulk.set(raw, bulkArr);
+    if (isFinite(ts) && ts >= last24hCutoff) {
+      const arr = tier24h.get(raw) ?? [];
+      arr.push(cents);
+      tier24h.set(raw, arr);
+    }
   }
 
   const tierCell = (slug: IndexCell["slug"], label: string, rawTier: string): IndexCell => {
-    const samples = byTier.get(rawTier) ?? [];
+    const samples = tier24h.get(rawTier) ?? [];
     const n = samples.length;
     const cleanLabel = label.split(" · ")[0];
     if (n < TIER_MIN_SAMPLES) {
@@ -755,14 +795,81 @@ async function loadIndicesStrip24h(
     };
   };
 
-  // Series-of-the-moment: pick top set by 7d volume as the "current" series anchor
+  // iter-3 Fix-3 (Ultimate): when 0 Ultimate sales in 24h, fall back to the
+  // median Ultimate sale across the full bulk window.
+  const ultimateRaw = "MOMENT_TIER_ULTIMATE";
+  let ultimateCell: IndexCell = tierCell("tier-ultimate", "Ultimate · median 24h", ultimateRaw);
+  const ultimate24h = (tier24h.get(ultimateRaw) ?? []).length;
+  if (ultimate24h === 0) {
+    const bulkSamples = tierBulk.get(ultimateRaw) ?? [];
+    if (bulkSamples.length > 0) {
+      const med = median(bulkSamples);
+      const usd = Math.round(med / 100);
+      ultimateCell = {
+        slug: "tier-ultimate",
+        label: "Ultimate · median 24h",
+        value: `$${usd.toLocaleString()}`,
+        pct24h: null,
+        caption: `Ultimate proxy: median Ultimate sale over trailing ~${bulkWindowDaysApprox && bulkWindowDaysApprox > 0 ? bulkWindowDaysApprox : "?"}d bulk window (${(bulkSamples.length || 0).toLocaleString()} tx). Canonical index live 2026-06-09.`,
+      };
+    }
+  }
+
+  // iter-3 Fix-3 (Series-of-the-moment): pick the series with the most 24h tx
+  // from grouping bulkRef.txs by moment.set.flowSeriesNumber. If the top
+  // series has < 10 tx in 24h, fall back to the bulk-window proxy — pick the
+  // series with the most tx in the FULL bulk window and render the proxy
+  // caption (same template as the Ultimate-tier fallback). Em-dash only when
+  // the bulk window itself has 0 series tx for any series.
   let seriesValue: string | null = null;
-  let seriesCaption = `Proxy: median 24h Series sale, $— across 0 tx. Canonical index live 2026-06-09.`;
-  const weekPair = await readPair<MarketAggregateSnapshot>("week");
-  const topSet = weekPair.now?.topSetsByVolume?.[0];
-  if (topSet) {
-    seriesValue = `$${Math.round(topSet.medianPriceCents / 100).toLocaleString()}`;
-    seriesCaption = `Proxy: median 24h Series sale, $${Math.round(topSet.medianPriceCents / 100).toLocaleString()} across ${topSet.count.toLocaleString()} tx. Canonical index live 2026-06-09.`;
+  let seriesLabel = "Series — · median 24h";
+  let seriesCaption = `Tier sample too thin for 24h proxy — 0 Series sales in window. Canonical index live 2026-06-09.`;
+
+  const bySeries24h = new Map<number, number[]>();
+  const bySeriesBulk = new Map<number, number[]>();
+  for (const t of txs) {
+    const sn = t.moment?.set?.flowSeriesNumber;
+    if (sn == null) continue;
+    const cents = Math.round(Number(t.price ?? 0) * 100);
+    if (cents <= 0) continue;
+    const bulkArr = bySeriesBulk.get(sn) ?? [];
+    bulkArr.push(cents);
+    bySeriesBulk.set(sn, bulkArr);
+    const ts = t.updatedAt ? Date.parse(t.updatedAt) : NaN;
+    if (!isFinite(ts) || ts < last24hCutoff) continue;
+    const arr = bySeries24h.get(sn) ?? [];
+    arr.push(cents);
+    bySeries24h.set(sn, arr);
+  }
+  let topSeries24h: { n: number; samples: number[] } | null = null;
+  for (const [n, samples] of bySeries24h.entries()) {
+    if (!topSeries24h || samples.length > topSeries24h.samples.length) {
+      topSeries24h = { n, samples };
+    }
+  }
+  if (topSeries24h && topSeries24h.samples.length >= 10) {
+    const med = median(topSeries24h.samples);
+    const usd = Math.round(med / 100);
+    seriesValue = `$${usd.toLocaleString()}`;
+    seriesLabel = `Series ${topSeries24h.n} · median 24h`;
+    seriesCaption = `Proxy: median 24h Series ${topSeries24h.n} sale, $${usd.toLocaleString()} across ${topSeries24h.samples.length.toLocaleString()} tx. Canonical index live 2026-06-09.`;
+  } else {
+    // Bulk-window fallback: no series has ≥10 24h tx. Pick the series with the
+    // most tx in the FULL bulk window (regardless of 24h freshness).
+    let topSeriesBulk: { n: number; samples: number[] } | null = null;
+    for (const [n, samples] of bySeriesBulk.entries()) {
+      if (!topSeriesBulk || samples.length > topSeriesBulk.samples.length) {
+        topSeriesBulk = { n, samples };
+      }
+    }
+    if (topSeriesBulk && topSeriesBulk.samples.length > 0) {
+      const med = median(topSeriesBulk.samples);
+      const usd = Math.round(med / 100);
+      seriesValue = `$${usd.toLocaleString()}`;
+      seriesLabel = `Series ${topSeriesBulk.n} · median 24h`;
+      seriesCaption = `Series ${topSeriesBulk.n} proxy: median sale over trailing ~${bulkWindowDaysApprox && bulkWindowDaysApprox > 0 ? bulkWindowDaysApprox : "?"}d bulk window (${topSeriesBulk.samples.length.toLocaleString()} tx). Canonical index live 2026-06-09.`;
+    }
+    // else: em-dash with default caption (bulk window has 0 series tx anywhere).
   }
 
   const cells: IndexCell[] = [
@@ -776,10 +883,10 @@ async function loadIndicesStrip24h(
     tierCell("tier-common", "Common · median 24h", "MOMENT_TIER_COMMON"),
     tierCell("tier-rare", "Rare · median 24h", "MOMENT_TIER_RARE"),
     tierCell("tier-legendary", "Legendary · median 24h", "MOMENT_TIER_LEGENDARY"),
-    tierCell("tier-ultimate", "Ultimate · median 24h", "MOMENT_TIER_ULTIMATE"),
+    ultimateCell,
     {
       slug: "series-of-the-moment",
-      label: "Series 6 · median 24h",
+      label: seriesLabel,
       value: seriesValue,
       pct24h: null,
       caption: seriesCaption,
@@ -939,18 +1046,23 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
       <section aria-labelledby="b2">
         <div className="flex items-baseline gap-3 mb-2 px-1">
           <h2 id="b2" className="text-[13px] font-semibold tracking-section-header">
-            Most active · editions ·{" "}
-            {mostActive.fellback === "7d-bulk" || mostActive.fellback === "7d-bulk-deep" ? "7d" : "24h"}
+            {mostActive.fellback === "cascade-exhausted"
+              ? "Most active · editions · 24h–7d (cascade exhausted)"
+              : mostActive.fellback === "7d-bulk" || mostActive.fellback === "7d-bulk-deep"
+                ? "Most active · editions · 7d"
+                : "Most active · editions · 24h"}
           </h2>
           <span className="text-[10px] text-[var(--text-faint)] font-mono">
             {mostActive.rows.length} editions · $ volume desc · filter{" "}
-            {mostActive.fellback === "7d-bulk-deep"
-              ? "1+ trade / $50 vol (7d deep)"
-              : mostActive.fellback === "7d-bulk"
-                ? "2+ trades / $100 vol (7d)"
-                : mostActive.filterRelaxed
-                  ? "2+ trades / $500 vol (relaxed)"
-                  : "3+ trades / $1,000 vol"}
+            {mostActive.fellback === "cascade-exhausted"
+              ? "1+ trade (deepest, no vol floor)"
+              : mostActive.fellback === "7d-bulk-deep"
+                ? "1+ trade (7d deep)"
+                : mostActive.fellback === "7d-bulk"
+                  ? "2+ trades / $100 vol (7d)"
+                  : mostActive.filterRelaxed
+                    ? "2+ trades / $500 vol (relaxed)"
+                    : "3+ trades / $1,000 vol"}
           </span>
           <Link href="/volume" className="ml-auto text-[10px] text-[var(--text-dim)] hover:text-[var(--accent)] font-mono">
             see all →
@@ -958,7 +1070,9 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         </div>
         {mostActive.rows.length === 0 ? (
           <Card className="p-3 text-[11px] text-[var(--text-faint)]">
-            No editions cleared 3 sales / $1,000 volume in the trailing 24h. The screener at /volume covers the long tail.
+            {mostActive.fellback === "cascade-exhausted"
+              ? "24h strict, 24h relaxed, and ~2-3d bulk passes each returned fewer than 5 qualifying editions. Showing nothing rather than noise."
+              : "No editions cleared 3 sales / $1,000 volume in the trailing 24h. The screener at /volume covers the long tail."}
           </Card>
         ) : (
           <Card variant="inset">
@@ -1009,7 +1123,11 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
             </table>
           </Card>
         )}
-        {mostActive.fellback === "7d-bulk-deep" ? (
+        {mostActive.fellback === "cascade-exhausted" && mostActive.rows.length > 0 ? (
+          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
+            24h strict, 24h relaxed, and ~2-3d bulk passes each returned fewer than 5 qualifying editions. Showing the {mostActive.rows.length} bucket{mostActive.rows.length === 1 ? "" : "s"} that exist rather than noise.
+          </p>
+        ) : mostActive.fellback === "7d-bulk-deep" ? (
           <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
             24h depth insufficient — surfaced over the deepest bulk slice (~2-3d, broadest filter). 24h re-engages when ≥5 entities clear the filter.
           </p>
@@ -1024,7 +1142,8 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         ) : null}
         {mostActive.usedLiveFallback &&
           mostActive.fellback !== "7d-bulk" &&
-          mostActive.fellback !== "7d-bulk-deep" && (
+          mostActive.fellback !== "7d-bulk-deep" &&
+          mostActive.fellback !== "cascade-exhausted" && (
             <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">Live fallback · 24h cron warming.</p>
           )}
       </section>
@@ -1210,12 +1329,12 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         )}
         {momentum.priorMissing && momentum.rows.length > 0 && (
           <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
-            Δ% pending — prior-week snapshot not yet populated. Showing absolute 7d $ volume.
+            Δ% pending — prior-week snapshot not yet populated. Showing absolute $ volume.
           </p>
         )}
         {momentum.usedLiveFallback && (
           <p className="mt-0.5 px-1 text-[10px] text-[var(--text-faint)]">
-            Live fallback · 7d cron warming. Δ% pending prior-window snapshot.
+            Aggregate volume from trailing ~{momentum.bulkWindowDaysApprox && momentum.bulkWindowDaysApprox > 0 ? momentum.bulkWindowDaysApprox : "?"}d bulk window ({(momentum.bulkTxCount || 0).toLocaleString()} tx){(momentum.bulkTxCount || 0) === 0 ? " — depth unavailable at this render." : "."}
           </p>
         )}
       </section>
