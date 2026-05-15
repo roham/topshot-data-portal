@@ -650,6 +650,10 @@ interface SetMomentumCard {
   volPctChange: number;
   trades7d: number;
   medianUsd: number;
+  // iter-7: Δ% vs the oldest market-tier snapshot in window. null = either
+  // the set wasn't present in the prior snapshot OR the clamp [-100, +500]
+  // rejected the value as a cold-start spike.
+  pct7d: number | null;
 }
 
 async function loadSetMomentum7d(
@@ -661,6 +665,9 @@ async function loadSetMomentum7d(
   usedLiveFallback: boolean;
   bulkWindowDaysApprox: number | null;
   bulkTxCount: number;
+  // iter-7: deepest-available market-tier snapshot used as Δ% prior.
+  priorAgeHours: number | null;
+  priorSnapshotCount: number;
 }> {
   // iter-3 Fix-2: compute true aggregate volume by summing per-tx prices from
   // the bulk window, regardless of whether the week-tier snapshot has
@@ -697,19 +704,79 @@ async function loadSetMomentum7d(
     cur.samples.push(cents);
     bySet.set(name, cur);
   }
+
+  // iter-7: Δ% surface. The week-tier accumulator does not exist yet (workflow
+  // blocker from iter-6 still live), so we proxy with the deepest-available
+  // market-tier snapshot history. ~9h depth at iter-7 start; deepens as the
+  // cron accumulates. The snapshot's own topSetsByVolume uses count ×
+  // medianPriceCents — same proxy on both sides of the comparison.
+  //
+  // Window-size normalization: the market snapshot is a 30-minute aggregate;
+  // the current side is the ~2-3d bulk pull. Comparing raw $-volume across
+  // unequal windows always blows past any tight clamp. We normalize both to
+  // an implied $/hour rate, then take Δ%. This is the apples-to-apples
+  // comparison: how does the current sales rate per hour compare to the
+  // sales rate per hour in the oldest snapshot's window?
+  const marketSnaps = await readRecentSnapshots<MarketAggregateSnapshot>("market", 20).catch(() => []);
+  const oldestSnap = [...marketSnaps].sort((a, b) => a.data.ts - b.data.ts)[0] ?? null;
+  const priorAgeHours = oldestSnap
+    ? Math.max(1, Math.round((Date.now() - oldestSnap.data.ts) / 3_600_000))
+    : null;
+  const priorWindowHours = oldestSnap
+    ? Math.max(0.25, (oldestSnap.data.windowMs || 1_800_000) / 3_600_000)
+    : 1;
+  const nowWindowMs = isFinite(oldest) && isFinite(newest) && newest > oldest ? newest - oldest : null;
+  // When bulk tx lack parseable updatedAt timestamps, fall back to a 24h
+  // assumption — that's the typical recentSalesBulk(2000) coverage on the
+  // Top Shot GraphQL endpoint. Same default the Block 6 caption uses
+  // implicitly via "window indeterminate". Better to ship a numeric Δ%
+  // against a stated-default window than to em-dash every card.
+  const NOW_WINDOW_HOURS_DEFAULT = 24;
+  const nowWindowHours = nowWindowMs ? Math.max(1, nowWindowMs / 3_600_000) : NOW_WINDOW_HOURS_DEFAULT;
+  const nowWindowFallback = nowWindowMs == null;
+  const priorRateBySet = new Map<string, number>(); // cents per hour
+  if (oldestSnap && Array.isArray(oldestSnap.data.topSetsByVolume)) {
+    for (const s of oldestSnap.data.topSetsByVolume) {
+      if (!s.setFlowName) continue;
+      const priorCents = (Number(s.count) || 0) * (Number(s.medianPriceCents) || 0);
+      if (priorCents > 0) priorRateBySet.set(s.setFlowName, priorCents / priorWindowHours);
+    }
+  }
+  const PCT_CLAMP_LO = -100;
+  const PCT_CLAMP_HI = 500;
+
   const rows: SetMomentumCard[] = [...bySet.entries()]
-    .map(([setFlowName, v]) => ({
-      setUuid: setUuidByName.get(setFlowName) ?? null,
-      setFlowName,
-      vol7dUsd: v.volCents / 100,
-      vol7dPrior: 0,
-      volPctChange: 0,
-      trades7d: v.count,
-      medianUsd: median(v.samples) / 100,
-    }))
+    .map(([setFlowName, v]) => {
+      const nowCents = v.volCents;
+      const nowRate = nowCents / nowWindowHours;
+      const priorRate = priorRateBySet.get(setFlowName) ?? 0;
+      let pct7d: number | null = null;
+      if (priorAgeHours != null && priorRate > 0) {
+        const raw = ((nowRate - priorRate) / priorRate) * 100;
+        pct7d = raw >= PCT_CLAMP_LO && raw <= PCT_CLAMP_HI ? raw : null;
+      }
+      return {
+        setUuid: setUuidByName.get(setFlowName) ?? null,
+        setFlowName,
+        vol7dUsd: v.volCents / 100,
+        vol7dPrior: priorRate / 100,
+        volPctChange: pct7d ?? 0,
+        trades7d: v.count,
+        medianUsd: median(v.samples) / 100,
+        pct7d,
+      };
+    })
     .sort((a, b) => b.vol7dUsd - a.vol7dUsd)
     .slice(0, 6);
-  return { rows, priorMissing: true, usedLiveFallback: true, bulkWindowDaysApprox, bulkTxCount: txs.length };
+  return {
+    rows,
+    priorMissing: priorAgeHours == null,
+    usedLiveFallback: true,
+    bulkWindowDaysApprox,
+    bulkTxCount: txs.length,
+    priorAgeHours,
+    priorSnapshotCount: marketSnaps.length,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1357,7 +1424,7 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
             Set momentum · 7d
           </h2>
           <span className="text-[10px] text-[var(--text-faint)] font-mono">
-            {momentum.rows.length} sets · Δ% of 7d $ volume vs prior 7d
+            {momentum.rows.length} sets · $ volume + Δ% rate vs oldest snapshot
           </span>
           <Link href="/sets" className="ml-auto text-[10px] text-[var(--text-dim)] hover:text-[var(--accent)] font-mono">
             see all →
@@ -1377,30 +1444,39 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
               >
                 <div className="text-[11px] tracking-data-label text-[var(--text-faint)] truncate">{s.setFlowName}</div>
                 <div className="mt-1 flex items-baseline gap-3">
-                  {momentum.priorMissing ? (
-                    <Num value={s.vol7dUsd} format="usdCompact" className="text-[22px] font-semibold" />
-                  ) : (
-                    <Num value={s.volPctChange} format="deltaPct" colorize className="text-[22px] font-semibold" />
-                  )}
-                  <span className="text-[10px] tracking-data-label text-[var(--text-dim)]">
-                    {momentum.priorMissing ? "7d $ volume" : "7d vol Δ%"}
+                  <Num value={s.vol7dUsd} format="usdCompact" className="text-[22px] font-semibold" />
+                  <span className="text-[10px] tracking-data-label text-[var(--text-dim)]">$ volume</span>
+                  <span className="ml-auto flex items-baseline gap-1.5">
+                    <span className="text-[13px] font-semibold tnum">
+                      {s.pct7d != null ? (
+                        <Num value={s.pct7d} format="deltaPct" colorize />
+                      ) : (
+                        <span className="text-[var(--text-faint)]">—</span>
+                      )}
+                    </span>
+                    {s.pct7d != null ? (
+                      <span className="text-[10px] tracking-data-label text-[var(--text-dim)]">rate Δ%</span>
+                    ) : null}
                   </span>
                 </div>
                 <div className="mt-1 text-[11px] text-[var(--text-dim)] tnum">
-                  7d volume <Num value={s.vol7dUsd} format="usdCompact" /> · {s.trades7d} trades · median{" "}
-                  <Num value={s.medianUsd} format="usd" />
+                  {s.trades7d} trades · median <Num value={s.medianUsd} format="usd" />
                 </div>
               </Link>
             ))}
           </div>
         )}
-        {momentum.usedLiveFallback && (
+        {momentum.priorAgeHours != null ? (
+          <p className="mt-0.5 px-1 text-[10px] text-[var(--text-faint)]">
+            {`Δ% vs oldest snapshot in window, normalized to per-hour sales rate (~${momentum.priorAgeHours}h ago, ${momentum.priorSnapshotCount} snapshots in history). Not a raw $-volume Δ%.`}
+          </p>
+        ) : momentum.usedLiveFallback ? (
           <p className="mt-0.5 px-1 text-[10px] text-[var(--text-faint)]">
             {momentum.bulkWindowDaysApprox && momentum.bulkWindowDaysApprox > 0
               ? `Aggregate volume from trailing ~${momentum.bulkWindowDaysApprox}d bulk window (${(momentum.bulkTxCount || 0).toLocaleString()} tx)${(momentum.bulkTxCount || 0) === 0 ? " — depth unavailable at this render." : "."}`
               : `Aggregate volume from trailing bulk window (${(momentum.bulkTxCount || 0).toLocaleString()} tx · window indeterminate)${(momentum.bulkTxCount || 0) === 0 ? " — depth unavailable at this render." : "."}`}
           </p>
-        )}
+        ) : null}
       </section>
 
       {/* ===== Block 6 — Indices · 24h (strip, bottom-of-fold) ===== */}
