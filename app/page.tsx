@@ -771,49 +771,49 @@ async function loadIndicesStrip24h(
     }
   }
 
+  // iter-4 Fix R1: universal bulk-window fallback. The helper tries 24h first;
+  // if thin (< TIER_MIN_SAMPLES), it falls back to the full bulk window
+  // (threshold ≥ 5, lower because this is the fallback). Em-dash only when
+  // bulk itself has 0 tier-tagged samples. This unifies the previous
+  // Ultimate-only fallback to all four named tiers.
+  const TIER_BULK_MIN_SAMPLES = 5;
   const tierCell = (slug: IndexCell["slug"], label: string, rawTier: string): IndexCell => {
     const samples = tier24h.get(rawTier) ?? [];
     const n = samples.length;
     const cleanLabel = label.split(" · ")[0];
-    if (n < TIER_MIN_SAMPLES) {
+    if (n >= TIER_MIN_SAMPLES) {
+      const med = median(samples);
+      const usd = Math.round(med / 100);
       return {
         slug,
         label,
-        value: null,
+        value: `$${usd.toLocaleString()}`,
         pct24h: null,
-        caption: `Tier sample too thin for 24h proxy — ${n} ${cleanLabel} sales in window. Canonical index live 2026-06-09.`,
+        caption: `Proxy: median 24h ${cleanLabel} sale, $${usd.toLocaleString()} across ${n.toLocaleString()} tx. Canonical index live 2026-06-09.`,
       };
     }
-    const med = median(samples);
-    const usd = Math.round(med / 100);
+    const bulk = tierBulk.get(rawTier) ?? [];
+    if (bulk.length >= TIER_BULK_MIN_SAMPLES) {
+      const med = median(bulk);
+      const usd = Math.round(med / 100);
+      return {
+        slug,
+        label,
+        value: `$${usd.toLocaleString()}`,
+        pct24h: null,
+        caption: `${cleanLabel} proxy: median sale over trailing ~${bulkWindowDaysApprox && bulkWindowDaysApprox > 0 ? bulkWindowDaysApprox : "?"}d bulk window (${bulk.length.toLocaleString()} tx). Canonical index live 2026-06-09.`,
+      };
+    }
     return {
       slug,
       label,
-      value: `$${usd.toLocaleString()}`,
+      value: null,
       pct24h: null,
-      caption: `Proxy: median 24h ${cleanLabel} sale, $${usd.toLocaleString()} across ${n.toLocaleString()} tx. Canonical index live 2026-06-09.`,
+      caption: `Tier sample too thin for 24h proxy — ${n} ${cleanLabel} sales in window (bulk ${bulk.length}). Canonical index live 2026-06-09.`,
     };
   };
 
-  // iter-3 Fix-3 (Ultimate): when 0 Ultimate sales in 24h, fall back to the
-  // median Ultimate sale across the full bulk window.
-  const ultimateRaw = "MOMENT_TIER_ULTIMATE";
-  let ultimateCell: IndexCell = tierCell("tier-ultimate", "Ultimate · median 24h", ultimateRaw);
-  const ultimate24h = (tier24h.get(ultimateRaw) ?? []).length;
-  if (ultimate24h === 0) {
-    const bulkSamples = tierBulk.get(ultimateRaw) ?? [];
-    if (bulkSamples.length > 0) {
-      const med = median(bulkSamples);
-      const usd = Math.round(med / 100);
-      ultimateCell = {
-        slug: "tier-ultimate",
-        label: "Ultimate · median 24h",
-        value: `$${usd.toLocaleString()}`,
-        pct24h: null,
-        caption: `Ultimate proxy: median Ultimate sale over trailing ~${bulkWindowDaysApprox && bulkWindowDaysApprox > 0 ? bulkWindowDaysApprox : "?"}d bulk window (${(bulkSamples.length || 0).toLocaleString()} tx). Canonical index live 2026-06-09.`,
-      };
-    }
-  }
+  const ultimateCell: IndexCell = tierCell("tier-ultimate", "Ultimate · median 24h", "MOMENT_TIER_ULTIMATE");
 
   // iter-3 Fix-3 (Series-of-the-moment): pick the series with the most 24h tx
   // from grouping bulkRef.txs by moment.set.flowSeriesNumber. If the top
@@ -822,8 +822,8 @@ async function loadIndicesStrip24h(
   // caption (same template as the Ultimate-tier fallback). Em-dash only when
   // the bulk window itself has 0 series tx for any series.
   let seriesValue: string | null = null;
-  let seriesLabel = "Series — · median 24h";
-  let seriesCaption = `Tier sample too thin for 24h proxy — 0 Series sales in window. Canonical index live 2026-06-09.`;
+  let seriesLabel = "Series · pending";
+  let seriesCaption = `Series rotation pending — no series has ≥1 tx in trailing bulk window.`;
 
   const bySeries24h = new Map<number, number[]>();
   const bySeriesBulk = new Map<number, number[]>();
@@ -1326,11 +1326,6 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
               </Link>
             ))}
           </div>
-        )}
-        {momentum.priorMissing && momentum.rows.length > 0 && (
-          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
-            Δ% pending — prior-week snapshot not yet populated. Showing absolute $ volume.
-          </p>
         )}
         {momentum.usedLiveFallback && (
           <p className="mt-0.5 px-1 text-[10px] text-[var(--text-faint)]">
