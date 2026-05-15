@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import { MobileNav } from "@/components/MobileNav";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-sans-stack", subsets: ["latin"], display: "swap" });
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
       <body className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
+        <Providers>
         <header className="border-b border-[var(--border)] sticky top-0 z-30 bg-[var(--bg)]/95 backdrop-blur relative">
           <div className="max-w-portal mx-auto px-4 sm:px-6 h-12 flex items-center gap-4 sm:gap-6">
             <Link href="/" className="font-mono text-sm tracking-tight font-semibold whitespace-nowrap">
@@ -56,10 +58,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/methodology" className="hover:text-[var(--text)]">Methodology</Link>
               <Link href="/changelog" className="hover:text-[var(--text)]">Changelog</Link>
             </nav>
-            <div className="ml-auto flex items-center gap-2 text-[10px] sm:text-xs text-[var(--text-faint)]">
-              <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--up)] inline-block" />
-              <span className="tnum hidden sm:inline">LIVE · public-api.nbatopshot.com</span>
-              <span className="tnum sm:hidden">LIVE</span>
+            <div className="ml-auto flex items-center gap-3 text-[10px] sm:text-xs text-[var(--text-faint)]">
+              <kbd className="hidden md:inline px-1.5 py-0.5 border border-[var(--border)] rounded text-[10px] font-mono text-[var(--text-dim)]">
+                / or ⌘K
+              </kbd>
+              <span className="flex items-center gap-1.5">
+                <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--up)] inline-block" />
+                <span className="tnum hidden sm:inline">LIVE</span>
+              </span>
             </div>
           </div>
         </header>
@@ -75,6 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </span>
           </div>
         </footer>
+        </Providers>
       </body>
     </html>
   );
