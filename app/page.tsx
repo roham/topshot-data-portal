@@ -11,6 +11,9 @@ import { AggregateEconomyStrip } from "@/components/AggregateEconomyStrip";
 import { getAggregateEconomy } from "@/lib/aggregate-economy";
 import { HomepageIndices } from "@/components/HomepageIndices";
 import { getFeaturedSetIndices } from "@/lib/indices/featured-sets";
+import { getTierIndices } from "@/lib/indices/tier-synthesizer";
+import { getTeamIndices } from "@/lib/indices/team-synthesizer";
+import { getSeriesIndices } from "@/lib/indices/series-synthesizer";
 import { listRecentSnapshotKeys } from "@/lib/snapshots/store";
 
 // V4-iter-1: revalidate window widened to 600s so the chronologicalTxBackfill
@@ -1234,6 +1237,9 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
     featuredSets7d,
     featuredSets24h,
     daySnapshotKeys,
+    tierIndices,
+    teamIndices,
+    seriesIndices,
   ] = await Promise.all([
     loadPlayerMovers24h(bulkRef),
     loadEditionMostActive24h(bulkRef, setUuidByName),
@@ -1248,6 +1254,13 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
     getFeaturedSetIndices(7).catch(() => []),
     getFeaturedSetIndices(1).catch(() => []),
     listRecentSnapshotKeys("day", 24).catch(() => []),
+    // V4-iter-3 — tier/team/series synthesizers. Heaviest path is team
+    // (~3min cold per Researcher §1b); page revalidates per 600s so the
+    // first user per window pays. Per-call try/catch surfaces empties
+    // rather than failing the whole page.
+    getTierIndices(30).catch(() => []),
+    getTeamIndices(30, 10).catch(() => []),
+    getSeriesIndices(30, 6).catch(() => []),
   ]);
 
   // V4-iter-2 — 24h warming-UI gate. The chart greys + shows the
@@ -1300,6 +1313,9 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         series24h={featuredSets24h}
         daySnapshotDepth={daySnapshotDepth}
         warmingCompleteISO={warmingCompleteISO}
+        tiers={tierIndices}
+        teams={teamIndices}
+        series={seriesIndices}
       />
 
       {/* Page header */}
