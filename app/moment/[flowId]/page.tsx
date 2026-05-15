@@ -13,6 +13,7 @@ import { Num } from "@/components/primitives/Num";
 import { Sparkline } from "@/components/primitives/Sparkline";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { DepthLadder } from "@/components/DepthLadder";
+import { TunedValuationOverlay } from "@/components/TunedValuationOverlay";
 import type { MintedMoment } from "@/lib/topshot/types";
 
 // V3 iter-11 — Pro Trader J-P2: per-moment market depth.
@@ -247,6 +248,27 @@ export default async function MomentPage({
           </div>
         )}
       </Card>
+
+      {/* ===== 2b. Tuned-rules overlay (V3 iter-16 — J-P7 full closure) ===== */}
+      <TunedValuationOverlay
+        playerName={moment.play?.stats?.playerName ?? "Unknown"}
+        tier={tier}
+        parallelId={parallelId}
+        serial={isFinite(serial) ? serial : 0}
+        circulation={moment.edition?.circulationCount ?? 0}
+        lastSale={anchors.lastSale}
+        lowAsk={moment.lowAsk == null ? null : Number(moment.lowAsk)}
+        jersey={
+          moment.play?.stats?.jerseyNumber != null
+            ? Number(moment.play.stats.jerseyNumber)
+            : null
+        }
+        canonicalFairCents={
+          valuation.fairValue != null ? Math.round(valuation.fairValue * 100) : null
+        }
+        canonicalConfLo={fvLo}
+        canonicalConfHi={fvHi}
+      />
 
       {/* ===== 3. Depth ladder ===== */}
       <Card
