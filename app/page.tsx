@@ -110,13 +110,15 @@ interface MoversBlock {
   rows: PlayerMover[];
   usedLiveFallback: boolean;
   usedLiveDeltaProxy: boolean;
+  snapshotJoinUsable: boolean;
+  constrainedPool: boolean;
 }
 
 // Compute Δ% from in-memory bulk transactions for a single player by
 // splitting that player's samples into first-half / second-half by updatedAt
 // and taking the ratio of medians. Returns null if the sample is too thin.
 function liveProxyPctFromSamples(samples: { cents: number; ts: number }[]): number | null {
-  if (samples.length < 4) return null;
+  if (samples.length < 6) return null;
   const sorted = [...samples].sort((a, b) => a.ts - b.ts);
   const mid = Math.floor(sorted.length / 2);
   const earlier = sorted.slice(0, mid).map((s) => s.cents);
@@ -174,46 +176,79 @@ async function loadPlayerMovers24h(bulkRef: { txs: MarketplaceTransaction[] | nu
 
   if (pair.now?.topPlayersByVolume && pair.now.topPlayersByVolume.length) {
     let anyLiveProxyUsed = false;
-    const rows: PlayerMover[] = pair.now.topPlayersByVolume.slice(0, 6).map((p) => {
-      const priorMed = priorMedians.get(p.playerName) ?? 0;
-      let pct = 0;
-      if (snapshotJoinUsable && priorMed > 0) {
-        pct = ((p.medianPriceCents - priorMed) / priorMed) * 100;
-      } else {
-        // Live proxy from bulk samples — split first-half / second-half by ts.
+    // Map snapshot rows to PlayerMover, applying trade-count floor (≥5 trades)
+    // and, on the live-Δ% proxy path, a samples-length floor (≥6 samples per player).
+    // Filtered-out players don't render at all (no em-dash padding).
+    type CandidateWithPath = PlayerMover & { __liveProxy: boolean };
+    const candidates: CandidateWithPath[] = pair.now.topPlayersByVolume
+      .map((p) => {
+        const priorMed = priorMedians.get(p.playerName) ?? 0;
         const live = liveByPlayer.get(p.playerName);
-        const proxy = live ? liveProxyPctFromSamples(live.samples) : null;
-        if (proxy !== null) {
+        const trades24h = live?.trades ?? p.count;
+        if (trades24h < 5) return null;
+        let pct = 0;
+        let liveProxyThisRow = false;
+        if (snapshotJoinUsable && priorMed > 0) {
+          pct = ((p.medianPriceCents - priorMed) / priorMed) * 100;
+        } else {
+          // Live proxy path — require ≥6 samples per player so first-half / second-half
+          // each carry ≥3 prints. Players with thinner samples are dropped.
+          if (!live || live.samples.length < 6) return null;
+          const proxy = liveProxyPctFromSamples(live.samples);
+          if (proxy === null) return null;
           pct = proxy;
-          anyLiveProxyUsed = true;
+          liveProxyThisRow = true;
         }
-      }
-      const live = liveByPlayer.get(p.playerName);
-      return {
-        playerId: p.playerName,
-        playerName: p.playerName,
-        team: live?.team ?? "",
-        pct24h: pct,
-        vol24hUsd: live ? live.volCents / 100 : (p.medianPriceCents * p.count) / 100,
-        trades24h: live?.trades ?? p.count,
-        editionCount: live?.editionKeys.size ?? 0,
-        spark6d: [],
-      };
-    });
-    return { rows, usedLiveFallback: false, usedLiveDeltaProxy: anyLiveProxyUsed && !snapshotJoinUsable };
+        if (liveProxyThisRow) anyLiveProxyUsed = true;
+        return {
+          playerId: p.playerName,
+          playerName: p.playerName,
+          team: live?.team ?? "",
+          pct24h: pct,
+          vol24hUsd: live ? live.volCents / 100 : (p.medianPriceCents * p.count) / 100,
+          trades24h,
+          editionCount: live?.editionKeys.size ?? 0,
+          spark6d: [],
+          __liveProxy: liveProxyThisRow,
+        } as CandidateWithPath;
+      })
+      .filter((r): r is CandidateWithPath => r !== null)
+      // iter-2 R1 fix: hard-gate Δ% to [-50%, +50%] regardless of path
+      // (spec §5.6 — values outside that range are statistical artifacts of thin trade counts).
+      .filter((r) => r.pct24h >= -50 && r.pct24h <= 50)
+      // iter-2 R1 fix: on the live-proxy path, also drop exact-zero Δ%
+      // (first/second-half medians matched — degenerate sample split).
+      .filter((r) => !(r.__liveProxy && r.pct24h === 0))
+      .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
+    const rows: PlayerMover[] = candidates.slice(0, 6).map(({ __liveProxy: _lp, ...rest }) => rest);
+    const constrainedPool = candidates.length < 6;
+    return {
+      rows,
+      usedLiveFallback: false,
+      usedLiveDeltaProxy: anyLiveProxyUsed && !snapshotJoinUsable,
+      snapshotJoinUsable,
+      constrainedPool,
+    };
   }
 
   // Live fallback path — derive rows from bulk entirely; Δ% via first/second-half split.
-  const rows: PlayerMover[] = [...liveByPlayer.entries()]
+  // Same filters: trades24h ≥ 5 and (when no priorMed available) samples.length ≥ 6.
+  type FallbackCandidate = PlayerMover & { __liveProxy: boolean };
+  const liveCandidates: FallbackCandidate[] = [...liveByPlayer.entries()]
     .map(([playerName, v]) => {
-      const proxy = liveProxyPctFromSamples(v.samples);
+      if (v.trades < 5) return null;
       const priorMed = priorMedians.get(playerName) ?? 0;
-      const med = median(v.samples.map((s) => s.cents));
       let pct = 0;
+      let liveProxyThisRow = false;
       if (priorMed > 0) {
+        const med = median(v.samples.map((s) => s.cents));
         pct = ((med - priorMed) / priorMed) * 100;
-      } else if (proxy !== null) {
+      } else {
+        if (v.samples.length < 6) return null;
+        const proxy = liveProxyPctFromSamples(v.samples);
+        if (proxy === null) return null;
         pct = proxy;
+        liveProxyThisRow = true;
       }
       return {
         playerId: playerName,
@@ -224,12 +259,24 @@ async function loadPlayerMovers24h(bulkRef: { txs: MarketplaceTransaction[] | nu
         trades24h: v.trades,
         editionCount: v.editionKeys.size,
         spark6d: [],
-      };
+        __liveProxy: liveProxyThisRow,
+      } as FallbackCandidate;
     })
-    .filter((r) => r.trades24h >= 5)
-    .sort((a, b) => b.vol24hUsd - a.vol24hUsd)
-    .slice(0, 6);
-  return { rows, usedLiveFallback: true, usedLiveDeltaProxy: priorMedians.size === 0 };
+    .filter((r): r is FallbackCandidate => r !== null)
+    // iter-2 R1 fix: hard-gate Δ% to [-50%, +50%] for all candidates.
+    .filter((r) => r.pct24h >= -50 && r.pct24h <= 50)
+    // iter-2 R1 fix: live-proxy path also drops exact-zero Δ% (degenerate split).
+    .filter((r) => !(r.__liveProxy && r.pct24h === 0))
+    .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
+  const rows: PlayerMover[] = liveCandidates.slice(0, 6).map(({ __liveProxy: _lp, ...rest }) => rest);
+  const constrainedPool = liveCandidates.length < 6;
+  return {
+    rows,
+    usedLiveFallback: true,
+    usedLiveDeltaProxy: priorMedians.size === 0,
+    snapshotJoinUsable,
+    constrainedPool,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -254,7 +301,13 @@ interface EditionActivityRow {
 async function loadEditionMostActive24h(
   bulkRef: { txs: MarketplaceTransaction[] | null },
   setUuidByName: Map<string, string>,
-): Promise<{ rows: EditionActivityRow[]; usedLiveFallback: boolean; filterRelaxed: boolean }> {
+): Promise<{
+  rows: EditionActivityRow[];
+  usedLiveFallback: boolean;
+  filterRelaxed: boolean;
+  fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep";
+  bulkWindowDaysApprox: number | null;
+}> {
   // Spec says the canonical source is a not-yet-built EditionActivitySnapshot
   // (day tier). Per Builder instructions, derive from recentSalesBulk for this iter.
   // Pulled at 2000 per P0-2 of internal-check; the bulkRef is shared with Block 1.
@@ -329,18 +382,67 @@ async function loadEditionMostActive24h(
     .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
   let rows = strict.slice(0, 20);
   let filterRelaxed = false;
+  let fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep" = strict.length >= 5 ? "none" : "none";
+  let bulkWindowDaysApprox: number | null = null;
+  const computeBulkWindow = () => {
+    const txs = bulkRef.txs ?? [];
+    if (!txs.length) return;
+    let oldest = Infinity;
+    let newest = -Infinity;
+    for (const t of txs) {
+      const ts = t.updatedAt ? Date.parse(t.updatedAt) : NaN;
+      if (!isFinite(ts)) continue;
+      if (ts < oldest) oldest = ts;
+      if (ts > newest) newest = ts;
+    }
+    if (isFinite(oldest) && isFinite(newest) && newest > oldest) {
+      bulkWindowDaysApprox = Math.max(1, Math.round((newest - oldest) / 86_400_000));
+    }
+  };
   if (strict.length < 5) {
-    // Demote per P0-2: trades24h ≥ 2 AND vol24hUsd ≥ 500
+    // Tier-2: relaxed 24h — trades24h ≥ 2 AND vol24hUsd ≥ 500
     const relaxed = all
       .filter((r) => r.trades24h >= 2 && r.vol24hUsd >= 500)
-      .sort((a, b) => b.vol24hUsd - a.vol24hUsd)
-      .slice(0, 20);
-    if (relaxed.length > strict.length) {
-      rows = relaxed;
+      .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
+    if (relaxed.length >= 5) {
+      rows = relaxed.slice(0, 20);
       filterRelaxed = true;
+      fellback = "relaxed-24h";
+    } else {
+      // Tier-3 (iter-2): 7d-bulk fallback over the full bulk window with a weaker
+      // filter (≥2 trades, ≥$100 volume — iter-2 R2 fix relaxed from $200).
+      // The bulk pull is ~2-3 days at current platform volume; we surface the
+      // actual ts-range coverage.
+      const weak = all
+        .filter((r) => r.trades24h >= 2 && r.vol24hUsd >= 100)
+        .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
+      if (weak.length >= 5) {
+        rows = weak.slice(0, 20);
+        filterRelaxed = true;
+        fellback = "7d-bulk";
+        computeBulkWindow();
+      } else {
+        // Tier-4 (iter-2 R2 fix): deepest bulk slice — ≥1 trade, ≥$50 volume.
+        // This is the broadest filter before we declare honest-absence.
+        const deep = all
+          .filter((r) => r.trades24h >= 1 && r.vol24hUsd >= 50)
+          .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
+        if (deep.length >= 5) {
+          rows = deep.slice(0, 20);
+          filterRelaxed = true;
+          fellback = "7d-bulk-deep";
+          computeBulkWindow();
+        } else if (relaxed.length > strict.length) {
+          // Even the deepest tier cleared < 5 — keep the relaxed surface
+          // (still < 5) as a best-effort. Empty/honest-absence copy fires
+          // upstream when row count is genuinely zero.
+          rows = relaxed.slice(0, 20);
+          filterRelaxed = true;
+        }
+      }
     }
   }
-  return { rows, usedLiveFallback: true, filterRelaxed };
+  return { rows, usedLiveFallback: true, filterRelaxed, fellback, bulkWindowDaysApprox };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -441,25 +543,27 @@ function snapshotBuyersHaveRealCounts(
 
 async function loadHotCollectors24h(
   bulkRef: { txs: MarketplaceTransaction[] | null },
-): Promise<{ rows: HotCollectorCard[]; fellback: "none" | "7d" | "live" }> {
+): Promise<{
+  rows: HotCollectorCard[];
+  fellback: "none" | "7d" | "live" | "7d-bulk";
+  bulkWindowDaysApprox: number | null;
+}> {
   const dayPair = await readPair<MarketAggregateSnapshot>("day");
   if (snapshotBuyersHaveRealCounts(dayPair.now?.topBuyers)) {
     const qualified = rowsFromTopBuyers(dayPair.now!.topBuyers!, false);
-    if (qualified.length >= 6) return { rows: qualified, fellback: "none" };
-    // Try 7d fallback
+    if (qualified.length >= 6) return { rows: qualified, fellback: "none", bulkWindowDaysApprox: null };
+    // Try 7d snapshot fallback
     const weekPair = await readPair<MarketAggregateSnapshot>("week");
     if (snapshotBuyersHaveRealCounts(weekPair.now?.topBuyers)) {
       const wq = rowsFromTopBuyers(weekPair.now!.topBuyers!, true);
-      if (wq.length >= 6) return { rows: wq, fellback: "7d" };
+      if (wq.length >= 6) return { rows: wq, fellback: "7d", bulkWindowDaysApprox: null };
     }
-    if (qualified.length >= 6) return { rows: qualified, fellback: "none" };
-    // qualified < 6 and 7d unusable — fall through to live derivation below
-    // rather than render stub cards.
+    // qualified < 6 and 7d unusable — fall through to live derivation below.
   } else {
     const weekPair = await readPair<MarketAggregateSnapshot>("week");
     if (snapshotBuyersHaveRealCounts(weekPair.now?.topBuyers)) {
       const wq = rowsFromTopBuyers(weekPair.now!.topBuyers!, true);
-      if (wq.length >= 6) return { rows: wq, fellback: "7d" };
+      if (wq.length >= 6) return { rows: wq, fellback: "7d", bulkWindowDaysApprox: null };
     }
   }
   // Live fallback (always reached when snapshot writer hasn't populated counts).
@@ -484,7 +588,7 @@ async function loadHotCollectors24h(
     }
     byBuyer.set(u, cur);
   }
-  const rows: HotCollectorCard[] = [...byBuyer.entries()]
+  const allBuyers: HotCollectorCard[] = [...byBuyer.entries()]
     .map(([username, v]) => ({
       username,
       spendUsd: v.spendCents / 100,
@@ -494,10 +598,33 @@ async function loadHotCollectors24h(
       biggestPlayerName: v.biggestPlayerName,
       windowFellbackTo7d: false,
     }))
+    .sort((a, b) => b.spendUsd - a.spendUsd);
+  const strict = allBuyers
     .filter((r) => r.buyCount >= MIN_BUYER_COUNT && r.spendUsd >= 1000)
-    .sort((a, b) => b.spendUsd - a.spendUsd)
     .slice(0, 6);
-  return { rows, fellback: "live" };
+  if (strict.length >= 5) return { rows: strict, fellback: "live", bulkWindowDaysApprox: null };
+  // iter-2 §2 — expand to full bulk window with relaxed buyer filter (≥1 buy, no spend min).
+  // Surfaces the trailing ~2-3 day bulk-derived 7d view when 24h-grade liquidity is thin.
+  const relaxed = allBuyers
+    .filter((r) => r.buyCount >= 1)
+    .map((r) => ({ ...r, windowFellbackTo7d: true }))
+    .slice(0, 6);
+  let bulkWindowDaysApprox: number | null = null;
+  const txs = bulkRef.txs;
+  if (txs && txs.length) {
+    let oldest = Infinity;
+    let newest = -Infinity;
+    for (const t of txs) {
+      const ts = t.updatedAt ? Date.parse(t.updatedAt) : NaN;
+      if (!isFinite(ts)) continue;
+      if (ts < oldest) oldest = ts;
+      if (ts > newest) newest = ts;
+    }
+    if (isFinite(oldest) && isFinite(newest) && newest > oldest) {
+      bulkWindowDaysApprox = Math.max(1, Math.round((newest - oldest) / 86_400_000));
+    }
+  }
+  return { rows: relaxed, fellback: "7d-bulk", bulkWindowDaysApprox };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -607,7 +734,7 @@ async function loadIndicesStrip24h(
   const tierCell = (slug: IndexCell["slug"], label: string, rawTier: string): IndexCell => {
     const samples = byTier.get(rawTier) ?? [];
     const n = samples.length;
-    const cleanLabel = label.replace(" floor", "");
+    const cleanLabel = label.split(" · ")[0];
     if (n < TIER_MIN_SAMPLES) {
       return {
         slug,
@@ -646,13 +773,13 @@ async function loadIndicesStrip24h(
       pct24h: null,
       caption: "TS500 computation pending. Component registry at /indices.",
     },
-    tierCell("tier-common", "Common floor", "MOMENT_TIER_COMMON"),
-    tierCell("tier-rare", "Rare floor", "MOMENT_TIER_RARE"),
-    tierCell("tier-legendary", "Legendary floor", "MOMENT_TIER_LEGENDARY"),
-    tierCell("tier-ultimate", "Ultimate floor", "MOMENT_TIER_ULTIMATE"),
+    tierCell("tier-common", "Common · median 24h", "MOMENT_TIER_COMMON"),
+    tierCell("tier-rare", "Rare · median 24h", "MOMENT_TIER_RARE"),
+    tierCell("tier-legendary", "Legendary · median 24h", "MOMENT_TIER_LEGENDARY"),
+    tierCell("tier-ultimate", "Ultimate · median 24h", "MOMENT_TIER_ULTIMATE"),
     {
       slug: "series-of-the-moment",
-      label: "Series 6",
+      label: "Series 6 · median 24h",
       value: seriesValue,
       pct24h: null,
       caption: seriesCaption,
@@ -737,13 +864,14 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
       </header>
 
       {/* ===== Block 1 — Top movers · players · 24h ===== */}
-      <section aria-labelledby="b1">
+      <section aria-labelledby="b1" data-constrained-pool={moversBlock.constrainedPool ? "true" : "false"}>
         <div className="flex items-baseline gap-3 mb-2 px-1">
           <h2 id="b1" className="text-[13px] font-semibold tracking-section-header">
             Top movers · players · 24h
           </h2>
           <span className="text-[10px] text-[var(--text-faint)] font-mono">
-            {moversBlock.rows.length} players · $-volume-weighted Δ% across all editions
+            {moversBlock.rows.length} players · ranked by 24h $ volume · filter: ≥5 trades
+            {moversBlock.constrainedPool && " (constrained — pool below 6)"}
           </span>
           <Link href="/movers" className="ml-auto text-[10px] text-[var(--text-dim)] hover:text-[var(--accent)] font-mono">
             see all →
@@ -786,12 +914,20 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
             ))}
           </div>
         )}
-        <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
-          Snapshot history: 6 of 30 days populated — full 30d sparkline live 2026-06-08. 24h Δ% is canonical.
-        </p>
-        {moversBlock.usedLiveDeltaProxy && (
-          <p className="mt-0.5 px-1 text-[10px] text-[var(--text-faint)]">
+        {/* iter-2 §4: caption switches by snapshot-join state.
+            Live-proxy branch is canonical until prior-day snapshots populate. */}
+        {moversBlock.snapshotJoinUsable && !moversBlock.usedLiveDeltaProxy ? (
+          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
+            Snapshot history: 6 of 30 days populated — full 30d sparkline live 2026-06-08. 24h Δ% snapshot-derived.
+          </p>
+        ) : (
+          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
             Live Δ% proxy · prior-day snapshot empty; Δ% computed from first-half vs second-half of the trailing bulk window.
+          </p>
+        )}
+        {moversBlock.constrainedPool && (
+          <p className="mt-0.5 px-1 text-[10px] text-[var(--text-faint)]">
+            Constrained pool — fewer than 6 players cleared 5 trades in 24h. Ranked by 24h $ volume.
           </p>
         )}
         {moversBlock.usedLiveFallback && (
@@ -803,11 +939,18 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
       <section aria-labelledby="b2">
         <div className="flex items-baseline gap-3 mb-2 px-1">
           <h2 id="b2" className="text-[13px] font-semibold tracking-section-header">
-            Most active · editions · 24h
+            Most active · editions ·{" "}
+            {mostActive.fellback === "7d-bulk" || mostActive.fellback === "7d-bulk-deep" ? "7d" : "24h"}
           </h2>
           <span className="text-[10px] text-[var(--text-faint)] font-mono">
             {mostActive.rows.length} editions · $ volume desc · filter{" "}
-            {mostActive.filterRelaxed ? "2+ trades / $500 vol (relaxed)" : "3+ trades / $1,000 vol"}
+            {mostActive.fellback === "7d-bulk-deep"
+              ? "1+ trade / $50 vol (7d deep)"
+              : mostActive.fellback === "7d-bulk"
+                ? "2+ trades / $100 vol (7d)"
+                : mostActive.filterRelaxed
+                  ? "2+ trades / $500 vol (relaxed)"
+                  : "3+ trades / $1,000 vol"}
           </span>
           <Link href="/volume" className="ml-auto text-[10px] text-[var(--text-dim)] hover:text-[var(--accent)] font-mono">
             see all →
@@ -866,14 +1009,24 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
             </table>
           </Card>
         )}
-        {mostActive.filterRelaxed && (
+        {mostActive.fellback === "7d-bulk-deep" ? (
+          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
+            24h depth insufficient — surfaced over the deepest bulk slice (~2-3d, broadest filter). 24h re-engages when ≥5 entities clear the filter.
+          </p>
+        ) : mostActive.fellback === "7d-bulk" ? (
+          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
+            24h depth insufficient — surfaced over trailing ~2-3d bulk window. 24h re-engages when ≥5 entities clear the filter.
+          </p>
+        ) : mostActive.filterRelaxed ? (
           <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
             Liquidity floor relaxed — 2+ trades / $500 vol shown.
           </p>
-        )}
-        {mostActive.usedLiveFallback && (
-          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">Live fallback · 24h cron warming.</p>
-        )}
+        ) : null}
+        {mostActive.usedLiveFallback &&
+          mostActive.fellback !== "7d-bulk" &&
+          mostActive.fellback !== "7d-bulk-deep" && (
+            <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">Live fallback · 24h cron warming.</p>
+          )}
       </section>
 
       {/* ===== Block 3 — Largest sales · 24h ===== */}
@@ -960,7 +1113,7 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
       <section aria-labelledby="b4">
         <div className="flex items-baseline gap-3 mb-2 px-1">
           <h2 id="b4" className="text-[13px] font-semibold tracking-section-header">
-            Hot collectors · 24h spend
+            Hot collectors · {collectors.fellback === "7d" || collectors.fellback === "7d-bulk" ? "7d" : "24h"} spend
           </h2>
           <span className="text-[10px] text-[var(--text-faint)] font-mono">
             {collectors.rows.length} buyers · total $ spend
@@ -984,7 +1137,9 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
                 <div className="text-[11px] tracking-data-label text-[var(--text-faint)] truncate">{c.username}</div>
                 <div className="mt-1 flex items-baseline gap-3">
                   <Num value={c.spendUsd} format="usdCompact" className="text-[22px] font-semibold" />
-                  <span className="text-[10px] tracking-data-label text-[var(--text-dim)]">24h spend</span>
+                  <span className="text-[10px] tracking-data-label text-[var(--text-dim)]">
+                    {collectors.fellback !== "none" ? "7d spend" : "24h spend"}
+                  </span>
                 </div>
                 <div className="mt-1 text-[11px] text-[var(--text-dim)] tnum">
                   {c.buyCount} buys · biggest <Num value={c.biggestUsd} format="usdCompact" />
@@ -997,6 +1152,11 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         {collectors.fellback === "7d" && (
           <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
             Quiet 24h — fewer than 6 collectors cleared 3 buys / $1,000 in the trailing 24h. Showing 7d leaders.
+          </p>
+        )}
+        {collectors.fellback === "7d-bulk" && (
+          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
+            24h depth insufficient — surfaced over trailing ~2-3d bulk window. 24h re-engages when ≥5 entities clear the filter.
           </p>
         )}
         {collectors.fellback === "live" && collectors.rows.length > 0 && (
@@ -1066,7 +1226,7 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         methodology="Indices are canonical aggregates (lib/indices/registry.ts). Per-cell methodology in the caption below each cell."
       >
         <div className="px-3 py-2 flex items-baseline gap-3 border-b border-[var(--border-subtle)]">
-          <h2 className="text-[13px] font-semibold tracking-section-header">Indices · 24h</h2>
+          <h2 className="text-[13px] font-semibold tracking-section-header">Tier medians · 24h</h2>
           <span className="text-[10px] text-[var(--text-faint)] font-mono ml-auto">
             registry → snapshot pipeline pending
           </span>
