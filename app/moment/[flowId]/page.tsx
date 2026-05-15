@@ -6,6 +6,7 @@ import { formatNumber, formatUsd, mediaUrl, shortAddr, tierLabel, timeAgo } from
 import { Card } from "@/components/Card";
 import { ParallelMatrix } from "@/components/ParallelMatrix";
 import { EdgeBoard } from "@/components/EdgeBoard";
+import { DepthLadder } from "@/components/DepthLadder";
 import { Sparkline } from "@/components/Sparkline";
 import { TierPill } from "@/components/Tier";
 import { valueMoment, DEFAULT_RULES } from "@/lib/valuation";
@@ -226,7 +227,14 @@ export default async function MomentPage({ params }: { params: Promise<{ flowId:
             </Card>
           )}
 
-          {/* Edge board — listed serials vs fair value */}
+          {/* Depth ladder — visual order book (sell-side only per Ceiling 10) */}
+          {listed.length > 0 && (
+            <Card title="Depth ladder" subtitle={`S5 · ${listed.length} listed serials · asks-only`} className="mb-4">
+              <DepthLadder listed={listed} currentSerial={Number(m.flowSerialNumber)} fairValue={v.fairValue} />
+            </Card>
+          )}
+
+          {/* Edge board — text view of the same data, sorted for keyboard scan */}
           {listed.length > 0 && (
             <Card title="Edge board" subtitle={`Competitive · ${listed.length} listed serials in this edition`} className="mb-4">
               <EdgeBoard listed={listed} currentSerial={Number(m.flowSerialNumber)} fairValue={v.fairValue} />
