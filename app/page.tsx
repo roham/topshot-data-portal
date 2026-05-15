@@ -9,6 +9,9 @@ import type { MarketAggregateSnapshot } from "@/lib/snapshots/types";
 import type { MarketplaceTransaction } from "@/lib/topshot/types";
 import { AggregateEconomyStrip } from "@/components/AggregateEconomyStrip";
 import { getAggregateEconomy } from "@/lib/aggregate-economy";
+import { HomepageIndices } from "@/components/HomepageIndices";
+import { getFeaturedSetIndices } from "@/lib/indices/featured-sets";
+import { listRecentSnapshotKeys } from "@/lib/snapshots/store";
 
 // V4-iter-1: revalidate window widened to 600s so the chronologicalTxBackfill
 // render-time fallback inside the aggregate-economy strip is amortized across
@@ -1218,17 +1221,57 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
   // a race where Promise.all-parallel loaders each kick off their own fetch.
   bulkRef.txs = await recentSalesBulk(2000).catch(() => [] as MarketplaceTransaction[]);
 
-  const [moversBlock, mostActive, largest, collectors, momentum, indices, depthCaption, aggregateEconomy] =
-    await Promise.all([
-      loadPlayerMovers24h(bulkRef),
-      loadEditionMostActive24h(bulkRef, setUuidByName),
-      loadLargestSales24h(bulkRef),
-      loadHotCollectors24h(bulkRef),
-      loadSetMomentum7d(bulkRef, setUuidByName),
-      loadIndicesStrip24h(bulkRef),
-      loadDepthCaption(),
-      getAggregateEconomy(),
-    ]);
+  const [
+    moversBlock,
+    mostActive,
+    largest,
+    collectors,
+    momentum,
+    indices,
+    depthCaption,
+    aggregateEconomy,
+    featuredSets30d,
+    featuredSets7d,
+    featuredSets24h,
+    daySnapshotKeys,
+  ] = await Promise.all([
+    loadPlayerMovers24h(bulkRef),
+    loadEditionMostActive24h(bulkRef, setUuidByName),
+    loadLargestSales24h(bulkRef),
+    loadHotCollectors24h(bulkRef),
+    loadSetMomentum7d(bulkRef, setUuidByName),
+    loadIndicesStrip24h(bulkRef),
+    loadDepthCaption(),
+    getAggregateEconomy(),
+    // V4-iter-2 — h-c-era featured-set indices (3 windows)
+    getFeaturedSetIndices(30).catch(() => []),
+    getFeaturedSetIndices(7).catch(() => []),
+    getFeaturedSetIndices(1).catch(() => []),
+    listRecentSnapshotKeys("day", 24).catch(() => []),
+  ]);
+
+  // V4-iter-2 — 24h warming-UI gate. The chart greys + shows the
+  // warming caption when day-snapshot accumulator depth <12. We derive
+  // the ISO completion timestamp from the earliest day-snapshot key
+  // + 12d so the caption names a concrete date.
+  const daySnapshotDepth = daySnapshotKeys.length;
+  let warmingCompleteISO: string | null = null;
+  if (daySnapshotKeys.length) {
+    const sortedAsc = [...daySnapshotKeys].sort((a, b) =>
+      a.name < b.name ? -1 : 1,
+    );
+    const earliest = sortedAsc[0].name.replace(/\.json$/, "");
+    // Snapshot filenames are ISO-8601 with `:` → `-` in time portion.
+    // Recover an ISO by inverting only the time-portion colons.
+    const recovered = earliest.replace(
+      /^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})/,
+      "$1T$2:$3:$4",
+    );
+    const t0 = Date.parse(recovered);
+    if (Number.isFinite(t0)) {
+      warmingCompleteISO = new Date(t0 + 12 * 86_400_000).toISOString();
+    }
+  }
 
   // Page-level honest absence: only when EVERY surface is empty.
   const allEmpty =
@@ -1249,6 +1292,15 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
       {/* V4-iter-1: aggregate-economy strip at DOM order 0 (spec acceptance #1) */}
       <AggregateEconomyStrip data={aggregateEconomy} />
+
+      {/* V4-iter-2: homepage indices block at DOM order 1 (D004 acceptance #1) */}
+      <HomepageIndices
+        series30d={featuredSets30d}
+        series7d={featuredSets7d}
+        series24h={featuredSets24h}
+        daySnapshotDepth={daySnapshotDepth}
+        warmingCompleteISO={warmingCompleteISO}
+      />
 
       {/* Page header */}
       <header className="flex items-baseline gap-3 flex-wrap pt-4 pb-2">
