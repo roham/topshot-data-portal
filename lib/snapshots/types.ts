@@ -37,6 +37,14 @@ export interface MarketAggregateSnapshot {
     sellerUsername: string | null;
     updatedAt: string | null;
   }>;
+  /** iter-6: per-tier medians computed over the snapshot window's tx. cents; null when no tx for that tier. */
+  medianByTier?: {
+    Common: number | null;
+    Rare: number | null;
+    Fandom: number | null;
+    Legendary: number | null;
+    Ultimate: number | null;
+  };
 }
 
 export interface PerEditionFloorSnapshot {

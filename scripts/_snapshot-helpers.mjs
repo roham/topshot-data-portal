@@ -165,11 +165,20 @@ export function aggregateMarketWindow(txs, windowMs, windowLabel) {
   const bySet = new Map(); // setFlowName -> price cents []
   const byBuyer = new Map(); // username -> { spend, count, biggest, biggestFlowId }
   const bySeller = new Map(); // username -> { revenue, count, biggest, biggestFlowId }
+  // iter-6: per-tier price samples keyed by RAW upstream token
+  // (MOMENT_TIER_COMMON, …). Mapped to clean schema keys after the loop.
+  const byTier = new Map(); // rawTierToken -> price cents []
   for (let i = 0; i < txs.length; i++) {
     const t = txs[i];
     const cents = pricesCents[i];
     if (t.buyer?.flowAddress) buyers.add(t.buyer.flowAddress);
     if (t.seller?.flowAddress) sellers.add(t.seller.flowAddress);
+    const tier = t.moment?.tier ?? null;
+    if (tier) {
+      const arr = byTier.get(tier) ?? [];
+      arr.push(cents);
+      byTier.set(tier, arr);
+    }
     const playerName = t.moment?.play?.stats?.playerName;
     if (playerName) {
       const arr = byPlayer.get(playerName) ?? [];
@@ -236,6 +245,23 @@ export function aggregateMarketWindow(txs, windowMs, windowLabel) {
       sellerUsername: t.seller?.username ?? null,
       updatedAt: t.updatedAt ?? null,
     }));
+  // iter-6: per-tier medians. Map raw upstream tokens to schema-clean keys; all
+  // five keys are always present (null when 0 tx for that tier) to preserve the
+  // honest-absence tristate at the writer layer (undefined = old snapshot,
+  // null = no tx today, number = real median).
+  const TIER_TOKEN_TO_KEY = {
+    MOMENT_TIER_COMMON: "Common",
+    MOMENT_TIER_RARE: "Rare",
+    MOMENT_TIER_FANDOM: "Fandom",
+    MOMENT_TIER_LEGENDARY: "Legendary",
+    MOMENT_TIER_ULTIMATE: "Ultimate",
+  };
+  const medianByTier = { Common: null, Rare: null, Fandom: null, Legendary: null, Ultimate: null };
+  for (const [rawToken, prices] of byTier.entries()) {
+    const key = TIER_TOKEN_TO_KEY[rawToken];
+    if (!key) continue; // silently ignore unknown tokens
+    if (prices.length > 0) medianByTier[key] = median(prices);
+  }
   return {
     ts: Date.now(),
     windowMs,
@@ -250,5 +276,6 @@ export function aggregateMarketWindow(txs, windowMs, windowLabel) {
     topBuyers,
     topSellers,
     largestSales,
+    medianByTier,
   };
 }

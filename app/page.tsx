@@ -750,6 +750,20 @@ async function loadIndicesStrip24h(
   const snapTs = snapWithSales?.data.ts ?? null;
   const snapAgeHours = snapTs ? Math.max(1, Math.round((Date.now() - snapTs) / 3_600_000)) : null;
 
+  // iter-6 Fix R3: per-tier-median snapshot fallback. Read the most-recent day
+  // snapshot that has a populated medianByTier object; this is the aggregated
+  // tier-priced index slice (vs largestSales, which is top-N-by-price and thin
+  // for Ultimate). The reader checks this layer BEFORE largestSales because
+  // medianByTier surveys every tx in the window — Ultimate gets a numeric even
+  // when only 1-3 sales cleared in the day.
+  const snapWithMedianByTier = sortedDay.find(
+    (s) => s.data?.medianByTier != null && typeof s.data.medianByTier === "object",
+  );
+  const snapMedianByTier = snapWithMedianByTier?.data.medianByTier ?? null;
+  const snapMbtTs = snapWithMedianByTier?.data.ts ?? null;
+  const snapMbtTxCount = snapWithMedianByTier?.data.txCount ?? null;
+  const snapMbtAgeHours = snapMbtTs ? Math.max(1, Math.round((Date.now() - snapMbtTs) / 3_600_000)) : null;
+
   // Compute bulk window coverage (used in Ultimate fallback caption).
   let bulkWindowDaysApprox: number | null = null;
   let oldest = Infinity;
@@ -818,6 +832,23 @@ async function loadIndicesStrip24h(
         value: `$${usd.toLocaleString()}`,
         pct24h: null,
         caption: `${cleanLabel} proxy: median sale over trailing ${tail}. Canonical index live 2026-06-09.`,
+      };
+    }
+    // iter-6 Fix R3: snapshot day-aggregate medianByTier fallback. Ranks ahead
+    // of largestSales because medianByTier is computed over every tx in the
+    // snapshot window (not the top-50-by-price), so it survives the rare-tier
+    // sparsity that defeats largestSales for Ultimate.
+    const mbtKey = cleanLabel as "Common" | "Rare" | "Fandom" | "Legendary" | "Ultimate";
+    const mbtCents = snapMedianByTier?.[mbtKey] ?? null;
+    if (mbtCents != null && snapMbtAgeHours != null) {
+      const usd = Math.round(mbtCents / 100);
+      const mtx = snapMbtTxCount != null ? snapMbtTxCount.toLocaleString() : "?";
+      return {
+        slug,
+        label,
+        value: `$${usd.toLocaleString()}`,
+        pct24h: null,
+        caption: `${cleanLabel} median: snapshot day-aggregate (${mtx} tx in window) — snapshot as of ${snapMbtAgeHours}h ago. Canonical index live 2026-06-09.`,
       };
     }
     // iter-5 Fix R1: snapshot-fallback layer. When the bulk slice is also thin,
