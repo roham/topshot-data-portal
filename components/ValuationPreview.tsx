@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { valueMoment } from "@/lib/valuation";
+import { DEFAULT_RULES } from "@/lib/valuation/rules";
 import type { ValuationRules } from "@/lib/valuation/rules";
 import type { MintedMoment, MomentTier } from "@/lib/topshot/types";
 import { Card } from "@/components/primitives/Card";
@@ -40,6 +41,50 @@ const TIER_OPTIONS: Array<{ value: MomentTier; label: string }> = [
   { value: "MOMENT_TIER_ULTIMATE", label: "Ultimate" },
 ];
 
+const RULES_STORAGE_KEY = "topshot-portal:valuation-rules:v1";
+
+const TUNABLE_TIERS: Array<{ key: MomentTier; label: string }> = [
+  { key: "MOMENT_TIER_COMMON", label: "Common" },
+  { key: "MOMENT_TIER_FANDOM", label: "Fandom" },
+  { key: "MOMENT_TIER_RARE", label: "Rare" },
+  { key: "MOMENT_TIER_LEGENDARY", label: "Legendary" },
+  { key: "MOMENT_TIER_ULTIMATE", label: "Ultimate" },
+];
+
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function mergeStoredRules(stored: unknown, base: ValuationRules): ValuationRules {
+  if (!stored || typeof stored !== "object") return base;
+  const s = stored as Record<string, unknown>;
+  const next: ValuationRules = {
+    ...base,
+    editionTierMultipliers: { ...base.editionTierMultipliers },
+    parallelMultipliers: { ...base.parallelMultipliers },
+    lowSerialTiers: base.lowSerialTiers.map((t) => ({ ...t })),
+    confidence: { ...base.confidence },
+  };
+  if (isFiniteNumber(s.serial1Premium)) next.serial1Premium = s.serial1Premium;
+  if (isFiniteNumber(s.jerseyPremium)) next.jerseyPremium = s.jerseyPremium;
+  if (isFiniteNumber(s.lastSerialPremium)) next.lastSerialPremium = s.lastSerialPremium;
+  if (s.editionTierMultipliers && typeof s.editionTierMultipliers === "object") {
+    const tiers = s.editionTierMultipliers as Record<string, unknown>;
+    for (const t of TUNABLE_TIERS) {
+      const v = tiers[t.key];
+      if (isFiniteNumber(v)) next.editionTierMultipliers[t.key] = v;
+    }
+  }
+  if (s.parallelMultipliers && typeof s.parallelMultipliers === "object") {
+    const pm = s.parallelMultipliers as Record<string, unknown>;
+    for (const k of ["0", "1"]) {
+      const v = pm[k];
+      if (isFiniteNumber(v)) next.parallelMultipliers[Number(k)] = v;
+    }
+  }
+  return next;
+}
+
 function fmtUsd(v: number): string {
   if (!isFinite(v)) return "—";
   if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
@@ -51,6 +96,35 @@ function fmtUsd(v: number): string {
 
 export function ValuationPreview({ defaultRules }: ValuationPreviewProps) {
   const [inputs, setInputs] = useState<PreviewInputs>(DEFAULTS);
+  const [rules, setRules] = useState<ValuationRules>(defaultRules);
+  const [hydrated, setHydrated] = useState(false);
+
+  // On mount: read localStorage AFTER first paint (avoid SSR/CSR hydration mismatch).
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(RULES_STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setRules(mergeStoredRules(parsed, DEFAULT_RULES));
+      }
+    } catch {
+      // Bad JSON or storage blocked — fall through to DEFAULT_RULES seeded above.
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist rules whenever they change (post-hydration only — avoids overwriting stored rules
+  // with the SSR default on first render).
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules));
+      }
+    } catch {
+      // localStorage may be blocked (private mode, quotas) — silent.
+    }
+  }, [rules, hydrated]);
 
   const result = useMemo(() => {
     const ask = inputs.lowestAsk === "" ? inputs.basePrice : Number(inputs.lowestAsk);
@@ -76,17 +150,46 @@ export function ValuationPreview({ defaultRules }: ValuationPreviewProps) {
       lastPurchasePrice: last,
     };
 
-    return valueMoment(synthetic, {}, defaultRules);
-  }, [inputs, defaultRules]);
+    return valueMoment(synthetic, {}, rules);
+  }, [inputs, rules]);
 
   function update<K extends keyof PreviewInputs>(key: K, value: PreviewInputs[K]) {
     setInputs((prev) => ({ ...prev, [key]: value }));
   }
 
+  function updateRuleNumber<K extends "serial1Premium">(key: K, value: number) {
+    setRules((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function updateTierMultiplier(tier: MomentTier, value: number) {
+    setRules((prev) => ({
+      ...prev,
+      editionTierMultipliers: { ...prev.editionTierMultipliers, [tier]: value },
+    }));
+  }
+
+  function updateParallelMultiplier(id: 0 | 1, value: number) {
+    setRules((prev) => ({
+      ...prev,
+      parallelMultipliers: { ...prev.parallelMultipliers, [id]: value },
+    }));
+  }
+
+  function resetRules() {
+    setRules(DEFAULT_RULES);
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(RULES_STORAGE_KEY);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return (
     <Card
       title="Preview your valuation"
-      methodology="Live preview — adjusts as you type. Same rule cascade valueMoment() runs on every moment page. No persistence; refresh resets to defaults."
+      methodology="Live preview — adjusts as you type. Same rule cascade valueMoment() runs on every moment page. Rule overrides persist in your browser; the moment-page engine continues to use canonical defaults."
     >
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-4">
         {/* Inputs */}
@@ -181,6 +284,49 @@ export function ValuationPreview({ defaultRules }: ValuationPreviewProps) {
           </div>
         </div>
       </div>
+
+      {/* Tune rules section */}
+      <div className="mt-4 pt-4 border-t border-[var(--border-subtle)]">
+        <div className="flex items-baseline gap-3 mb-2">
+          <h3 className="text-[13px] font-semibold text-[var(--text)]">Tune rules</h3>
+          <button
+            type="button"
+            onClick={resetRules}
+            className="ml-auto text-[11px] text-[var(--text-dim)] hover:text-[var(--text)] underline underline-offset-2"
+          >
+            Reset to defaults
+          </button>
+        </div>
+        <p className="text-[11px] text-[var(--text-dim)] leading-relaxed mb-3">
+          Tune the rules below — your overrides apply to this preview only and persist in your browser. The moment-page valuation engine continues to use canonical defaults.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+          <NumField
+            label="Serial #1 premium (multiplier, e.g. 1.0 = +100%)"
+            value={rules.serial1Premium}
+            onChange={(v) => updateRuleNumber("serial1Premium", typeof v === "number" ? v : 0)}
+          />
+          {TUNABLE_TIERS.map((t) => (
+            <NumField
+              key={t.key}
+              label={`Tier multiplier — ${t.label}`}
+              value={rules.editionTierMultipliers[t.key]}
+              onChange={(v) => updateTierMultiplier(t.key, typeof v === "number" ? v : 0)}
+            />
+          ))}
+          <NumField
+            label="Parallel multiplier — Base (id 0)"
+            value={rules.parallelMultipliers[0] ?? 1}
+            onChange={(v) => updateParallelMultiplier(0, typeof v === "number" ? v : 0)}
+          />
+          <NumField
+            label="Parallel multiplier — Parallel (id 1)"
+            value={rules.parallelMultipliers[1] ?? 1.2}
+            onChange={(v) => updateParallelMultiplier(1, typeof v === "number" ? v : 0)}
+          />
+        </div>
+      </div>
     </Card>
   );
 }
@@ -200,6 +346,7 @@ function NumField({ label, value, onChange, optional }: NumFieldProps) {
       </span>
       <input
         type="number"
+        step="0.01"
         value={value === "" ? "" : value}
         onChange={(e) => {
           const v = e.target.value;
