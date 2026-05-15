@@ -51,6 +51,7 @@ const VERBS: VerbDef[] = [
   { verb: "movers", aliases: ["mv"], hint: "movers [window]", resolve: ([w]) => (w ? `/?movers=${encodeURIComponent(w)}` : "/?movers=24h") },
   { verb: "watching", aliases: ["w", "watch"], hint: "watching", resolve: () => "/collectors?tab=watching" },
   { verb: "methodology", aliases: ["method"], hint: "methodology", resolve: () => "/methodology" },
+  { verb: "briefing", aliases: ["b"], hint: "briefing · KPIs + stories", resolve: () => "/briefing" },
   { verb: "indices", hint: "indices index", resolve: () => "/indices" },
   { verb: "editions", hint: "editions index", resolve: () => "/editions" },
   { verb: "collectors", aliases: ["co"], hint: "collectors", resolve: () => "/collectors" },
