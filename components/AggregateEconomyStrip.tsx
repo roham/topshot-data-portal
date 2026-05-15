@@ -64,6 +64,11 @@ function backfillCaption(nextCronIso: string): string {
   return `First snapshot stored on next 2h cron run; Δ available ${nextCronIso}`;
 }
 
+// D010 (V4-iter-5): one snapshot stored, awaiting next cron tick for honest Δ.
+function firstSnapshotPendingCaption(captionISO: string): string {
+  return `First snapshot stored on next 2h cron run; Δ available ${captionISO}`;
+}
+
 function absentCaption(nextPopulatedIso: string): string {
   return `Snapshot history accumulating — first populated ${nextPopulatedIso}`;
 }
@@ -127,6 +132,27 @@ function CellBody({
           className="text-[10px] leading-[1.4] text-[var(--text-faint)]"
         >
           {backfillCaption(state.nextCronIso)}
+        </div>
+      </>
+    );
+  }
+  if (state.kind === "first-snapshot-pending") {
+    // D010: no data-kpi-delta in this state — caption replaces delta channel.
+    return (
+      <>
+        <div className="flex items-baseline gap-2">
+          <span
+            data-kpi-num=""
+            className="text-[22px] font-semibold font-mono tnum text-[var(--text)]"
+          >
+            {format(state.value)}
+          </span>
+        </div>
+        <div
+          data-kpi-caption=""
+          className="text-[10px] leading-[1.4] text-[var(--text-faint)]"
+        >
+          {firstSnapshotPendingCaption(state.captionISO)}
         </div>
       </>
     );

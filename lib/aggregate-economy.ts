@@ -38,6 +38,7 @@ export type CellState =
   | { kind: "full"; value: number; deltaPct: number; spark: number[] }
   | { kind: "partial"; value: number; deltaPct: number; spark: number[]; ticks: number }
   | { kind: "single"; value: number; deltaPct: number }
+  | { kind: "first-snapshot-pending"; value: number; captionISO: string }
   | { kind: "backfill"; value: number; nextCronIso: string }
   | { kind: "absent"; nextPopulatedIso: string };
 
@@ -82,6 +83,24 @@ function isoPlusMs(ms: number): string {
   return new Date(Date.now() + ms).toISOString();
 }
 
+/**
+ * Next `0 every-2h * * *` cron-tick boundary (UTC). Mirrors
+ * `.github/workflows/snapshot-day-aggregate.yml` cadence. Used by the
+ * `first-snapshot-pending` state to tell the Pro Trader exactly when the
+ * second snapshot — and therefore an honest Δ — will be available.
+ */
+function nextDayCronIso(now: Date = new Date()): string {
+  const next = new Date(now.getTime());
+  next.setUTCMilliseconds(0);
+  next.setUTCSeconds(0);
+  next.setUTCMinutes(0);
+  const hour = next.getUTCHours();
+  // even hours are cron firings; advance to the next even hour strictly in the future.
+  const addHours = hour % 2 === 0 ? 2 : 1;
+  next.setUTCHours(hour + addHours);
+  return next.toISOString();
+}
+
 function volumeUsdFromSnap(snap: MarketAggregateSnapshot): number {
   // MarketAggregateSnapshot stores cents-per-tx aggregates but not a rolled-up
   // volume field. Sum = txCount × meanPriceCents. /100 to convert cents → dollars.
@@ -97,7 +116,9 @@ function buildCellState(
   const value = valuesNewestFirst[0];
   const ticks = valuesNewestFirst.length;
   if (ticks === 1) {
-    return { kind: "single", value, deltaPct: 0 };
+    // D010 fix (critic P0-1): one snapshot has no honest prior — emit
+    // first-snapshot-pending instead of a fabricated 0.00% delta.
+    return { kind: "first-snapshot-pending", value, captionISO: nextDayCronIso() };
   }
   const prior = valuesNewestFirst[1];
   const deltaPct = safePct(value, prior);
