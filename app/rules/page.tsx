@@ -2,6 +2,7 @@ import { DEFAULT_RULES } from "@/lib/valuation/rules";
 import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
+import { ValuationPreview } from "@/components/ValuationPreview";
 
 export const metadata = { title: "Rules · valuation engine · TS·PORTAL" };
 
@@ -69,6 +70,8 @@ export default function RulesPage() {
           <Row label="Low confidence" value={`< ${r.confidence.medium} comps`} note="Fair-value still computed but explicitly flagged thin." />
         </div>
       </Card>
+
+      <ValuationPreview defaultRules={DEFAULT_RULES} />
 
       <Card title="Status">
         <ul className="text-[12px] text-[var(--text)] space-y-2 leading-relaxed">
