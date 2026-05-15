@@ -11,19 +11,20 @@
 // editionsInSet (12h-cached); current-floor proxy = last point of
 // getSetPriceHistory.
 
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { allSets, editionsInSet, getSetPriceHistory } from "@/lib/topshot/queries";
-import { rollupSetHistoriesToIndex, type IndexSeries } from "./rollup";
+import { rollupSetHistoriesToIndex } from "./rollup";
+import type { SeriesIndex, IndexSnapshot } from "./types";
 
-export interface SeriesIndex extends IndexSeries {
-  /** Series number (1..6 per directive). */
-  series: number;
-  /** Sum of edition circulation across contributing sets. */
-  totalCirculation: number;
-  /** Sets in this series that returned <2-point history (honest-absent). */
-  thinSetCount: number;
-}
+export type { SeriesIndex };
 
-export async function getSeriesIndices(
+/**
+ * V4-iter-4 — heavy compute path (cron-only).
+ * Renamed from `getSeriesIndices`. Do NOT call from SSR; use
+ * `readSeriesIndicesSnapshot()` instead.
+ */
+export async function computeSeriesIndices(
   days: number = 30,
   max: number = 6,
 ): Promise<SeriesIndex[]> {
@@ -77,4 +78,29 @@ export async function getSeriesIndices(
       ...rolled,
     };
   });
+}
+
+/**
+ * V4-iter-4 — cheap disk reader (SSR-safe). See tier-synthesizer
+ * `readTierIndicesSnapshot` for the contract; series uses the same shape.
+ */
+export function readSeriesIndicesSnapshot(): {
+  indices: SeriesIndex[];
+  computedAt: string;
+} | null {
+  try {
+    const dir = path.join(process.cwd(), ".snapshots", "indices");
+    const files = readdirSync(dir)
+      .filter((f) => f.startsWith("series-") && f.endsWith(".json"))
+      .sort();
+    if (files.length === 0) return null;
+    const newest = files[files.length - 1];
+    const raw = readFileSync(path.join(dir, newest), "utf8");
+    const parsed = JSON.parse(raw) as IndexSnapshot<SeriesIndex>;
+    if (parsed.schema_version !== 1) return null;
+    if (!Array.isArray(parsed.data)) return null;
+    return { indices: parsed.data, computedAt: parsed.computed_at };
+  } catch {
+    return null;
+  }
 }

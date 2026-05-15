@@ -14,16 +14,13 @@
 // gqlFetch ttlMs handles set-level caching (12h editionsInSet, 30min
 // price-history).
 
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { allSets, editionsInSet, getSetPriceHistory } from "@/lib/topshot/queries";
-import { rollupSetHistoriesToIndex, type IndexSeries } from "./rollup";
+import { rollupSetHistoriesToIndex } from "./rollup";
+import type { TierIndex, TierName, IndexSnapshot } from "./types";
 
-export type TierName = "Common" | "Rare" | "Legendary" | "Anthology" | "Ultimate";
-
-export interface TierIndex extends IndexSeries {
-  tier: TierName;
-  /** Sum of edition circulation across contributing sets. */
-  totalCirculation: number;
-}
+export type { TierIndex, TierName };
 
 const TIER_ORDER: TierName[] = ["Common", "Rare", "Legendary", "Anthology", "Ultimate"];
 
@@ -75,7 +72,12 @@ function classifySetTier(
   return { tier: bestTier, totalCirculation: totalCirc };
 }
 
-export async function getTierIndices(days: number = 30): Promise<TierIndex[]> {
+/**
+ * V4-iter-4 — heavy compute path (cron-only).
+ * Renamed from `getTierIndices`; do NOT call from SSR. Use
+ * `readTierIndicesSnapshot()` instead.
+ */
+export async function computeTierIndices(days: number = 30): Promise<TierIndex[]> {
   const sets = await allSets(250).catch(() => []);
   if (sets.length === 0) {
     return TIER_ORDER.map((tier) => ({
@@ -115,4 +117,37 @@ export async function getTierIndices(days: number = 30): Promise<TierIndex[]> {
       ...rolled,
     };
   });
+}
+
+/**
+ * V4-iter-4 — cheap disk reader (SSR-safe).
+ * Reads the most recent `tier-*.json` snapshot under `.snapshots/indices/`.
+ * Returns `null` on:
+ *   - directory or file missing
+ *   - JSON parse error
+ *   - `schema_version !== 1` (per spec acceptance 8 honest-absence routing)
+ *
+ * The reader is synchronous and intentionally side-effect-free; it is
+ * called once per SSR render and the result is cached by Next.js per the
+ * page-level `revalidate`.
+ */
+export function readTierIndicesSnapshot(): {
+  indices: TierIndex[];
+  computedAt: string;
+} | null {
+  try {
+    const dir = path.join(process.cwd(), ".snapshots", "indices");
+    const files = readdirSync(dir)
+      .filter((f) => f.startsWith("tier-") && f.endsWith(".json"))
+      .sort();
+    if (files.length === 0) return null;
+    const newest = files[files.length - 1];
+    const raw = readFileSync(path.join(dir, newest), "utf8");
+    const parsed = JSON.parse(raw) as IndexSnapshot<TierIndex>;
+    if (parsed.schema_version !== 1) return null;
+    if (!Array.isArray(parsed.data)) return null;
+    return { indices: parsed.data, computedAt: parsed.computed_at };
+  } catch {
+    return null;
+  }
 }

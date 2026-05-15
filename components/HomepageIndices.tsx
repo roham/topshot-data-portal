@@ -27,9 +27,14 @@ import {
   windowLeaders,
   type FeaturedSetIndex,
 } from "@/lib/indices/featured-sets";
-import type { TierIndex, TierName } from "@/lib/indices/tier-synthesizer";
-import type { TeamIndex } from "@/lib/indices/team-synthesizer";
-import type { SeriesIndex } from "@/lib/indices/series-synthesizer";
+import type { TierIndex, TierName, TeamIndex, SeriesIndex } from "@/lib/indices/types";
+
+// V4-iter-4 — snapshot wrappers per spec acceptance 8 (null routes through
+// honest-absence fallback).
+export interface IndexSnapshotPayload<T> {
+  indices: T[];
+  computedAt: string;
+}
 
 interface HomepageIndicesProps {
   series30d: FeaturedSetIndex[];
@@ -37,9 +42,9 @@ interface HomepageIndicesProps {
   series24h: FeaturedSetIndex[];
   daySnapshotDepth: number;
   warmingCompleteISO: string | null;
-  tiers: TierIndex[];
-  teams: TeamIndex[];
-  series: SeriesIndex[];
+  tiers: IndexSnapshotPayload<TierIndex> | null;
+  teams: IndexSnapshotPayload<TeamIndex> | null;
+  series: IndexSnapshotPayload<SeriesIndex> | null;
 }
 
 function fmtPct(p: number): string {
@@ -119,6 +124,27 @@ export function HomepageIndices({
   series,
 }: HomepageIndicesProps) {
   const leaders = windowLeaders(series30d, 3);
+
+  // V4-iter-4 — snapshot timestamps drive the methodology caption (spec
+  // acceptance 5 verbatim) and the 4h stale-banner.
+  const computedAts = [tiers?.computedAt, teams?.computedAt, series?.computedAt]
+    .filter((s): s is string => typeof s === "string");
+  const newestComputedAtISO = computedAts.length
+    ? computedAts.slice().sort().reverse()[0]
+    : null;
+  const oldestComputedAtMs = computedAts.length
+    ? Math.min(...computedAts.map((s) => Date.parse(s)).filter(Number.isFinite))
+    : null;
+  const nowMs = Date.now();
+  const isStale =
+    oldestComputedAtMs != null && nowMs - oldestComputedAtMs > 4 * 3_600_000;
+  const staleHours = isStale && oldestComputedAtMs != null
+    ? Math.floor((nowMs - oldestComputedAtMs) / 3_600_000)
+    : 0;
+
+  const tierList = tiers?.indices ?? null;
+  const teamList = teams?.indices ?? null;
+  const seriesList = series?.indices ?? null;
 
   return (
     <section data-block="homepage-indices" className="space-y-6">
@@ -279,18 +305,43 @@ export function HomepageIndices({
               30d-$-volume-weighted. Fandom tier (22 sets) and Series 7 + 8 are
               not currently rendered; queued for a future iter.
             </p>
+            {/* V4-iter-4 — spec acceptance 5 verbatim caption. */}
+            {newestComputedAtISO ? (
+              <p
+                data-indices-as-of
+                className="mt-2 text-[10px] italic text-[var(--text-faint)] leading-snug max-w-[60ch]"
+              >
+                Indices as of {newestComputedAtISO} · refreshed every 2 hours via build-time precompute
+              </p>
+            ) : null}
+            {isStale ? (
+              <p
+                data-indices-stale-banner
+                className="mt-2 text-[10px] font-mono text-[var(--down)] leading-snug max-w-[60ch]"
+              >
+                Indices last updated {staleHours} hours ago — cron may have stalled
+              </p>
+            ) : null}
           </div>
         </aside>
       </div>
 
-      {/* V4-iter-3 — Per-tier indices row */}
+      {/* V4-iter-3 / V4-iter-4 — Per-tier indices row */}
       <section
         data-indices-row="tier"
         className="border-l-2 border-[var(--border-faint,#2a2a2a)] pl-3 py-3"
       >
         <h3 className={ROW_HEADER_CLS}>Per-tier indices</h3>
+        {tierList == null ? (
+          <p
+            data-indices-pending
+            className="mt-1 text-[11px] italic text-[var(--text-faint)] leading-relaxed max-w-[65ch]"
+          >
+            Indices snapshot pending — first populated within 2h of next cron run.
+          </p>
+        ) : (
         <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {tiers.map((t) => {
+          {tierList.map((t) => {
             const palette = TIER_PALETTE[t.tier];
             const sufficient = t.contributingSetCount >= 3;
             return (
@@ -327,22 +378,30 @@ export function HomepageIndices({
             );
           })}
         </div>
+        )}
       </section>
 
-      {/* V4-iter-3 — Per-team indices row */}
+      {/* V4-iter-3 / V4-iter-4 — Per-team indices row */}
       <section
         data-indices-row="team"
         className="border-l-2 border-[var(--border-faint,#2a2a2a)] pl-3 py-3"
       >
         <h3 className={ROW_HEADER_CLS}>Per-team indices</h3>
-        {teams.length === 0 ? (
+        {teamList == null ? (
+          <p
+            data-indices-pending
+            className="mt-1 text-[11px] italic text-[var(--text-faint)] leading-relaxed max-w-[65ch]"
+          >
+            Indices snapshot pending — first populated within 2h of next cron run.
+          </p>
+        ) : teamList.length === 0 ? (
           <p className="mt-1 text-[11px] italic text-[var(--text-faint)] leading-relaxed max-w-[65ch]">
             Team indices unavailable — 30d transaction scan returned no
             classifiable rows. Honest-absent until the next revalidation.
           </p>
         ) : (
           <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            {teams.map((t) => {
+            {teamList.map((t) => {
               const aboveFloor = t.salesCount >= 100;
               const sufficient = aboveFloor && t.contributingSetCount >= 1;
               return (
@@ -376,14 +435,22 @@ export function HomepageIndices({
         )}
       </section>
 
-      {/* V4-iter-3 — Per-series indices row */}
+      {/* V4-iter-3 / V4-iter-4 — Per-series indices row */}
       <section
         data-indices-row="series"
         className="border-l-2 border-[var(--border-faint,#2a2a2a)] pl-3 py-3"
       >
         <h3 className={ROW_HEADER_CLS}>Per-series indices</h3>
+        {seriesList == null ? (
+          <p
+            data-indices-pending
+            className="mt-1 text-[11px] italic text-[var(--text-faint)] leading-relaxed max-w-[65ch]"
+          >
+            Indices snapshot pending — first populated within 2h of next cron run.
+          </p>
+        ) : (
         <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {series.map((s) => {
+          {seriesList.map((s) => {
             const sufficient = s.contributingSetCount >= 1;
             return (
               <Link
@@ -413,6 +480,7 @@ export function HomepageIndices({
             );
           })}
         </div>
+        )}
       </section>
     </section>
   );

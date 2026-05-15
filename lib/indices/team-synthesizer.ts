@@ -15,22 +15,17 @@
 // must run to find top-N regardless, so per-team `salesCount` /
 // `volumeCents` are free byproducts). Methodology aside discloses.
 
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import {
   allSets,
   chronologicalTxBackfill,
   getSetPriceHistory,
 } from "@/lib/topshot/queries";
-import { rollupSetHistoriesToIndex, type IndexSeries } from "./rollup";
+import { rollupSetHistoriesToIndex } from "./rollup";
+import type { TeamIndex, IndexSnapshot } from "./types";
 
-export interface TeamIndex extends IndexSeries {
-  team: string;
-  /** Team slug for /team/[slug] routing. */
-  slug: string;
-  /** 30d $ volume across the team's contributing sets. */
-  volumeCents: number;
-  /** 30d transaction count across the team's contributing sets. */
-  salesCount: number;
-}
+export type { TeamIndex };
 
 function teamSlug(name: string): string {
   return name
@@ -41,7 +36,12 @@ function teamSlug(name: string): string {
 
 const WINDOW_MS_30D = 30 * 24 * 60 * 60_000;
 
-export async function getTeamIndices(
+/**
+ * V4-iter-4 — heavy compute path (cron-only).
+ * Renamed from `getTeamIndices`. Cold-scan ~3 min per Researcher §1b.
+ * Do NOT call from SSR; use `readTeamIndicesSnapshot()` instead.
+ */
+export async function computeTeamIndices(
   days: number = 30,
   limit: number = 10,
 ): Promise<TeamIndex[]> {
@@ -114,4 +114,29 @@ export async function getTeamIndices(
     }),
   );
   return out;
+}
+
+/**
+ * V4-iter-4 — cheap disk reader (SSR-safe). See tier-synthesizer
+ * `readTierIndicesSnapshot` for the contract; team uses the same shape.
+ */
+export function readTeamIndicesSnapshot(): {
+  indices: TeamIndex[];
+  computedAt: string;
+} | null {
+  try {
+    const dir = path.join(process.cwd(), ".snapshots", "indices");
+    const files = readdirSync(dir)
+      .filter((f) => f.startsWith("team-") && f.endsWith(".json"))
+      .sort();
+    if (files.length === 0) return null;
+    const newest = files[files.length - 1];
+    const raw = readFileSync(path.join(dir, newest), "utf8");
+    const parsed = JSON.parse(raw) as IndexSnapshot<TeamIndex>;
+    if (parsed.schema_version !== 1) return null;
+    if (!Array.isArray(parsed.data)) return null;
+    return { indices: parsed.data, computedAt: parsed.computed_at };
+  } catch {
+    return null;
+  }
 }
