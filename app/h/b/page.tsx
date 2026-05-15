@@ -153,8 +153,15 @@ export default async function HomeVariantB() {
   }
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-4">
+      <div className="px-3 py-2 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded text-[11px] font-mono flex items-center gap-3">
+        <span className="text-[10px] tracking-data-label text-[var(--warn)]">Retired</span>
+        <span className="text-[var(--text-dim)]">
+          This variant has been retired. <Link href="/" className="text-[var(--text)] hover:text-[var(--accent)]">/</Link> is the canonical homepage; the combined story + KPIs surface is at <Link href="/briefing" className="text-[var(--text)] hover:text-[var(--accent)]">/briefing</Link>. The feed format components may resurface inside <Link href="/feed" className="text-[var(--text)] hover:text-[var(--accent)]">/feed</Link>.
+        </span>
+      </div>
+
       <header className="flex items-baseline gap-3 flex-wrap">
-        <h1 className="text-[20px] font-semibold tracking-tight">Feed</h1>
+        <h1 className="text-[20px] font-semibold tracking-tight">Feed <span className="text-[var(--text-faint)] text-[12px] tracking-normal font-normal">(retired)</span></h1>
         <span className="text-[10px] tracking-data-label text-[var(--text-faint)]">Variant B · live narrative</span>
         <span className="ml-auto text-[10px] text-[var(--text-faint)] font-mono">refreshes every 15s · window {d.windowSize} tx · {d.buyerCount} buyers</span>
       </header>
