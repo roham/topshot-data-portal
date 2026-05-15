@@ -7,8 +7,13 @@ import { TierChip } from "@/components/primitives/TierChip";
 import { readRecentSnapshots } from "@/lib/snapshots/store";
 import type { MarketAggregateSnapshot } from "@/lib/snapshots/types";
 import type { MarketplaceTransaction } from "@/lib/topshot/types";
+import { AggregateEconomyStrip } from "@/components/AggregateEconomyStrip";
+import { getAggregateEconomy } from "@/lib/aggregate-economy";
 
-export const revalidate = 120;
+// V4-iter-1: revalidate window widened to 600s so the chronologicalTxBackfill
+// render-time fallback inside the aggregate-economy strip is amortized across
+// hits (spec acceptance #4).
+export const revalidate = 600;
 export const metadata = { title: "Market · TS·PORTAL" };
 
 // /  — V3 iter-1 homepage rebuild.
@@ -1213,7 +1218,7 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
   // a race where Promise.all-parallel loaders each kick off their own fetch.
   bulkRef.txs = await recentSalesBulk(2000).catch(() => [] as MarketplaceTransaction[]);
 
-  const [moversBlock, mostActive, largest, collectors, momentum, indices, depthCaption] =
+  const [moversBlock, mostActive, largest, collectors, momentum, indices, depthCaption, aggregateEconomy] =
     await Promise.all([
       loadPlayerMovers24h(bulkRef),
       loadEditionMostActive24h(bulkRef, setUuidByName),
@@ -1222,6 +1227,7 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
       loadSetMomentum7d(bulkRef, setUuidByName),
       loadIndicesStrip24h(bulkRef),
       loadDepthCaption(),
+      getAggregateEconomy(),
     ]);
 
   // Page-level honest absence: only when EVERY surface is empty.
@@ -1241,6 +1247,9 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
+      {/* V4-iter-1: aggregate-economy strip at DOM order 0 (spec acceptance #1) */}
+      <AggregateEconomyStrip data={aggregateEconomy} />
+
       {/* Page header */}
       <header className="flex items-baseline gap-3 flex-wrap pt-4 pb-2">
         <h1 className="text-[20px] font-semibold tracking-tight">Market</h1>
