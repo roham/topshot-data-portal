@@ -1,0 +1,43 @@
+name: snapshot-hot
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot-hot
+  cancel-in-progress: false
+
+jobs:
+  hot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Pull + write snapshot
+        run: node scripts/snapshot-hot.mjs
+
+      - name: Commit + push if changes
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .snapshots/hot/
+          if git diff --staged --quiet; then
+            echo "no changes — skipping commit"
+            exit 0
+          fi
+          git commit -m "[snapshot] hot $(date -u +%FT%H-%M-%SZ)"
+          git pull --rebase
+          git push origin HEAD:main
