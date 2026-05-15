@@ -737,6 +737,19 @@ async function loadIndicesStrip24h(
   if (!bulkRef.txs) bulkRef.txs = await recentSalesBulk(2000).catch(() => [] as MarketplaceTransaction[]);
   const txs = bulkRef.txs;
 
+  // iter-5 Fix R1: snapshot-fallback layer for tier cells. Read the most-recent
+  // populated day-tier MarketAggregateSnapshot up front; cells whose bulk slice
+  // is also thin can derive a median from snapshot.largestSales filtered by
+  // tier. The "as of {Xh}h ago" caption is honest about staleness.
+  const daySnaps = await readRecentSnapshots<MarketAggregateSnapshot>("day", 4).catch(() => []);
+  const sortedDay = [...daySnaps].sort((a, b) => (a.key < b.key ? 1 : -1));
+  const snapWithSales = sortedDay.find(
+    (s) => Array.isArray(s.data?.largestSales) && (s.data.largestSales?.length ?? 0) > 0,
+  );
+  const snapSales = snapWithSales?.data.largestSales ?? [];
+  const snapTs = snapWithSales?.data.ts ?? null;
+  const snapAgeHours = snapTs ? Math.max(1, Math.round((Date.now() - snapTs) / 3_600_000)) : null;
+
   // Compute bulk window coverage (used in Ultimate fallback caption).
   let bulkWindowDaysApprox: number | null = null;
   let oldest = Infinity;
@@ -796,12 +809,32 @@ async function loadIndicesStrip24h(
     if (bulk.length >= TIER_BULK_MIN_SAMPLES) {
       const med = median(bulk);
       const usd = Math.round(med / 100);
+      const tail = bulkWindowDaysApprox && bulkWindowDaysApprox > 0
+        ? `~${bulkWindowDaysApprox}d bulk window (${bulk.length.toLocaleString()} tx)`
+        : `bulk window (${bulk.length.toLocaleString()} tx · window indeterminate)`;
       return {
         slug,
         label,
         value: `$${usd.toLocaleString()}`,
         pct24h: null,
-        caption: `${cleanLabel} proxy: median sale over trailing ~${bulkWindowDaysApprox && bulkWindowDaysApprox > 0 ? bulkWindowDaysApprox : "?"}d bulk window (${bulk.length.toLocaleString()} tx). Canonical index live 2026-06-09.`,
+        caption: `${cleanLabel} proxy: median sale over trailing ${tail}. Canonical index live 2026-06-09.`,
+      };
+    }
+    // iter-5 Fix R1: snapshot-fallback layer. When the bulk slice is also thin,
+    // derive median from snapshot.largestSales filtered by tier. Caption is
+    // verbatim per spec §1.
+    const snapTierCents = snapSales
+      .filter((s) => s.tier === rawTier && typeof s.priceCents === "number" && s.priceCents > 0)
+      .map((s) => s.priceCents);
+    if (snapTierCents.length >= 1 && snapAgeHours != null) {
+      const med = median(snapTierCents);
+      const usd = Math.round(med / 100);
+      return {
+        slug,
+        label,
+        value: `$${usd.toLocaleString()}`,
+        pct24h: null,
+        caption: `${cleanLabel} proxy: median from snapshot largestSales (${snapTierCents.length} ${cleanLabel} sales) — snapshot as of ${snapAgeHours}h ago. Canonical index live 2026-06-09.`,
       };
     }
     return {
@@ -867,7 +900,10 @@ async function loadIndicesStrip24h(
       const usd = Math.round(med / 100);
       seriesValue = `$${usd.toLocaleString()}`;
       seriesLabel = `Series ${topSeriesBulk.n} · median 24h`;
-      seriesCaption = `Series ${topSeriesBulk.n} proxy: median sale over trailing ~${bulkWindowDaysApprox && bulkWindowDaysApprox > 0 ? bulkWindowDaysApprox : "?"}d bulk window (${topSeriesBulk.samples.length.toLocaleString()} tx). Canonical index live 2026-06-09.`;
+      const seriesTail = bulkWindowDaysApprox && bulkWindowDaysApprox > 0
+        ? `~${bulkWindowDaysApprox}d bulk window (${topSeriesBulk.samples.length.toLocaleString()} tx)`
+        : `bulk window (${topSeriesBulk.samples.length.toLocaleString()} tx · window indeterminate)`;
+      seriesCaption = `Series ${topSeriesBulk.n} proxy: median sale over trailing ${seriesTail}. Canonical index live 2026-06-09.`;
     }
     // else: em-dash with default caption (bulk window has 0 series tx anywhere).
   }
@@ -1329,7 +1365,9 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         )}
         {momentum.usedLiveFallback && (
           <p className="mt-0.5 px-1 text-[10px] text-[var(--text-faint)]">
-            Aggregate volume from trailing ~{momentum.bulkWindowDaysApprox && momentum.bulkWindowDaysApprox > 0 ? momentum.bulkWindowDaysApprox : "?"}d bulk window ({(momentum.bulkTxCount || 0).toLocaleString()} tx){(momentum.bulkTxCount || 0) === 0 ? " — depth unavailable at this render." : "."}
+            {momentum.bulkWindowDaysApprox && momentum.bulkWindowDaysApprox > 0
+              ? `Aggregate volume from trailing ~${momentum.bulkWindowDaysApprox}d bulk window (${(momentum.bulkTxCount || 0).toLocaleString()} tx)${(momentum.bulkTxCount || 0) === 0 ? " — depth unavailable at this render." : "."}`
+              : `Aggregate volume from trailing bulk window (${(momentum.bulkTxCount || 0).toLocaleString()} tx · window indeterminate)${(momentum.bulkTxCount || 0) === 0 ? " — depth unavailable at this render." : "."}`}
           </p>
         )}
       </section>
