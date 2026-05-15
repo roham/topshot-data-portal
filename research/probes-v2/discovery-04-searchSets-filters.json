@@ -1,0 +1,42 @@
+{
+  "slug": "discovery-04-searchSets-filters",
+  "description": "Does searchSets accept bySeries or byActive filters?",
+  "timestamp": "2026-05-15T00:09:13.468Z",
+  "elapsedMs": 68,
+  "request": {
+    "query": "query{ searchSets(input:{ filters:{ bySeries:[1,2] byActive:true } searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:5 } } }){ searchSummary{ data{ ... on Sets{ data{ id flowName flowSeriesNumber } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"bySeries\" is not defined by type \"SearchSetsFilterInput\". Did you mean \"byLeagues\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 37
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Field \"byActive\" is not defined by type \"SearchSetsFilterInput\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 52
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

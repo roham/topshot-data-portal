@@ -1,0 +1,33 @@
+{
+  "slug": "ceiling-03b-tx-filter-byPriceRange",
+  "category": "ceiling",
+  "description": "Ceiling 3 alt: also no price-range filter on the global tx feed.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:13.471Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{ byPriceRange:{ min:1000, max:10000 } } searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:5 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"byPriceRange\" is not defined by type \"MarketplaceTransactionFiltersInput\". Did you mean \"byPrice\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 56
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

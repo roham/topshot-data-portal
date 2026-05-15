@@ -1,0 +1,45 @@
+{
+  "slug": "open-04-holder-distribution",
+  "category": "open-question",
+  "description": "Open Q4: getEditionMinted or holders distribution.",
+  "expectError": null,
+  "timestamp": "2026-05-15T00:08:20.853Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ getEditionByFlowIDs(input:{ setFlowID:\"108\", playFlowID:\"4096\" }){ edition{ id holders{ totalCount } topHolders{ flowAddress count } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"holders\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 87
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"topHolders\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 109
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

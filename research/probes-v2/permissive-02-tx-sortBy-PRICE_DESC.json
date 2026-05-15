@@ -1,0 +1,34 @@
+{
+  "slug": "permissive-02-tx-sortBy-PRICE_DESC",
+  "category": "permissive",
+  "description": "Permissive: PRICE_DESC sort (already used by biggestSalesAllTime).",
+  "expectError": null,
+  "timestamp": "2026-05-15T00:08:22.571Z",
+  "elapsedMs": 74,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{} sortBy:PRICE_DESC searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:1 } } }){ data{ searchSummary{ data{ ... on MarketplaceTransactions{ data{ id price } } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "searchMarketplaceTransactions": {
+          "data": {
+            "searchSummary": {
+              "data": {
+                "data": [
+                  {
+                    "id": "81a95022-d123-4a88-8a85-20dc349c60b7",
+                    "price": "230023.00000000"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "networkError": null
+  }
+}

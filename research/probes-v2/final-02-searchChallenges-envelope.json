@@ -1,0 +1,28 @@
+{
+  "slug": "final-02-searchChallenges-envelope",
+  "description": "searchChallenges full envelope.",
+  "timestamp": "2026-05-15T00:10:28.070Z",
+  "elapsedMs": 90,
+  "request": {
+    "query": "query{ searchChallenges(input:{ filters:{} searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:3 } } }){ data{ searchSummary{ totalCount __typename data{ __typename } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "searchChallenges": {
+          "data": {
+            "searchSummary": {
+              "totalCount": null,
+              "__typename": "SearchSummary",
+              "data": {
+                "__typename": "UserChallenges"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

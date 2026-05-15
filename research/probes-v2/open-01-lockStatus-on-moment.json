@@ -1,0 +1,57 @@
+{
+  "slug": "open-01-lockStatus-on-moment",
+  "category": "open-question",
+  "description": "Open Q1: does MintedMoment.lockStatus exist (J-X3 locking dashboard dependency)?",
+  "expectError": null,
+  "timestamp": "2026-05-15T00:08:19.116Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ flowId lockStatus isLocked locked lockExpiresAt } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"lockStatus\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 59
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"locked\" on type \"MintedMoment\". Did you mean \"isLocked\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 79
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"lockExpiresAt\" on type \"MintedMoment\". Did you mean \"lockExpiryAt\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 86
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "slug": "discovery-09-challenges",
+  "description": "Top-level challenges / rewards query.",
+  "timestamp": "2026-05-15T00:09:16.336Z",
+  "elapsedMs": 92,
+  "request": {
+    "query": "query{ searchChallenges(input:{ filters:{} searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:3 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "searchChallenges": {
+          "data": {
+            "searchSummary": {
+              "totalCount": null
+            }
+          }
+        }
+      }
+    }
+  }
+}

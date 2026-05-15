@@ -1,0 +1,45 @@
+{
+  "slug": "ceiling-10-moment-bids",
+  "category": "ceiling",
+  "description": "Ceiling 10: no bid or offer data on moments.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:17.990Z",
+  "elapsedMs": 62,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ flowId bids { id price bidder { username } } offers { id price } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"bids\" on type \"MintedMoment\". Did you mean \"id\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 59
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"offers\" on type \"MintedMoment\". Did you mean \"owner\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 97
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

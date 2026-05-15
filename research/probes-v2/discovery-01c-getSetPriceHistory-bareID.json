@@ -1,0 +1,80 @@
+{
+  "slug": "discovery-01c-getSetPriceHistory-bareID",
+  "description": "Try bare ID arg.",
+  "timestamp": "2026-05-15T00:09:11.192Z",
+  "elapsedMs": 70,
+  "request": {
+    "query": "query($id:ID!){ getSetPriceHistory(setID:$id){ data{ ts price } } }",
+    "variables": {
+      "id": "108"
+    }
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"ts\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 54
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"price\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 57
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Field \"data\" must not have a selection since type \"Float\" has no subfields.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 48
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Unknown argument \"setID\" on field \"Query.getSetPriceHistory\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 17
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Field \"getSetPriceHistory\" argument \"input\" of type \"GetSetPriceHistoryInput!\" is required, but it was not provided.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 17
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

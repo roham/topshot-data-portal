@@ -1,0 +1,30 @@
+{
+  "slug": "discovery-02b-tx-sort-INVALID",
+  "description": "Use deliberately invalid enum to surface valid options in error.",
+  "timestamp": "2026-05-15T00:09:12.329Z",
+  "elapsedMs": 67,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{} sortBy:WAT_DESC searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:1 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Value \"WAT_DESC\" does not exist in \"MarketplaceTransactionSortType\" enum.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 64
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

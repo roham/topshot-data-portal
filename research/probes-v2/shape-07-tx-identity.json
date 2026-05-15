@@ -1,0 +1,30 @@
+{
+  "slug": "shape-07-tx-identity",
+  "description": "Confirm buyer + seller identity present on tx (wash-trade detection prerequisite).",
+  "timestamp": "2026-05-15T00:10:00.620Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{} sortBy:UPDATED_AT_DESC searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:1 } } }){ data{ searchSummary{ data{ ... on MarketplaceTransactions{ data{ id price updatedAt createdAt buyer{ username flowAddress dapperID } seller{ username flowAddress dapperID } } } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"createdAt\" on type \"MarketplaceTransaction\". Did you mean \"updatedAt\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 235
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

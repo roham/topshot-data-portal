@@ -1,0 +1,30 @@
+{
+  "slug": "discovery-02-tx-sort-CREATED_AT_DESC",
+  "description": "What sort enum values exist on MarketplaceTransactionSortType beyond PRICE_DESC?",
+  "timestamp": "2026-05-15T00:09:11.761Z",
+  "elapsedMs": 68,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{} sortBy:CREATED_AT_DESC searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:1 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Value \"CREATED_AT_DESC\" does not exist in \"MarketplaceTransactionSortType\" enum. Did you mean the enum value \"UPDATED_AT_DESC\" or \"UPDATED_AT_ASC\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 64
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

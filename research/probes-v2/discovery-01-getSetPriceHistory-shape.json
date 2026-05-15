@@ -1,0 +1,66 @@
+{
+  "slug": "discovery-01-getSetPriceHistory-shape",
+  "description": "Probe getSetPriceHistory args/shape. Try common arg names.",
+  "timestamp": "2026-05-15T00:09:10.054Z",
+  "elapsedMs": 224,
+  "request": {
+    "query": "query{ getSetPriceHistory(input:{ setFlowID:\"108\" }){ points{ ts price } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"GetSetPriceHistoryInput.setID\" of required type \"ID!\" was not provided.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 33
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Field \"GetSetPriceHistoryInput.days\" of required type \"Int!\" was not provided.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 33
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Field \"setFlowID\" is not defined by type \"GetSetPriceHistoryInput\". Did you mean \"setID\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 35
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"points\" on type \"GetSetPriceHistoryResponse\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 55
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

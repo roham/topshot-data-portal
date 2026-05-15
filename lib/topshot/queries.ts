@@ -697,6 +697,109 @@ export async function allSets(limit: number = 200): Promise<SetRow[]> {
   }
 }
 
+// ---- SET PRICE HISTORY (V2 STAGE-1 UNLOCK) ----
+// public-api returns { data: [[timestamp_ms, price_cents], ...] }.
+// setUuid must be the GraphQL UUID (not the flow numeric ID).
+// `days` is required; the server enforces Int!.
+// Sample times are irregular (not strictly daily); volume not exposed.
+// See research/01-data-ceilings-v2.md UNLOCK-01.
+export interface SetPriceHistoryPoint {
+  ts: number; // unix ms
+  date: Date;
+  price: number; // dollars
+  priceCents: number;
+}
+export async function getSetPriceHistory(
+  setUuid: string,
+  days: number,
+): Promise<SetPriceHistoryPoint[]> {
+  const q = `query($s: ID!, $d: Int!) {
+    getSetPriceHistory(input: { setID: $s, days: $d }) { data }
+  }`;
+  // The server returns a raw scalar matrix; type the response loosely then parse.
+  type R = { getSetPriceHistory: { data: Array<[number, number]> } | null };
+  try {
+    const d = await gqlFetch<R>(q, { s: setUuid, d: days }, { ttlMs: 30 * 60_000 });
+    const raw = d.getSetPriceHistory?.data ?? [];
+    return raw.map(([ts, priceCents]) => ({
+      ts,
+      date: new Date(ts),
+      price: priceCents / 100,
+      priceCents,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ---- CHRONOLOGICAL TX BACKFILL (V2 STAGE-1 UNLOCK-02) ----
+// Pages backwards through searchMarketplaceTransactions with UPDATED_AT_DESC,
+// stopping when tx.updatedAt < now - windowMs. Used by the snapshot
+// accumulator for per-window sale-count and median price.
+export async function chronologicalTxBackfill(
+  windowMs: number,
+  hardCapTransactions: number = 5000,
+): Promise<MarketplaceTransaction[]> {
+  const cutoff = Date.now() - windowMs;
+  const PAGE = 50;
+  const out: MarketplaceTransaction[] = [];
+  let cursor = "";
+  while (out.length < hardCapTransactions) {
+    const q = `query($cur: Cursor!, $lim: Int!) {
+      searchMarketplaceTransactions(input: {
+        filters: {}
+        sortBy: UPDATED_AT_DESC
+        searchInput: { pagination: { cursor: $cur, direction: RIGHT, limit: $lim } }
+      }) {
+        data {
+          searchSummary {
+            pagination { rightCursor }
+            data { ... on MarketplaceTransactions { data {
+              id price txHash updatedAt
+              buyer { username flowAddress dapperID }
+              seller { username flowAddress dapperID }
+              moment {
+                flowId flowSerialNumber tier
+                set { flowName flowId }
+                play { stats { playerName jerseyNumber teamAtMoment dateOfMoment } }
+                edition { circulationCount tier parallelID }
+              }
+            } } }
+          }
+        }
+      }
+    }`;
+    type R = {
+      searchMarketplaceTransactions: {
+        data: {
+          searchSummary: {
+            pagination?: { rightCursor?: string };
+            data: { data: (MarketplaceTransaction & { updatedAt?: string })[] };
+          };
+        };
+      };
+    };
+    try {
+      const d = await gqlFetch<R>(q, { cur: cursor, lim: PAGE }, { ttlMs: 30_000 });
+      const ss = d.searchMarketplaceTransactions.data.searchSummary;
+      const items = ss.data.data;
+      // Filter to window. Items arrive newest-first.
+      const inWindow = items.filter((t) => {
+        const ts = t.updatedAt ? Date.parse(t.updatedAt) : Date.now();
+        return ts >= cutoff;
+      });
+      out.push(...inWindow);
+      // If any item fell outside the window, we're done.
+      if (inWindow.length < items.length) break;
+      cursor = ss.pagination?.rightCursor ?? "";
+      if (!cursor || items.length === 0) break;
+    } catch {
+      break;
+    }
+  }
+  return out;
+}
+
 // ---- PLAYERS DIRECTORY ----
 export async function allPlayers(): Promise<Array<{ id: string; name: string }>> {
   const q = `query { allPlayers { data { id name } } }`;

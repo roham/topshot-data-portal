@@ -1,0 +1,54 @@
+{
+  "slug": "shape-03-searchBreakEvents",
+  "description": "searchBreakEvents — what's a BreakEvent?",
+  "timestamp": "2026-05-15T00:09:57.799Z",
+  "elapsedMs": 62,
+  "request": {
+    "query": "query{ searchBreakEvents(input:{ filters:{} searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:3 } } }){ data{ searchSummary{ totalCount data{ ... on BreakEvents{ data{ id name startTime endTime } } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"searchInput\" is not defined by type \"SearchBreakEventsInput\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 45
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Unknown type \"BreakEvents\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 158
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"data\" on type \"LiveBreakEventConnection\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 116
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

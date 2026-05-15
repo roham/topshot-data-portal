@@ -1,0 +1,45 @@
+{
+  "slug": "ceiling-02b-moment-transferHistory",
+  "category": "ceiling",
+  "description": "Ceiling 2 alt: try `.transferHistory` and `.history` aliases.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:12.316Z",
+  "elapsedMs": 67,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ flowId transferHistory { txHash } history { txHash } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"transferHistory\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 59
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"history\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 86
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

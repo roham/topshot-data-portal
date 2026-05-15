@@ -1,0 +1,45 @@
+{
+  "slug": "ceiling-08b-edition-priceHistory",
+  "category": "ceiling",
+  "description": "Ceiling 8 alt: also not on Edition.priceHistory.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:16.296Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ getEditionByFlowIDs(input:{ setFlowID:\"108\", playFlowID:\"4096\" }){ edition{ priceHistory{ ts price } salesHistory{ price } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"priceHistory\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 84
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"salesHistory\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 109
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

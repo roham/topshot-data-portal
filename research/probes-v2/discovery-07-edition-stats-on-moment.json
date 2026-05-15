@@ -1,0 +1,66 @@
+{
+  "slug": "discovery-07-edition-stats-on-moment",
+  "description": "Does the Edition stub embedded on a MintedMoment expose more fields?",
+  "timestamp": "2026-05-15T00:09:15.176Z",
+  "elapsedMs": 69,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ flowId edition{ id circulationCount tier parallelID name slug mostRecentSalePrice lastSale } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"name\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 104
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"slug\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 109
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"mostRecentSalePrice\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 114
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"lastSale\" on type \"Edition\". Did you mean \"state\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 134
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "slug": "shape-05-getUserSets",
+  "description": "getUserSets — per-user set completion?",
+  "timestamp": "2026-05-15T00:09:58.928Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ getUserSets(input:{ flowAddress:\"0xee9c9e3651ba6f49\" }){ sets{ id flowName completed totalMoments ownedMoments } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"flowAddress\" is not defined by type \"GetUserSetsInput\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 28
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"sets\" on type \"GetUserSetsResponse\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 65
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "slug": "open-05-challenge-staking",
+  "category": "open-question",
+  "description": "Open Q5: challenge/staking state. Try Challenge type and stake fields.",
+  "expectError": null,
+  "timestamp": "2026-05-15T00:08:21.416Z",
+  "elapsedMs": 63,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ flowId stakedIn{ id name } activeChallenges{ id name } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"stakedIn\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 59
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"activeChallenges\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 79
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

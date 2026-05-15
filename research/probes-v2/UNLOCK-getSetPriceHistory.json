@@ -1,0 +1,19 @@
+{
+  "endpoint": "getSetPriceHistory",
+  "discovered": "2026-05-15",
+  "args": { "setID": "UUID (not flowId)", "days": "Int!" },
+  "response_shape": "{ data: [[timestamp_ms: Int, price_cents: Int]] }",
+  "example_request": "getSetPriceHistory(input:{ setID:\"344513e4-c88d-4203-871c-48b92eef3578\", days:30 }){ data }",
+  "example_response_excerpt": [[1776470419692, 1394], [1778795253793, 1320]],
+  "ceiling_8_revision": "Ceiling 8 (no time-series historical) is PARTIALLY FALSE. Per-SET history is available (~daily granularity). Per-EDITION and per-MOMENT history remain blocked.",
+  "feature_unlock": [
+    "Indices: TS500 + per-tier + per-series + per-team can use real set-history series instead of accumulator-only",
+    "Set retrospective surfaces get a 30/90d chart for free",
+    "Set page header gets a real chart on first render"
+  ],
+  "limitations": [
+    "Granularity is irregular (sample times vary)",
+    "No per-edition or per-moment series",
+    "Volume not exposed in this payload — only price"
+  ]
+}

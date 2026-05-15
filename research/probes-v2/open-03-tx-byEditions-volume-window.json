@@ -1,0 +1,33 @@
+{
+  "slug": "open-03-tx-byEditions-volume-window",
+  "category": "open-question",
+  "description": "Open Q3: per-edition sale-count over a window. The byEditions filter works; can we sortBy date and combine?",
+  "expectError": null,
+  "timestamp": "2026-05-15T00:08:20.289Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{ byEditions:[{ setID:\"a1b2c3\", playID:\"d4e5f6\" }] } sortBy:DATE_DESC searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:5 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Value \"DATE_DESC\" does not exist in \"MarketplaceTransactionSortType\" enum. Did you mean the enum value \"PRICE_DESC\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 114
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

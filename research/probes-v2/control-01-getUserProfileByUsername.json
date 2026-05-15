@@ -1,0 +1,29 @@
+{
+  "slug": "control-01-getUserProfileByUsername",
+  "category": "control",
+  "description": "Baseline: known-working query for BostonBased.",
+  "expectError": false,
+  "timestamp": "2026-05-15T00:08:10.050Z",
+  "elapsedMs": 239,
+  "request": {
+    "query": "query($u:String!){ getUserProfileByUsername(input:{username:$u}){ publicInfo{ username dapperID flowAddress } } }",
+    "variables": {
+      "u": "BostonBased"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "getUserProfileByUsername": {
+          "publicInfo": {
+            "username": "BostonBased",
+            "dapperID": "google-oauth2|101752459608803556569",
+            "flowAddress": "0bb3b2a249ca6822"
+          }
+        }
+      }
+    },
+    "networkError": null
+  }
+}

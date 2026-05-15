@@ -1,0 +1,208 @@
+{
+  "slug": "open-02-dateOfMoment-reliability",
+  "category": "open-question",
+  "description": "Open Q2: pull recent plays' dateOfMoment and inspect coverage / format.",
+  "expectError": null,
+  "timestamp": "2026-05-15T00:08:19.725Z",
+  "elapsedMs": 108,
+  "request": {
+    "query": "query{ searchPlays(input:{ searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:20 } } }){ searchSummary{ data{ ... on Plays{ data{ id headline stats{ playerName dateOfMoment teamAtMoment } } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "searchPlays": {
+          "searchSummary": {
+            "data": {
+              "data": [
+                {
+                  "id": "eb8626b3-cd15-4675-8416-c75919a0e229",
+                  "headline": "Anthony Gill",
+                  "stats": {
+                    "playerName": "Anthony Gill",
+                    "dateOfMoment": "2026-01-08T00:00:00Z",
+                    "teamAtMoment": "Washington Wizards"
+                  }
+                },
+                {
+                  "id": "237a4efa-45b9-4070-b107-8af3c5beae62",
+                  "headline": "Lindy Waters III",
+                  "stats": {
+                    "playerName": "Lindy Waters III",
+                    "dateOfMoment": "2026-04-07T00:00:00Z",
+                    "teamAtMoment": "San Antonio Spurs"
+                  }
+                },
+                {
+                  "id": "1a5bc459-863c-41ad-a850-a1a04211ca15",
+                  "headline": "Devin Booker",
+                  "stats": {
+                    "playerName": "Devin Booker",
+                    "dateOfMoment": "2026-04-28T01:30:00Z",
+                    "teamAtMoment": "Phoenix Suns"
+                  }
+                },
+                {
+                  "id": "8aa11ea6-5919-4624-af97-c3bf0e901695",
+                  "headline": "Reed Sheppard",
+                  "stats": {
+                    "playerName": "Reed Sheppard",
+                    "dateOfMoment": "2026-04-27T01:30:00Z",
+                    "teamAtMoment": "Houston Rockets"
+                  }
+                },
+                {
+                  "id": "a4407e05-0c75-45ee-9512-04ca604abf87",
+                  "headline": "A.J. Lawson",
+                  "stats": {
+                    "playerName": "A.J. Lawson",
+                    "dateOfMoment": "2025-12-07T20:30:00Z",
+                    "teamAtMoment": "Toronto Raptors"
+                  }
+                },
+                {
+                  "id": "5d41243c-4470-4a67-8fe2-3b271e457061",
+                  "headline": "Kyle Lowry",
+                  "stats": {
+                    "playerName": "Kyle Lowry",
+                    "dateOfMoment": "2026-03-25T23:00:00Z",
+                    "teamAtMoment": "Philadelphia 76ers"
+                  }
+                },
+                {
+                  "id": "2dc1f434-f181-4c8b-b3f5-f8d596c4fb2b",
+                  "headline": "Oscar Tshiebwe",
+                  "stats": {
+                    "playerName": "Oscar Tshiebwe",
+                    "dateOfMoment": "2026-04-13T00:30:00Z",
+                    "teamAtMoment": "Utah Jazz"
+                  }
+                },
+                {
+                  "id": "73ffa5df-8969-4c97-b5d5-a40b10962037",
+                  "headline": "Jordan McLaughlin",
+                  "stats": {
+                    "playerName": "Jordan McLaughlin",
+                    "dateOfMoment": "2025-11-08T00:30:00Z",
+                    "teamAtMoment": "San Antonio Spurs"
+                  }
+                },
+                {
+                  "id": "1a089688-a360-4345-961c-481c76d8ee48",
+                  "headline": "Keegan Murray",
+                  "stats": {
+                    "playerName": "Keegan Murray",
+                    "dateOfMoment": "2025-12-19T03:00:00Z",
+                    "teamAtMoment": "Sacramento Kings"
+                  }
+                },
+                {
+                  "id": "bfc56120-d134-4dbb-96ef-867e517b9d3f",
+                  "headline": "Jrue Holiday",
+                  "stats": {
+                    "playerName": "Jrue Holiday",
+                    "dateOfMoment": "2026-03-05T01:00:00Z",
+                    "teamAtMoment": "Portland Trail Blazers"
+                  }
+                },
+                {
+                  "id": "5354f79e-23cd-4697-8123-d1f0a9e32db0",
+                  "headline": "Jett Howard",
+                  "stats": {
+                    "playerName": "Jett Howard",
+                    "dateOfMoment": "2026-02-20T03:00:00Z",
+                    "teamAtMoment": "Orlando Magic"
+                  }
+                },
+                {
+                  "id": "ea7a173a-64a3-4f2a-a265-3b4f251e0f30",
+                  "headline": "Jake LaRavia",
+                  "stats": {
+                    "playerName": "Jake LaRavia",
+                    "dateOfMoment": "2026-04-01T02:30:00Z",
+                    "teamAtMoment": "Los Angeles Lakers"
+                  }
+                },
+                {
+                  "id": "14ae03a4-b7e1-4660-a1a6-c856ccf8b302",
+                  "headline": "Cam Christie",
+                  "stats": {
+                    "playerName": "Cam Christie",
+                    "dateOfMoment": "2025-11-11T03:30:00Z",
+                    "teamAtMoment": "LA Clippers"
+                  }
+                },
+                {
+                  "id": "c1b21458-99d8-40e2-9a27-a0e6d1c58033",
+                  "headline": "Kevon Looney",
+                  "stats": {
+                    "playerName": "Kevon Looney",
+                    "dateOfMoment": "2026-04-08T00:00:00Z",
+                    "teamAtMoment": "New Orleans Pelicans"
+                  }
+                },
+                {
+                  "id": "255f1ab4-1729-4be6-900e-0e1fd6053357",
+                  "headline": "Miles McBride",
+                  "stats": {
+                    "playerName": "Miles McBride",
+                    "dateOfMoment": "2026-05-10T19:30:00Z",
+                    "teamAtMoment": "New York Knicks"
+                  }
+                },
+                {
+                  "id": "a6aa2edc-4d26-44a4-b80a-5dda69892b43",
+                  "headline": "Anthony Edwards",
+                  "stats": {
+                    "playerName": "Anthony Edwards",
+                    "dateOfMoment": "2026-05-10T23:30:00Z",
+                    "teamAtMoment": "Minnesota Timberwolves"
+                  }
+                },
+                {
+                  "id": "50187060-233e-4390-bc0a-2b44cf7ec4c5",
+                  "headline": "Jeremy Sochan",
+                  "stats": {
+                    "playerName": "Jeremy Sochan",
+                    "dateOfMoment": "2026-02-20T00:30:00Z",
+                    "teamAtMoment": "New York Knicks"
+                  }
+                },
+                {
+                  "id": "4adc5f84-2a2e-4f96-bace-6fddec60cc89",
+                  "headline": "Donovan Mitchell",
+                  "stats": {
+                    "playerName": "Donovan Mitchell",
+                    "dateOfMoment": "2026-05-12T00:00:00Z",
+                    "teamAtMoment": "Cleveland Cavaliers"
+                  }
+                },
+                {
+                  "id": "24642404-d335-4857-a10b-00f3e974c5bc",
+                  "headline": "Ousmane Dieng",
+                  "stats": {
+                    "playerName": "Ousmane Dieng",
+                    "dateOfMoment": "2026-04-11T00:00:00Z",
+                    "teamAtMoment": "Milwaukee Bucks"
+                  }
+                },
+                {
+                  "id": "546846a6-cdbd-4280-b111-7e31a147a41f",
+                  "headline": "Ben Sheppard",
+                  "stats": {
+                    "playerName": "Ben Sheppard",
+                    "dateOfMoment": "2026-04-02T00:00:00Z",
+                    "teamAtMoment": "Indiana Pacers"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "networkError": null
+  }
+}

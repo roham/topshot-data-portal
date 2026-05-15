@@ -1,0 +1,42 @@
+{
+  "slug": "shape-01-getSetPriceHistory-30d",
+  "description": "getSetPriceHistory with setID + days. Capture full response shape.",
+  "timestamp": "2026-05-15T00:09:55.541Z",
+  "elapsedMs": 210,
+  "request": {
+    "query": "query{ getSetPriceHistory(input:{ setID:\"108\", days:30 }){ data{ price } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"price\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 66
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Field \"data\" must not have a selection since type \"Float\" has no subfields.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 60
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

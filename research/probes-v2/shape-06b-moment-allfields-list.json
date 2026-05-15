@@ -1,0 +1,30 @@
+{
+  "slug": "shape-06b-moment-allfields-list",
+  "description": "MintedMoment field listing via bad-field error.",
+  "timestamp": "2026-05-15T00:10:00.054Z",
+  "elapsedMs": 65,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ ___nonexistent } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"___nonexistent\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 52
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

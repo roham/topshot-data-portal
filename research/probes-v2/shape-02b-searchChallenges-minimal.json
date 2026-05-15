@@ -1,0 +1,30 @@
+{
+  "slug": "shape-02b-searchChallenges-minimal",
+  "description": "Minimal Challenge fields to confirm shape on errors.",
+  "timestamp": "2026-05-15T00:09:57.237Z",
+  "elapsedMs": 65,
+  "request": {
+    "query": "query{ searchChallenges(input:{ filters:{} searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:5 } } }){ data{ searchSummary{ totalCount data{ ... on Challenges{ data{ id } } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Unknown type \"Challenges\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 157
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "slug": "shape-01b-getSetPriceHistory-fields",
+  "description": "Try richer field set on each point.",
+  "timestamp": "2026-05-15T00:09:56.108Z",
+  "elapsedMs": 66,
+  "request": {
+    "query": "query{ getSetPriceHistory(input:{ setID:\"108\", days:7 }){ data{ price timestamp date volume tier } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"price\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 65
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"timestamp\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 71
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"date\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 81
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"volume\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 86
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"tier\" on type \"Float\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 93
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Field \"data\" must not have a selection since type \"Float\" has no subfields.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 59
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

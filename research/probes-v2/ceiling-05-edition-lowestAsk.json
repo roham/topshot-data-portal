@@ -1,0 +1,69 @@
+{
+  "slug": "ceiling-05-edition-lowestAsk",
+  "category": "ceiling",
+  "description": "Ceiling 5: Edition has no `.lowestAsk` aggregate field.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:14.600Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ getEditionByFlowIDs(input:{ setFlowID:\"108\", playFlowID:\"4096\" }){ edition{ id lowestAsk lowAsk floor floorPrice } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"lowestAsk\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 87
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"lowAsk\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 97
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"floor\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 104
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"floorPrice\" on type \"Edition\". Did you mean \"flowRetired\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 110
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

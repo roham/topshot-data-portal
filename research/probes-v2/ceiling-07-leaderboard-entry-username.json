@@ -1,0 +1,45 @@
+{
+  "slug": "ceiling-07-leaderboard-entry-username",
+  "category": "ceiling",
+  "description": "Ceiling 7: leaderboard entries have rank/score only; no collector identity.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:15.169Z",
+  "elapsedMs": 68,
+  "request": {
+    "query": "query{ getLeaderboard(input:{ kind:PLAYER id:\"2544\" sortBy:SCORE_DESC pagination:{ cursor:\"\", direction:RIGHT, limit:5 } }){ leaderboard{ ... on PlayerLeaderboard{ entries{ rank score user{ username flowAddress } owner{ username } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"user\" on type \"LeaderboardUser\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 185
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"owner\" on type \"LeaderboardUser\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 214
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

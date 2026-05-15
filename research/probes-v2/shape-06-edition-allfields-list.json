@@ -1,0 +1,30 @@
+{
+  "slug": "shape-06-edition-allfields-list",
+  "description": "Edition: ask for known-bad field; error message lists valid fields.",
+  "timestamp": "2026-05-15T00:09:59.489Z",
+  "elapsedMs": 61,
+  "request": {
+    "query": "query{ getEditionByFlowIDs(input:{ setFlowID:\"108\", playFlowID:\"4096\" }){ edition{ ___nonexistent } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"___nonexistent\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 84
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

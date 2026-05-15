@@ -1,0 +1,33 @@
+{
+  "slug": "ceiling-08-getPriceHistory",
+  "category": "ceiling",
+  "description": "Ceiling 8: no time-series historical pricing endpoint.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:15.732Z",
+  "elapsedMs": 63,
+  "request": {
+    "query": "query{ getPriceHistory(input:{ setFlowID:\"108\", playFlowID:\"4096\", interval:DAY }){ points{ ts price } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"getPriceHistory\" on type \"Query\". Did you mean \"getSetPriceHistory\", \"getEditionPriceHistory\", or \"getPackListing\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 8
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

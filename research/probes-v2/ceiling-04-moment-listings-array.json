@@ -1,0 +1,33 @@
+{
+  "slug": "ceiling-04-moment-listings-array",
+  "category": "ceiling",
+  "description": "Ceiling 4: no `.listings[]` per moment exposing per-listing price. Aggregate lowAsk only.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:14.035Z",
+  "elapsedMs": 65,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ flowId lowAsk listings { id price seller { username } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"listings\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 66
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

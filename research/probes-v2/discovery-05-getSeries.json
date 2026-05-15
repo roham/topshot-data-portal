@@ -1,0 +1,30 @@
+{
+  "slug": "discovery-05-getSeries",
+  "description": "Is there a getSeries / getSeriesByNumber query?",
+  "timestamp": "2026-05-15T00:09:14.037Z",
+  "elapsedMs": 69,
+  "request": {
+    "query": "query{ getSeries(seriesNumber:1){ id name sets{ id } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"getSeries\" on type \"Query\". Did you mean \"getSets\", \"getUserSets\", \"getOrder\", \"getTitles\", or \"getUserTitles\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 8
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

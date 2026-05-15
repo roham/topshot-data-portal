@@ -1,0 +1,66 @@
+{
+  "slug": "discovery-03-edition-fields",
+  "description": "Probe Edition fields beyond what V1 uses.",
+  "timestamp": "2026-05-15T00:09:12.900Z",
+  "elapsedMs": 69,
+  "request": {
+    "query": "query{ getEditionByFlowIDs(input:{ setFlowID:\"108\", playFlowID:\"4096\" }){ edition{ id mostRecentSale recentSales{ price } transactions{ price } salesCount } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"mostRecentSale\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 87
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"recentSales\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 102
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"transactions\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 123
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"salesCount\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 145
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

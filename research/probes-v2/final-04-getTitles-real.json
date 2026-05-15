@@ -1,0 +1,30 @@
+{
+  "slug": "final-04-getTitles-real",
+  "description": "Probe getTitles fields via bad-field error.",
+  "timestamp": "2026-05-15T00:10:29.202Z",
+  "elapsedMs": 66,
+  "request": {
+    "query": "query{ getTitles{ ___nonexistent } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"___nonexistent\" on type \"GetTitlesResponse\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 19
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

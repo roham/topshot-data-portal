@@ -1,0 +1,30 @@
+{
+  "slug": "discovery-06-searchListings",
+  "description": "Does a separate searchMarketplaceListings query exist?",
+  "timestamp": "2026-05-15T00:09:14.605Z",
+  "elapsedMs": 68,
+  "request": {
+    "query": "query{ searchMarketplaceListings(input:{ filters:{} searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:3 } } }){ data{ searchSummary{ totalCount data{ ... on MarketplaceListings{ data{ id price moment{ flowId } } } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Unknown type \"MarketplaceListings\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 166
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

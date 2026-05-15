@@ -1,0 +1,57 @@
+{
+  "slug": "ceiling-10b-edition-bestBid",
+  "category": "ceiling",
+  "description": "Ceiling 10 alt: no bestBid aggregate on Edition.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:18.553Z",
+  "elapsedMs": 62,
+  "request": {
+    "query": "query{ getEditionByFlowIDs(input:{ setFlowID:\"108\", playFlowID:\"4096\" }){ edition{ bestBid highestBid bidCount } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"bestBid\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 84
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"highestBid\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 92
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"bidCount\" on type \"Edition\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 103
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

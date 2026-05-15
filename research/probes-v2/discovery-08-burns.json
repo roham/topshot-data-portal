@@ -1,0 +1,30 @@
+{
+  "slug": "discovery-08-burns",
+  "description": "Burn / withdrawal events — any field on MintedMoment or top-level query?",
+  "timestamp": "2026-05-15T00:09:15.744Z",
+  "elapsedMs": 68,
+  "request": {
+    "query": "query{ searchBurnedMoments(input:{ filters:{} searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:3 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"searchBurnedMoments\" on type \"Query\". Did you mean \"searchMintedMoments\", \"searchBreakEvents\", \"getTotalBurnedMoments\", \"isArchivedMoment\", or \"getPinnedMoments\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 8
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

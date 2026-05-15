@@ -1,0 +1,43 @@
+{
+  "slug": "permissive-01-tx-by-tier-only",
+  "category": "permissive",
+  "description": "Permissive: confirm `searchMarketplaceTransactions filters:{}` returns sorted-by-date globally (default behavior).",
+  "expectError": null,
+  "timestamp": "2026-05-15T00:08:21.996Z",
+  "elapsedMs": 79,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{} searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:3 } } }){ data{ searchSummary{ totalCount data{ ... on MarketplaceTransactions{ data{ id price } } } } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "searchMarketplaceTransactions": {
+          "data": {
+            "searchSummary": {
+              "totalCount": null,
+              "data": {
+                "data": [
+                  {
+                    "id": "cce4467a-b06c-4695-a3f0-59f09d502255",
+                    "price": "166.00000000"
+                  },
+                  {
+                    "id": "cd172f97-86dc-4790-b869-ffaf7abc2e86",
+                    "price": "226.00000000"
+                  },
+                  {
+                    "id": "5263d06c-041b-4073-b16c-c6f26b150153",
+                    "price": "2.00000000"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "networkError": null
+  }
+}

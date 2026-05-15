@@ -1,0 +1,33 @@
+{
+  "slug": "ceiling-02-moment-transfers",
+  "category": "ceiling",
+  "description": "Ceiling 2: per-moment transfer history not exposed. Query for `.transfers` on a known moment.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:11.749Z",
+  "elapsedMs": 64,
+  "request": {
+    "query": "query{ getMintedMoment(momentId:\"45064996\"){ data{ flowId transfers{ from to txHash timestamp } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"transfers\" on type \"MintedMoment\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 59
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

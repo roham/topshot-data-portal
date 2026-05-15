@@ -1,0 +1,33 @@
+{
+  "slug": "ceiling-01b-searchUsers-no-args",
+  "category": "ceiling",
+  "description": "Ceiling 1 fallback: bare searchUsers — confirm field absence.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:11.184Z",
+  "elapsedMs": 66,
+  "request": {
+    "query": "query{ searchUsers{ __typename } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"searchUsers\" on type \"Query\". Did you mean \"searchSets\", \"searchOffers\", \"searchPacks\", or \"searchPlays\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 8
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

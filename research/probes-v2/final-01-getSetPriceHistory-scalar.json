@@ -1,0 +1,30 @@
+{
+  "slug": "final-01-getSetPriceHistory-scalar",
+  "description": "Confirm getSetPriceHistory returns scalar array.",
+  "timestamp": "2026-05-15T00:10:27.479Z",
+  "elapsedMs": 222,
+  "request": {
+    "query": "query{ getSetPriceHistory(input:{ setID:\"108\", days:30 }){ data } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "errors": [
+        {
+          "message": "error getting set price history",
+          "path": [
+            "getSetPriceHistory"
+          ],
+          "extensions": {
+            "status_code": 2,
+            "status_message": "error getting set price history from db: dal: invalid value for column: ERROR #22P02 invalid input syntax for type uuid: \"108\""
+          }
+        }
+      ],
+      "data": {
+        "getSetPriceHistory": null
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "slug": "ceiling-09-introspection-schema",
+  "category": "ceiling",
+  "description": "Ceiling 9: introspection disabled.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:16.863Z",
+  "elapsedMs": 66,
+  "request": {
+    "query": "query{ __schema{ types{ name } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "errors": [
+        {
+          "message": "introspection disabled",
+          "path": [
+            "__schema"
+          ]
+        }
+      ],
+      "data": {
+        "__schema": null
+      }
+    },
+    "networkError": null
+  }
+}

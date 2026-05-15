@@ -1,0 +1,33 @@
+{
+  "slug": "ceiling-03-tx-filter-byDateRange",
+  "category": "ceiling",
+  "description": "Ceiling 3: global tx feed has no date-range filter axis.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:12.907Z",
+  "elapsedMs": 92,
+  "request": {
+    "query": "query{ searchMarketplaceTransactions(input:{ filters:{ byDateRange:{ from:\"2026-05-01\", to:\"2026-05-14\" } } searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:5 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"byDateRange\" is not defined by type \"MarketplaceTransactionFiltersInput\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 56
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

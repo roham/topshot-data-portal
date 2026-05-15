@@ -1,0 +1,42 @@
+{
+  "slug": "discovery-01b-getSetPriceHistory-altargs",
+  "description": "Try setID arg.",
+  "timestamp": "2026-05-15T00:09:10.623Z",
+  "elapsedMs": 68,
+  "request": {
+    "query": "query{ getSetPriceHistory(input:{ setID:\"108\" }){ points{ ts price } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"GetSetPriceHistoryInput.days\" of required type \"Int!\" was not provided.",
+          "locations": [
+            {
+              "line": 1,
+              "column": 33
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"points\" on type \"GetSetPriceHistoryResponse\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 51
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}

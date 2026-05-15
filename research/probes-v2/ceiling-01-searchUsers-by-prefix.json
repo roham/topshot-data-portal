@@ -1,0 +1,33 @@
+{
+  "slug": "ceiling-01-searchUsers-by-prefix",
+  "category": "ceiling",
+  "description": "Ceiling 1: no searchUsers endpoint. Try a plausible search-by-prefix.",
+  "expectError": true,
+  "timestamp": "2026-05-15T00:08:10.617Z",
+  "elapsedMs": 66,
+  "request": {
+    "query": "query{ searchUsers(input:{ filters:{ byPrefix:\"Boston\" } searchInput:{ pagination:{ cursor:\"\", direction:RIGHT, limit:5 } } }){ data{ searchSummary{ totalCount } } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Cannot query field \"searchUsers\" on type \"Query\". Did you mean \"searchSets\", \"searchOffers\", \"searchPacks\", or \"searchPlays\"?",
+          "locations": [
+            {
+              "line": 1,
+              "column": 8
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    },
+    "networkError": null
+  }
+}

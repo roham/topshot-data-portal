@@ -1,0 +1,42 @@
+{
+  "slug": "final-03-searchBreakEvents-no-pagination",
+  "description": "Try searchBreakEvents without searchInput wrapper.",
+  "timestamp": "2026-05-15T00:10:28.636Z",
+  "elapsedMs": 66,
+  "request": {
+    "query": "query{ searchBreakEvents(input:{ filters:{} pagination:{ cursor:\"\", direction:RIGHT, limit:3 } }){ data{ id name } } }",
+    "variables": {}
+  },
+  "response": {
+    "status": 422,
+    "body": {
+      "errors": [
+        {
+          "message": "Field \"pagination\" is not defined by type \"SearchBreakEventsInput\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 45
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        },
+        {
+          "message": "Cannot query field \"data\" on type \"LiveBreakEventConnection\".",
+          "locations": [
+            {
+              "line": 1,
+              "column": 100
+            }
+          ],
+          "extensions": {
+            "code": "GRAPHQL_VALIDATION_FAILED"
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+}
