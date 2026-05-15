@@ -208,6 +208,19 @@ export default async function Home() {
   const { indexCells, ticker, moversUp, moversDown, volumeLeaders, featured } = data;
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-4">
+      {/* Variant tournament banner */}
+      <div className="flex items-center gap-3 px-3 py-2 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded text-[11px] font-mono">
+        <span className="text-[10px] tracking-data-label text-[var(--accent)]">Variant tournament</span>
+        <span className="text-[var(--text-dim)]">Compare four homepage concepts before this one becomes canonical:</span>
+        <a href="/h/a" className="text-[var(--text)] hover:text-[var(--accent)]">A · KPI</a>
+        <span className="text-[var(--text-faint)]">·</span>
+        <a href="/h/b" className="text-[var(--text)] hover:text-[var(--accent)]">B · Feed</a>
+        <span className="text-[var(--text-faint)]">·</span>
+        <a href="/h/c" className="text-[var(--text)] hover:text-[var(--accent)]">C · Indices</a>
+        <span className="text-[var(--text-faint)]">·</span>
+        <a href="/h/d" className="text-[var(--text)] hover:text-[var(--accent)]">D · Story</a>
+      </div>
+
       {/* Page title — short, factual */}
       <header>
         <h1 className="text-[20px] font-semibold tracking-tight">Market</h1>
