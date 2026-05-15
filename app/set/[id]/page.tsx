@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { setDetail, editionsInSet, recentSalesBulk } from "@/lib/topshot/queries";
+import { setDetail, editionsInSet, recentSalesBulk, getSetPriceHistory } from "@/lib/topshot/queries";
 import { Card } from "@/components/Card";
 import { TierPill } from "@/components/Tier";
+import { SetPriceChart } from "@/components/SetPriceChart";
 import { formatNumber, formatUsd, tierLabel } from "@/lib/utils";
 
 export const revalidate = 86400;
 
 export default async function SetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [set, editions, txns] = await Promise.all([setDetail(id), editionsInSet(id), recentSalesBulk(200)]);
+  const [set, editions, txns, history] = await Promise.all([
+    setDetail(id),
+    editionsInSet(id),
+    recentSalesBulk(200),
+    getSetPriceHistory(id, 30),
+  ]);
   if (!set) notFound();
   const setSales = txns.filter((t) => t.moment?.set?.flowName === set.flowName);
   const setVol = setSales.reduce((s, t) => s + Number(t.price ?? 0), 0);
@@ -52,6 +58,10 @@ export default async function SetPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
       </header>
+
+      <section className="mb-4">
+        <SetPriceChart data={history.map((p) => ({ ts: p.ts, price: p.price }))} setName={set.flowName} />
+      </section>
 
       <div className="grid lg:grid-cols-3 gap-4 mb-4">
         <Card title="By tier" subtitle="edition count per tier">
