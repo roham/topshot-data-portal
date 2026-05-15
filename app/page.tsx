@@ -308,8 +308,16 @@ async function loadEditionMostActive24h(
   rows: EditionActivityRow[];
   usedLiveFallback: boolean;
   filterRelaxed: boolean;
-  fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep" | "cascade-exhausted";
+  fellback:
+    | "none"
+    | "relaxed-24h"
+    | "7d-bulk"
+    | "7d-bulk-deep"
+    | "snapshot-largestSales"
+    | "cascade-exhausted";
   bulkWindowDaysApprox: number | null;
+  snapshotAgeHours: number | null;
+  snapshotSalesCount: number | null;
 }> {
   // Spec says the canonical source is a not-yet-built EditionActivitySnapshot
   // (day tier). Per Builder instructions, derive from recentSalesBulk for this iter.
@@ -385,9 +393,16 @@ async function loadEditionMostActive24h(
     .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
   let rows = strict.slice(0, 20);
   let filterRelaxed = false;
-  let fellback: "none" | "relaxed-24h" | "7d-bulk" | "7d-bulk-deep" | "cascade-exhausted" =
-    strict.length >= 5 ? "none" : "none";
+  let fellback:
+    | "none"
+    | "relaxed-24h"
+    | "7d-bulk"
+    | "7d-bulk-deep"
+    | "snapshot-largestSales"
+    | "cascade-exhausted" = strict.length >= 5 ? "none" : "none";
   let bulkWindowDaysApprox: number | null = null;
+  let snapshotAgeHours: number | null = null;
+  let snapshotSalesCount: number | null = null;
   const computeBulkWindow = () => {
     const txs = bulkRef.txs ?? [];
     if (!txs.length) return;
@@ -440,23 +455,114 @@ async function loadEditionMostActive24h(
           filterRelaxed = true;
           fellback = "7d-bulk-deep";
           computeBulkWindow();
-        } else if (deep.length > 0) {
-          // 1-4 buckets exist; still show them but mark cascade as exhausted
-          // (header truth — see render rule below).
-          rows = deep.slice(0, 20);
-          filterRelaxed = true;
-          fellback = "cascade-exhausted";
-          computeBulkWindow();
         } else {
-          // 0 buckets — genuine zero. Header reflects exhaustion.
-          rows = [];
-          fellback = "cascade-exhausted";
-          computeBulkWindow();
+          // Tier-5 (iter-9): live bulk cascade is exhausted. Before declaring
+          // honest absence, read the most-recent 30m market-tier snapshot's
+          // `largestSales` array — a source independent of the live bulk pull
+          // that typically carries 50 high-price tx, each tagged with
+          // playerName/setFlowName/tier. Group by composite key and emit
+          // edition rows ranked by $ volume. This is biased toward high-tier
+          // sales (the snapshot is top-N by price, not by activity); the
+          // caption discloses that bias.
+          const marketSnaps = await readRecentSnapshots<MarketAggregateSnapshot>(
+            "market",
+            4,
+          ).catch(() => [] as Array<{ key: string; data: MarketAggregateSnapshot }>);
+          const sortedSnaps = [...marketSnaps].sort((a, b) =>
+            a.key < b.key ? 1 : -1,
+          );
+          const newest = sortedSnaps[0]?.data ?? null;
+          const sales = newest?.largestSales ?? [];
+          if (newest && sales.length > 0) {
+            const snapMap = new Map<
+              string,
+              {
+                playerName: string;
+                setFlowName: string;
+                rawTier: string | null;
+                count: number;
+                sumCents: number;
+              }
+            >();
+            for (const s of sales) {
+              const pn = s.playerName ?? "";
+              const sn = s.setFlowName ?? "";
+              const tr = s.tier ?? null;
+              if (!pn || !sn) continue;
+              const k = `${pn}::${sn}::${tr ?? ""}`;
+              const cur =
+                snapMap.get(k) ??
+                {
+                  playerName: pn,
+                  setFlowName: sn,
+                  rawTier: tr,
+                  count: 0,
+                  sumCents: 0,
+                };
+              cur.count += 1;
+              cur.sumCents += Number(s.priceCents ?? 0);
+              snapMap.set(k, cur);
+            }
+            const snapRows: EditionActivityRow[] = [...snapMap.entries()]
+              .map(([k, v]) => ({
+                editionId: k,
+                setFlowName: v.setFlowName,
+                playerName: v.playerName,
+                tier: tierLabel(v.rawTier),
+                rawTier: v.rawTier,
+                parallelLabel: "Standard",
+                vol24hUsd: v.sumCents / 100,
+                lastSaleUsd: 0,
+                pct24h: 0,
+                trades24h: v.count,
+                floorUsd: 0,
+                setUuid: setUuidByName.get(v.setFlowName) ?? null,
+              }))
+              .sort((a, b) => b.vol24hUsd - a.vol24hUsd);
+            if (snapRows.length >= 1) {
+              rows = snapRows.slice(0, 10);
+              filterRelaxed = true;
+              fellback = "snapshot-largestSales";
+              snapshotAgeHours =
+                Math.round(((Date.now() - newest.ts) / 3_600_000) * 10) / 10;
+              snapshotSalesCount = sales.length;
+              computeBulkWindow();
+            } else if (deep.length > 0) {
+              rows = deep.slice(0, 20);
+              filterRelaxed = true;
+              fellback = "cascade-exhausted";
+              computeBulkWindow();
+            } else {
+              rows = [];
+              fellback = "cascade-exhausted";
+              computeBulkWindow();
+            }
+          } else if (deep.length > 0) {
+            // 1-4 buckets exist AND no snapshot path; show them under
+            // cascade-exhausted (the iter-3 honest-row state).
+            rows = deep.slice(0, 20);
+            filterRelaxed = true;
+            fellback = "cascade-exhausted";
+            computeBulkWindow();
+          } else {
+            // 0 buckets, no snapshot path — genuine zero.
+            rows = [];
+            fellback = "cascade-exhausted";
+            computeBulkWindow();
+          }
         }
       }
     }
   }
-  return { rows, usedLiveFallback: true, filterRelaxed, fellback, bulkWindowDaysApprox };
+  return {
+    rows,
+    usedLiveFallback: true,
+    filterRelaxed,
+    fellback,
+    bulkWindowDaysApprox,
+    snapshotAgeHours,
+    snapshotSalesCount,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1183,23 +1289,27 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
       <section aria-labelledby="b2">
         <div className="flex items-baseline gap-3 mb-2 px-1">
           <h2 id="b2" className="text-[13px] font-semibold tracking-section-header">
-            {mostActive.fellback === "cascade-exhausted"
-              ? "Most active · editions · 24h–7d (cascade exhausted)"
-              : mostActive.fellback === "7d-bulk" || mostActive.fellback === "7d-bulk-deep"
-                ? "Most active · editions · 7d"
-                : "Most active · editions · 24h"}
+            {mostActive.fellback === "snapshot-largestSales"
+              ? "Most active · editions · 30m snapshot"
+              : mostActive.fellback === "cascade-exhausted"
+                ? "Most active · editions · 24h–7d (cascade exhausted)"
+                : mostActive.fellback === "7d-bulk" || mostActive.fellback === "7d-bulk-deep"
+                  ? "Most active · editions · 7d"
+                  : "Most active · editions · 24h"}
           </h2>
           <span className="text-[10px] text-[var(--text-faint)] font-mono">
             {mostActive.rows.length} editions · $ volume desc · filter{" "}
-            {mostActive.fellback === "cascade-exhausted"
-              ? "1+ trade (deepest, no vol floor)"
-              : mostActive.fellback === "7d-bulk-deep"
-                ? "1+ trade (7d deep)"
-                : mostActive.fellback === "7d-bulk"
-                  ? "2+ trades / $100 vol (7d)"
-                  : mostActive.filterRelaxed
-                    ? "2+ trades / $500 vol (relaxed)"
-                    : "3+ trades / $1,000 vol"}
+            {mostActive.fellback === "snapshot-largestSales"
+              ? "top-10 by snapshot $ vol"
+              : mostActive.fellback === "cascade-exhausted"
+                ? "1+ trade (deepest, no vol floor)"
+                : mostActive.fellback === "7d-bulk-deep"
+                  ? "1+ trade (7d deep)"
+                  : mostActive.fellback === "7d-bulk"
+                    ? "2+ trades / $100 vol (7d)"
+                    : mostActive.filterRelaxed
+                      ? "2+ trades / $500 vol (relaxed)"
+                      : "3+ trades / $1,000 vol"}
           </span>
           <Link href="/volume" className="ml-auto text-[10px] text-[var(--text-dim)] hover:text-[var(--accent)] font-mono">
             see all →
@@ -1242,10 +1352,18 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
                       <Num value={r.vol24hUsd} format="usdCompact" />
                     </td>
                     <td className="px-3 py-1.5 text-right tnum">
-                      <Num value={r.lastSaleUsd} format="usd" />
+                      {mostActive.fellback === "snapshot-largestSales" ? (
+                        <span className="text-[var(--text-faint)]">—</span>
+                      ) : (
+                        <Num value={r.lastSaleUsd} format="usd" />
+                      )}
                     </td>
                     <td className="px-3 py-1.5 text-right">
-                      <Num value={r.pct24h} format="deltaPct" colorize />
+                      {mostActive.fellback === "snapshot-largestSales" ? (
+                        <span className="text-[var(--text-faint)]">—</span>
+                      ) : (
+                        <Num value={r.pct24h} format="deltaPct" colorize />
+                      )}
                     </td>
                     <td className="px-3 py-1.5 text-right tnum">{r.trades24h}</td>
                     <td className="px-3 py-1.5 text-right tnum">
@@ -1260,7 +1378,11 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
             </table>
           </Card>
         )}
-        {mostActive.fellback === "cascade-exhausted" && mostActive.rows.length > 0 ? (
+        {mostActive.fellback === "snapshot-largestSales" ? (
+          <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
+            24h+7d-bulk cascades exhausted — surfaced from the most-recent 30m market-tier snapshot&apos;s largest-sales array (top-N by price; biases toward high-tier sales). Snapshot as of {mostActive.snapshotAgeHours ?? "—"}h ago, derived from {mostActive.snapshotSalesCount ?? 0} sales rows.
+          </p>
+        ) : mostActive.fellback === "cascade-exhausted" && mostActive.rows.length > 0 ? (
           <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">
             24h strict, 24h relaxed, and ~2-3d bulk passes each returned fewer than 5 qualifying editions. Showing the {mostActive.rows.length} bucket{mostActive.rows.length === 1 ? "" : "s"} that exist rather than noise.
           </p>
@@ -1280,6 +1402,7 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
         {mostActive.usedLiveFallback &&
           mostActive.fellback !== "7d-bulk" &&
           mostActive.fellback !== "7d-bulk-deep" &&
+          mostActive.fellback !== "snapshot-largestSales" &&
           mostActive.fellback !== "cascade-exhausted" && (
             <p className="mt-1 px-1 text-[10px] text-[var(--text-faint)]">Live fallback · 24h cron warming.</p>
           )}
