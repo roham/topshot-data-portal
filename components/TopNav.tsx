@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { TimeWindowSelector } from "./global/TimeWindowSelector";
 
 const TABS = [
   { label: "Market", href: "/", match: (p: string) => p === "/" },
@@ -71,6 +72,7 @@ export function TopNav() {
         </nav>
         <div className="ml-auto flex items-center gap-3">
           <SearchResolver />
+          <TimeWindowSelector />
           <kbd className="hidden lg:inline px-1.5 py-0.5 border border-[var(--border-subtle)] rounded text-[10px] font-mono text-[var(--text-dim)]">
             / or ⌘K
           </kbd>
