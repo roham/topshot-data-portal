@@ -156,9 +156,14 @@ export default async function MomentPage({
           </span>
         </div>
         {moment.play?.description && (
-          <p className="text-[13px] text-[var(--text-dim)] leading-snug max-w-3xl">
-            {moment.play.description}
-          </p>
+          <details className="max-w-3xl">
+            <summary className="text-[10px] tracking-data-label text-[var(--text-faint)] cursor-pointer hover:text-[var(--text-dim)]">
+              play description (Top Shot copy)
+            </summary>
+            <p className="mt-1 text-[12px] text-[var(--text-dim)] leading-snug">
+              {moment.play.description}
+            </p>
+          </details>
         )}
         <Card variant="inset">
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
