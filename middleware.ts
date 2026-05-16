@@ -9,8 +9,22 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+// Public routes that bypass the Supabase auth-touch — they ship anon-only
+// data and benefit from Vercel CDN caching. Any auth side-effect (cookie read
+// or write) in middleware marks the response private/uncacheable, which
+// defeats the s-maxage=60 + stale-while-revalidate=300 headers configured
+// in next.config.ts. When user-state surfaces ship (watchlists, alerts),
+// drop the matching route from this set.
+const PUBLIC_NO_AUTH_PATHS = new Set<string>(["/"]);
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+
+  // Skip auth-touch on public anon-only routes so the response stays
+  // CDN-cacheable per the Cache-Control header in next.config.ts.
+  if (PUBLIC_NO_AUTH_PATHS.has(request.nextUrl.pathname)) {
+    return supabaseResponse;
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
