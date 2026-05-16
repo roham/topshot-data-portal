@@ -320,6 +320,59 @@ export function pii_filter(bq_row, table_name) {
   return out;
 }
 
+// Second pass — strip any column not present in the live Supabase target table.
+// This eliminates per-chunk upsert retries from schema drift (ALLOWLIST may
+// list columns that don't exist in Supabase, e.g. moments.player_id).
+// `allowed === null` is a deliberate opt-out for tests / first run before
+// columns are resolved; behaves like identity.
+export function filterByColumns(row, allowed) {
+  if (allowed === null || allowed === undefined) return row;
+  const out = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (allowed.has(k)) out[k] = v;
+  }
+  return out;
+}
+
+// Partition an ISO date range into N contiguous slices. Used by the parallel
+// backfill driver; each worker handles one slice.
+export function partitionRange(startIso, endIso, workers) {
+  if (workers < 1) throw new Error("partitionRange: workers must be >= 1");
+  const startMs = Date.parse(startIso);
+  const endMs = Date.parse(endIso);
+  if (!(endMs > startMs)) throw new Error("partitionRange: end must be > start");
+  const total = endMs - startMs;
+  const sliceMs = total / workers;
+  const out = [];
+  for (let i = 0; i < workers; i++) {
+    const s = startMs + Math.round(i * sliceMs);
+    const e = i === workers - 1 ? endMs : startMs + Math.round((i + 1) * sliceMs);
+    out.push({ start: new Date(s).toISOString(), end: new Date(e).toISOString() });
+  }
+  return out;
+}
+
+// One round-trip query against information_schema for every target table.
+// Returns Map<table, Set<column>>. The Supabase client `sb` is the admin
+// service-role client; we explicitly target the `public` schema where
+// exec_sql lives (sbAdmin defaults to `topshot`).
+export async function loadSupabaseColumns(sb, tableNames) {
+  const list = tableNames.map((t) => `'${t.replace(/'/g, "''")}'`).join(",");
+  const sql = `SELECT table_name, column_name
+               FROM information_schema.columns
+               WHERE table_schema = 'topshot' AND table_name IN (${list})
+               ORDER BY table_name, ordinal_position`;
+  const target = typeof sb.schema === "function" ? sb.schema("public") : sb;
+  const { data, error } = await target.rpc("exec_sql", { sql });
+  if (error) throw error;
+  const map = new Map();
+  for (const row of data || []) {
+    if (!map.has(row.table_name)) map.set(row.table_name, new Set());
+    map.get(row.table_name).add(row.column_name);
+  }
+  return map;
+}
+
 // chunkWeeks(start, end) — yields [{start, end}] weekly bands for backfill.
 // Final band is clamped to `end`. Returns ISO strings.
 export function* chunkWeeks(startIso, endIso) {
@@ -431,29 +484,94 @@ function hashLockKey(s) {
 
 // Upsert a batch of rows into a topshot.<table> using onConflict primary key.
 // Returns count upserted.
+//
+// If `sb._columnsByTable` is set (populated by loadSupabaseColumns at startup),
+// rows are pre-filtered to the live column set — eliminating per-chunk
+// self-heal retries from schema drift. Self-heal remains as a backup; if it
+// fires after pre-resolution, it means the cache is stale and we ALERT.
+//
+// On a 413/PayloadTooLarge, we halve the batch once and retry (covers the rare
+// row that bloats past 1MB at 10K rows).
+//
+// On transient errors (5xx, ECONNRESET, 429, fetch failures), we exponential
+// backoff and retry. Up to 5 attempts; PostgREST under heavy load can return
+// 520/521/524 via Cloudflare.
+const TRANSIENT_HTTP = new Set([429, 502, 503, 504, 520, 521, 522, 524]);
+function isTransientError(err) {
+  if (!err) return false;
+  if (TRANSIENT_HTTP.has(err.status)) return true;
+  const msg = err.message ?? err.error ?? String(err);
+  return /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|timeout|520|521|522|524|connection reset/i.test(msg);
+}
+
 export async function upsertChunk(sb, tableName, rows, conflictCols) {
   if (!rows.length) return 0;
-  // Supabase JS client has a 1MB / ~10k row sweet spot; the caller is responsible
-  // for chunking large batches.
-  // Self-heal against schema drift: if Supabase rejects a column that doesn't
-  // exist in the target table, strip it from all rows and retry. Bounded by
-  // attempts to avoid infinite loops on genuine errors.
-  let working = rows;
+  // Pre-filter against live column allowlist (set once at startup).
+  const liveCols = sb._columnsByTable?.get(tableName) ?? null;
+  let working = liveCols
+    ? rows.map((r) => filterByColumns(r, liveCols))
+    : rows;
   const droppedCols = new Set();
+  let payloadHalved = false;
+  let transientAttempt = 0;
   for (let attempt = 0; attempt < 20; attempt++) {
-    const { error, count } = await sb
-      .schema("topshot")
-      .from(tableName)
-      .upsert(working, { onConflict: conflictCols, count: "exact" });
+    let error;
+    try {
+      // count: "exact" forces a separate COUNT(*) query on the affected rows —
+      // measurable overhead at 10K-row batches. We trust working.length instead;
+      // the upsert is atomic per call so they match unless an error fired.
+      const res = await sb
+        .schema("topshot")
+        .from(tableName)
+        .upsert(working, { onConflict: conflictCols });
+      error = res.error;
+    } catch (thrown) {
+      // fetch failures (network) throw rather than return {error}.
+      error = thrown;
+    }
     if (!error) {
-      if (droppedCols.size) {
+      if (droppedCols.size && liveCols) {
+        // Pre-resolution should have caught these; fire alert.
+        logRun({
+          phase: "upsert_self_heal_after_preresolve",
+          table: tableName,
+          dropped: [...droppedCols],
+          alert: true,
+        });
+      } else if (droppedCols.size) {
         logRun({
           phase: "upsert_dropped_unknown_cols",
           table: tableName,
           dropped: [...droppedCols],
         });
       }
-      return count ?? working.length;
+      return working.length;
+    }
+    // Transient — exponential backoff.
+    if (isTransientError(error) && transientAttempt < 5) {
+      transientAttempt++;
+      const delay = 1000 * 2 ** transientAttempt + Math.floor(Math.random() * 500);
+      logRun({
+        phase: "upsert_transient_retry",
+        table: tableName,
+        attempt: transientAttempt,
+        delay,
+        status: error.status,
+        msg: (error.message ?? String(error)).slice(0, 200),
+      });
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
+    // Payload too large → halve batch once.
+    if (!payloadHalved && (error.status === 413 || /payload/i.test(error.message ?? ""))) {
+      payloadHalved = true;
+      const half = Math.max(1, Math.floor(working.length / 2));
+      const first = working.slice(0, half);
+      const rest = working.slice(half);
+      logRun({ phase: "upsert_payload_halved", table: tableName, from: rows.length, to: half });
+      const n1 = await upsertChunk(sb, tableName, first, conflictCols);
+      const n2 = await upsertChunk(sb, tableName, rest, conflictCols);
+      return n1 + n2;
     }
     const m = error.message?.match(/Could not find the '([^']+)' column/);
     if (!m) throw error;

@@ -10,6 +10,7 @@ import {
   tryAdvisoryLock,
   releaseAdvisoryLock,
   logRun,
+  loadSupabaseColumns,
 } from "./lib/etl-helpers.mjs";
 import { syncTable, resolveIncrementalCursor, shouldSkipForFreshness } from "./lib/sync.mjs";
 
@@ -19,6 +20,14 @@ async function main() {
   const summary = {};
 
   logRun({ phase: "incremental_start", at: new Date().toISOString() });
+
+  // Resolve Supabase column allowlist once — eliminates per-chunk self-heal retries.
+  const targetTables = CONFIG.syncOrder.map((k) => CONFIG.tables[k].sb);
+  sb._columnsByTable = await loadSupabaseColumns(sb, targetTables);
+  logRun({
+    phase: "preresolve_columns",
+    tables: [...sb._columnsByTable.entries()].map(([t, s]) => ({ table: t, cols: s.size })),
+  });
 
   for (const tableKey of CONFIG.syncOrder) {
     const lockKey = `topshot_etl_cursor_${tableKey}`;

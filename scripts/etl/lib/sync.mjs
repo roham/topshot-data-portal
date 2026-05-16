@@ -18,10 +18,10 @@ import {
 
 // Build the parameterized SELECT for a given table + cursor window.
 // For `transactions`, applies partition prune on DATE(updated_at) and client filter.
-function buildSql(tableKey, cursorStart, cursorEnd) {
+function buildSql(tableKey, cursorStart, cursorEnd, cursorOverride) {
   const t = CONFIG.tables[tableKey];
   const fqn = `\`${CONFIG.bqProjectId}.${CONFIG.bqDataset}.${t.bq}\``;
-  const cursorField = t.cursor;
+  const cursorField = cursorOverride ?? t.cursor;
   const filters = [];
   const params = {};
 
@@ -70,15 +70,21 @@ function buildSql(tableKey, cursorStart, cursorEnd) {
 
 // Sync one table from cursorStart up to cursorEnd (or "now" if null).
 // Returns {rowsPulled, rowsUpserted, scanBytes, cursorAfter, durationMs}.
+//
+// In parallel-backfill workers (ETL_WORKER_ID set), we honor t.backfillCursor
+// when present — for tables like `moments` where the incremental cursor
+// (row_updated_at = pipeline timestamp) returns zero rows for historical
+// windows, we fall back to the row's actual updated_at field.
 export async function syncTable(sb, tableKey, cursorStart, cursorEnd) {
   const t = CONFIG.tables[tableKey];
   const sbTable = t.sb;
   const allowlistKey = sbTable; // allowlists keyed by Supabase table name
   const conflictCols = t.pk;
-  const cursorField = t.cursor;
+  const useBackfillCursor = process.env.ETL_WORKER_ID != null && t.backfillCursor;
+  const cursorField = useBackfillCursor ? t.backfillCursor : t.cursor;
 
   const started = Date.now();
-  const { sql, params } = buildSql(tableKey, cursorStart, cursorEnd);
+  const { sql, params } = buildSql(tableKey, cursorStart, cursorEnd, useBackfillCursor ? cursorField : undefined);
 
   let rowsPulled = 0;
   let rowsUpserted = 0;
@@ -146,14 +152,20 @@ export async function syncTable(sb, tableKey, cursorStart, cursorEnd) {
     cursorAfter = cursorAfter.slice(0, 10);
   }
 
-  await writeCursor(sb, tableKey, {
-    last_cursor_at:
-      cursorField === "date"
-        ? `${String(cursorAfter).slice(0, 10)}T00:00:00Z`
-        : new Date(cursorAfter).toISOString(),
-    last_row_count: rowsPulled,
-    last_error: null,
-  });
+  // Parallel-driver workers own disjoint slices but the cursor row is shared.
+  // If multiple workers raced to write it, the highest slice would lose to the
+  // earliest. Skip the cursor write in worker mode; the incremental cron will
+  // resync the tail safely.
+  if (process.env.ETL_WORKER_ID == null) {
+    await writeCursor(sb, tableKey, {
+      last_cursor_at:
+        cursorField === "date"
+          ? `${String(cursorAfter).slice(0, 10)}T00:00:00Z`
+          : new Date(cursorAfter).toISOString(),
+      last_row_count: rowsPulled,
+      last_error: null,
+    });
+  }
 
   const durationMs = Date.now() - started;
   logRun({

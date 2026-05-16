@@ -10,6 +10,9 @@ import {
   retryWithBackoff,
   ALLOWLISTS,
   PII_DENYLIST,
+  filterByColumns,
+  partitionRange,
+  loadSupabaseColumns,
 } from "./lib/etl-helpers.mjs";
 
 describe("pii_filter — transactions", () => {
@@ -186,5 +189,76 @@ describe("retryWithBackoff", () => {
     const result = await retryWithBackoff(fn, { maxAttempts: 3, baseMs: 1 });
     expect(result).toBe("recovered");
     expect(calls).toBe(2);
+  });
+});
+
+describe("filterByColumns", () => {
+  it("keeps only columns present in the allowed set", () => {
+    const row = { a: 1, b: 2, c: 3 };
+    const out = filterByColumns(row, new Set(["a", "c"]));
+    expect(out).toEqual({ a: 1, c: 3 });
+  });
+
+  it("returns same row shape when allowed set is null (no pre-resolution)", () => {
+    const row = { a: 1, b: 2 };
+    const out = filterByColumns(row, null);
+    expect(out).toEqual(row);
+  });
+
+  it("drops every key when allowed set is empty", () => {
+    const out = filterByColumns({ a: 1 }, new Set());
+    expect(out).toEqual({});
+  });
+});
+
+describe("partitionRange", () => {
+  it("splits a date range into N equal-ish slices", () => {
+    const slices = partitionRange("2026-01-01T00:00:00Z", "2026-01-05T00:00:00Z", 4);
+    expect(slices).toHaveLength(4);
+    expect(slices[0].start).toBe("2026-01-01T00:00:00.000Z");
+    expect(slices[0].end).toBe("2026-01-02T00:00:00.000Z");
+    expect(slices[3].end).toBe("2026-01-05T00:00:00.000Z");
+  });
+
+  it("returns one slice when N=1", () => {
+    const slices = partitionRange("2026-01-01T00:00:00Z", "2026-01-08T00:00:00Z", 1);
+    expect(slices).toHaveLength(1);
+    expect(slices[0].start).toBe("2026-01-01T00:00:00.000Z");
+    expect(slices[0].end).toBe("2026-01-08T00:00:00.000Z");
+  });
+
+  it("slices are contiguous with no gap or overlap", () => {
+    const slices = partitionRange("2026-01-01T00:00:00Z", "2026-04-01T00:00:00Z", 3);
+    for (let i = 1; i < slices.length; i++) {
+      expect(slices[i].start).toBe(slices[i - 1].end);
+    }
+  });
+
+  it("throws on workers < 1", () => {
+    expect(() => partitionRange("2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", 0)).toThrow();
+  });
+});
+
+describe("loadSupabaseColumns (offline)", () => {
+  it("queries information_schema.columns once per call and returns Map<table, Set<column>>", async () => {
+    // Stub Supabase client: model a single .rpc('exec_sql', {sql}) call that returns the rows.
+    const calls = [];
+    const stubSb = {
+      rpc: async (fn, args) => {
+        calls.push({ fn, args });
+        return {
+          data: [
+            { table_name: "moments", column_name: "moment_id" },
+            { table_name: "moments", column_name: "edition_id" },
+            { table_name: "transactions", column_name: "transaction_id" },
+          ],
+          error: null,
+        };
+      },
+    };
+    const map = await loadSupabaseColumns(stubSb, ["moments", "transactions"]);
+    expect(map.get("moments")).toEqual(new Set(["moment_id", "edition_id"]));
+    expect(map.get("transactions")).toEqual(new Set(["transaction_id"]));
+    expect(calls).toHaveLength(1); // ONE round-trip for all tables
   });
 });

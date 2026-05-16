@@ -16,6 +16,7 @@ import {
   tryAdvisoryLock,
   releaseAdvisoryLock,
   logRun,
+  loadSupabaseColumns,
 } from "./lib/etl-helpers.mjs";
 import { syncTable } from "./lib/sync.mjs";
 
@@ -38,11 +39,24 @@ async function main() {
   const sb = sbAdmin();
   const tables = parseTablesArg();
 
+  // Resolve Supabase column allowlist once — eliminates per-chunk self-heal retries.
+  const targetTables = tables.map((k) => CONFIG.tables[k].sb);
+  sb._columnsByTable = await loadSupabaseColumns(sb, targetTables);
+
   logRun({ phase: "backfill_start", start: startIso, end: endIso, tables });
+  logRun({
+    phase: "preresolve_columns",
+    tables: [...sb._columnsByTable.entries()].map(([t, s]) => ({ table: t, cols: s.size })),
+  });
 
   const totals = {};
   for (const tableKey of tables) {
-    const lockKey = `topshot_etl_cursor_${tableKey}`;
+    // In parallel-driver mode (ETL_WORKER_ID set), each worker owns a disjoint
+    // slice — advisory lock would deadlock all but one. Namespace by worker id.
+    const workerId = process.env.ETL_WORKER_ID;
+    const lockKey = workerId != null
+      ? `topshot_etl_cursor_${tableKey}_w${workerId}`
+      : `topshot_etl_cursor_${tableKey}`;
     if (!(await tryAdvisoryLock(sb, lockKey))) {
       logRun({ phase: "skip_locked", table: tableKey });
       continue;
@@ -92,6 +106,8 @@ async function main() {
 }
 
 main().catch((err) => {
-  logRun({ phase: "backfill_fatal", error: String(err), stack: err?.stack });
+  // Supabase errors are POJOs (not Error instances) and stringify to "[object Object]".
+  const msg = err?.message ?? err?.error ?? err?.code ?? JSON.stringify(err);
+  logRun({ phase: "backfill_fatal", error: msg, stack: err?.stack });
   process.exit(1);
 });
