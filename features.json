@@ -15,22 +15,42 @@
     {
       "id": "moments-grid",
       "title": "Filterable Moments grid (the OTM centerpiece)",
-      "routes": ["/moments"],
+      "routes": [
+        "/moments"
+      ],
       "priority": 1,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-16T22:15:12.745Z",
       "blocked": false,
-      "fail_reasons": [],
+      "fail_reasons": [
+        {
+          "at": "2026-05-16T22:08:23.333Z",
+          "report": "/Users/ro/dapper/topshot-data-portal/loop/judge/reports/moments-grid-2026-05-16T22-08-23-333Z.md"
+        },
+        {
+          "at": "2026-05-16T22:14:05.323Z",
+          "report": "/Users/ro/dapper/topshot-data-portal/loop/judge/reports/moments-grid-2026-05-16T22-14-05-323Z.md"
+        }
+      ],
       "acceptance": "As a trader, I can land on /moments, filter by Player + Tier + max-Price + Listed-only, sort by listing price ascending, and click into a specific moment in under 10 seconds. The table renders at least 50 rows and shows player, edition, serial, tier, listing price, set, series.",
       "data_source": "topshot.moments LEFT JOIN topshot.editions e ON m.edition_id = e.edition_id",
       "implementation_hint": "Server component with searchParams-driven filters; nuqs for URL state; TanStack table for sortable columns; pagination 50/page; existing components: Card, TierChip, Num, EmptyState",
-      "judge_journey": "loop/judge/journeys/moments-grid.spec.ts"
+      "judge_journey": "loop/judge/journeys/moments-grid.spec.ts",
+      "judge_evidence": [
+        {
+          "at": "2026-05-16T22:15:12.745Z",
+          "capture_dir": "/Users/ro/dapper/topshot-data-portal/loop/judge/captures/moments-grid/2026-05-16T22-14-47-556Z",
+          "portal_url": "https://topshot-data-portal-i0syqcuo6-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "moment-detail-chart",
       "title": "Moment detail price chart with working 1D/7D/1M/3M/YTD/ALL tabs",
-      "routes": ["/moment/[flowId]"],
+      "routes": [
+        "/moment/[flowId]"
+      ],
       "priority": 2,
       "otm_parity": true,
       "passes": false,
@@ -45,7 +65,9 @@
     {
       "id": "moment-detail-circulation",
       "title": "Moment detail circulation breakdown (Owned / Listings / Locked / In Pack / Locker Room / Burned)",
-      "routes": ["/moment/[flowId]"],
+      "routes": [
+        "/moment/[flowId]"
+      ],
       "priority": 3,
       "otm_parity": true,
       "passes": false,
@@ -60,7 +82,9 @@
     {
       "id": "players-marketcap",
       "title": "Market Players view with MARKET CAP leaderboard column",
-      "routes": ["/players"],
+      "routes": [
+        "/players"
+      ],
       "priority": 4,
       "otm_parity": true,
       "passes": false,
@@ -75,7 +99,9 @@
     {
       "id": "moments-csv-export",
       "title": "CSV export from the Moments grid",
-      "routes": ["/moments"],
+      "routes": [
+        "/moments"
+      ],
       "priority": 5,
       "otm_parity": true,
       "passes": false,
@@ -90,7 +116,9 @@
     {
       "id": "collector-bag",
       "title": "Collector portfolio BAG table (currently empty despite N moments)",
-      "routes": ["/u/[username]"],
+      "routes": [
+        "/u/[username]"
+      ],
       "priority": 6,
       "otm_parity": true,
       "passes": false,
@@ -105,7 +133,9 @@
     {
       "id": "set-completion-histogram",
       "title": "Set completion histogram (X/56 users at completion-count Y)",
-      "routes": ["/set/[id]"],
+      "routes": [
+        "/set/[id]"
+      ],
       "priority": 7,
       "otm_parity": true,
       "passes": false,
@@ -120,7 +150,9 @@
     {
       "id": "moment-detail-histogram",
       "title": "Moment detail price-bucket sale histogram",
-      "routes": ["/moment/[flowId]"],
+      "routes": [
+        "/moment/[flowId]"
+      ],
       "priority": 8,
       "otm_parity": true,
       "passes": false,
@@ -135,7 +167,9 @@
     {
       "id": "moment-detail-serial-overlay",
       "title": "Search True Value by serial overlay",
-      "routes": ["/moment/[flowId]"],
+      "routes": [
+        "/moment/[flowId]"
+      ],
       "priority": 9,
       "otm_parity": true,
       "passes": false,
@@ -150,7 +184,9 @@
     {
       "id": "players-directory",
       "title": "Full Players directory with filters (League / Team / Active / Owned)",
-      "routes": ["/players"],
+      "routes": [
+        "/players"
+      ],
       "priority": 10,
       "otm_parity": true,
       "passes": false,
@@ -165,7 +201,9 @@
     {
       "id": "sets-directory",
       "title": "Sets directory with floor + 7d volume per set",
-      "routes": ["/sets"],
+      "routes": [
+        "/sets"
+      ],
       "priority": 11,
       "otm_parity": true,
       "passes": false,
@@ -180,7 +218,10 @@
     {
       "id": "packs-tracker",
       "title": "Pack open tracker with What's Left / Listings / Price History",
-      "routes": ["/packs/[id]", "/edition/[id]"],
+      "routes": [
+        "/packs/[id]",
+        "/edition/[id]"
+      ],
       "priority": 12,
       "otm_parity": true,
       "passes": false,
@@ -195,7 +236,9 @@
     {
       "id": "player-detail",
       "title": "Player detail with editions matrix grouped by set/tier",
-      "routes": ["/player/[id]"],
+      "routes": [
+        "/player/[id]"
+      ],
       "priority": 13,
       "otm_parity": true,
       "passes": false,
@@ -210,7 +253,9 @@
     {
       "id": "sniper-alerts",
       "title": "Sniper alerts — listings below comparable-serial floor",
-      "routes": ["/sniper"],
+      "routes": [
+        "/sniper"
+      ],
       "priority": 14,
       "otm_parity": false,
       "beyond_otm": true,
@@ -226,7 +271,9 @@
     {
       "id": "watchlist",
       "title": "User watchlist + price alerts (auth-protected)",
-      "routes": ["/watching"],
+      "routes": [
+        "/watching"
+      ],
       "priority": 15,
       "otm_parity": false,
       "beyond_otm": true,
@@ -243,7 +290,9 @@
     {
       "id": "real-time-feed",
       "title": "Real-time activity feed (largest sales, big listings, big buys)",
-      "routes": ["/feed"],
+      "routes": [
+        "/feed"
+      ],
       "priority": 16,
       "otm_parity": false,
       "beyond_otm": true,
@@ -259,7 +308,9 @@
     {
       "id": "on-this-day",
       "title": "On This Day archive (historic plays + retrospective)",
-      "routes": ["/on-this-day"],
+      "routes": [
+        "/on-this-day"
+      ],
       "priority": 17,
       "otm_parity": false,
       "beyond_otm": true,
@@ -275,7 +326,9 @@
     {
       "id": "anomaly-detection",
       "title": "Anomaly detection (wash trades, volume spikes, suspicious activity)",
-      "routes": ["/anomalies"],
+      "routes": [
+        "/anomalies"
+      ],
       "priority": 18,
       "otm_parity": false,
       "beyond_otm": true,
@@ -291,7 +344,9 @@
     {
       "id": "ipfs-provenance",
       "title": "IPFS CID provenance per moment (the credibility moat OTM never had)",
-      "routes": ["/moment/[flowId]"],
+      "routes": [
+        "/moment/[flowId]"
+      ],
       "priority": 19,
       "otm_parity": false,
       "beyond_otm": true,
@@ -307,7 +362,9 @@
     {
       "id": "cross-collector-compare",
       "title": "Cross-collector comparison (compare two portfolios side by side)",
-      "routes": ["/compare"],
+      "routes": [
+        "/compare"
+      ],
       "priority": 20,
       "otm_parity": false,
       "beyond_otm": true,
