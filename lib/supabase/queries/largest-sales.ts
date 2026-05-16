@@ -25,9 +25,15 @@ async function _getLargestSales({
   try {
     const sb = getSupabaseServerAnon();
     if (!sb) return [];
+    // Trimmed select — only the columns the table renders. Drops
+    // moment_id, net_amount_usd, transaction_type_id, client_marketplace_safe_name,
+    // sold_at, edition_id, edition_name, top_shot_score, play_id, play_name,
+    // set_id, player_id, refreshed_at from the wire payload.
     const { data, error } = await sb
       .from(view)
-      .select("*")
+      .select(
+        "transaction_id,gross_amount_usd,buyer_safe_name,seller_safe_name,serial_number,set_name,player_name,tier_name",
+      )
       .order("gross_amount_usd", { ascending: false })
       .limit(limit);
     if (error) {

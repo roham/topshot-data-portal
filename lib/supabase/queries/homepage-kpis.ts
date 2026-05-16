@@ -19,9 +19,13 @@ async function _getHomepageKpis(
   try {
     const sb = getSupabaseServerAnon();
     if (!sb) return null;
+    // Trimmed select — only the columns the KPI strip renders. Drops
+    // singleton_id, min_price_usd, refreshed_at from the wire payload.
     const { data, error } = await sb
       .from(view)
-      .select("*")
+      .select(
+        "total_tx_count,total_volume_usd,unique_moments_traded,median_price_usd,avg_price_usd,max_price_usd",
+      )
       .eq("singleton_id", 1)
       .maybeSingle();
     if (error) {

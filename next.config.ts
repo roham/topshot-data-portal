@@ -24,6 +24,23 @@ const nextConfig: NextConfig = {
       "lucide-react",
     ],
   },
+  // CDN cache headers for the homepage. Vercel reads s-maxage to drive its
+  // edge cache; stale-while-revalidate keeps the previous payload in front
+  // of viewers while a background revalidation runs. Each query-string
+  // variant (?w=24h / 7d / 30d / 90d / 1y / all) gets its own cache key.
+  async headers() {
+    return [
+      {
+        source: "/",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=60, stale-while-revalidate=300",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

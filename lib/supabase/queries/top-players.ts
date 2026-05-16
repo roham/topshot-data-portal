@@ -25,6 +25,11 @@ async function _getTopPlayers({
   try {
     const sb = getSupabaseServerAnon();
     if (!sb) return [];
+    // Reverts to select("*") — the per-window player MVs have heterogeneous
+    // column sets (24h/7d/30d expose unique_buyers / last_known_team_full_name;
+    // 90d/1y/all_time expose unique_moments_traded / avg_price_usd). A trimmed
+    // intersection-only select would drop columns the renderer reads on the
+    // window where that column exists, so the wider payload is worth it here.
     const { data, error } = await sb
       .from(view)
       .select("*")

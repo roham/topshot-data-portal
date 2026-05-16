@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { recentSalesBulk, allSets } from "@/lib/topshot/queries";
 import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
@@ -16,11 +17,12 @@ import { readTeamIndicesSnapshot } from "@/lib/indices/team-synthesizer";
 import { readSeriesIndicesSnapshot } from "@/lib/indices/series-synthesizer";
 import { listRecentSnapshotKeys } from "@/lib/snapshots/store";
 import { SupabaseHomepageStrip } from "@/components/SupabaseHomepageStrip";
+import { LegacyCascadeSkeleton } from "@/components/HomepageSkeletons";
 
-// V4-iter-1: revalidate window widened to 600s so the chronologicalTxBackfill
-// render-time fallback inside the aggregate-economy strip is amortized across
-// hits (spec acceptance #4).
-export const revalidate = 600;
+// Window-level cache for the Supabase strip + the snapshot-derived legacy
+// cascade. Page-level revalidate runs every 60s so window switches hit a
+// CDN-cached page, while individual leaf data is `unstable_cache`'d at 60s.
+export const revalidate = 60;
 export const metadata = { title: "Market · TS·PORTAL" };
 
 // /  — V3 iter-1 homepage rebuild.
@@ -1219,10 +1221,23 @@ export default async function Home({
   // "time-period filters MUST work" wiring.
   const sp = (await searchParams) ?? {};
   const rawWindow = sp.w;
-  // Per design.md §1: the legacy iter-1..10 cascade below has its own
-  // per-block default windows. The query-string contract is honored for
-  // the Supabase strip and ignored by the legacy cascade.
 
+  // The shell renders synchronously; SupabaseHomepageStrip mounts its own
+  // <Suspense> boundaries for each leaf (KPI / top players / most active /
+  // largest sales). The legacy cascade sits behind a single Suspense so the
+  // slow snapshot reads + recentSalesBulk(2000) don't block the rest of the
+  // page from streaming.
+  return (
+    <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
+      <SupabaseHomepageStrip rawWindow={rawWindow} />
+      <Suspense fallback={<LegacyCascadeSkeleton />}>
+        <LegacyCascade />
+      </Suspense>
+    </div>
+  );
+}
+
+async function LegacyCascade() {
   const setRows = await allSets(200).catch(() => []);
   const setUuidByName = new Map<string, string>();
   for (const s of setRows) setUuidByName.set(s.flowName, s.id);
@@ -1294,7 +1309,8 @@ export default async function Home({
     }
   }
 
-  // Page-level honest absence: only when EVERY surface is empty.
+  // Cascade-level honest absence: when EVERY surface is empty, omit the entire
+  // cascade. The Supabase strip already rendered above.
   const allEmpty =
     moversBlock.rows.length === 0 &&
     mostActive.rows.length === 0 &&
@@ -1303,20 +1319,14 @@ export default async function Home({
     momentum.rows.length === 0;
   if (allEmpty) {
     return (
-      <div className="max-w-[1440px] mx-auto px-4 py-6 text-[11px] text-[var(--text-faint)] font-mono">
-        Upstream unreachable + no accumulator snapshots available yet.
+      <div className="text-[11px] text-[var(--text-faint)] font-mono px-1 py-2">
+        Snapshot-derived cascade unavailable — no accumulator snapshots yet.
       </div>
     );
   }
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
-      {/* Supabase-backed surface — first to render. KPI strip + top players ·
-          window-aware · most active editions (tx_count ≥ 5) · largest sales ·
-          freshness footer. Renders nothing when env vars are unset and the
-          ETL hasn't populated MVs yet; the legacy cascade below picks up. */}
-      <SupabaseHomepageStrip rawWindow={rawWindow} />
-
+    <>
       {/* V4-iter-1: aggregate-economy strip at DOM order 0 (spec acceptance #1) */}
       <AggregateEconomyStrip data={aggregateEconomy} />
 
@@ -1766,6 +1776,6 @@ export default async function Home({
           ))}
         </div>
       </Card>
-    </div>
+    </>
   );
 }

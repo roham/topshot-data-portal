@@ -49,6 +49,11 @@ async function _getMostActiveEditions(
   try {
     const sb = getSupabaseServerAnon();
     if (!sb) return [];
+    // Reverts to select("*") — the per-window edition MVs have heterogeneous
+    // column sets (24h exposes volume_usd / unique_traders / min/max_price_usd;
+    // 7d/30d+ exposes total_volume_usd / set_name / player_name and drops the
+    // others). An intersection-only select would drop columns the renderer
+    // reads on each window's specific shape.
     const { data: rows, error } = await sb
       .from(view)
       .select("*")
