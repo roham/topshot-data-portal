@@ -8,6 +8,7 @@ import { TimeWindowSelector } from "./global/TimeWindowSelector";
 
 const TABS = [
   { label: "Market", href: "/", match: (p: string) => p === "/" },
+  { label: "Moments", href: "/moments", match: (p: string) => p === "/moments" || p.startsWith("/moments?") },
   { label: "Indices", href: "/indices", match: (p: string) => p.startsWith("/indices") },
   { label: "Editions", href: "/editions", match: (p: string) => p.startsWith("/edition") },
   { label: "Collectors", href: "/collectors", match: (p: string) => p.startsWith("/collectors") || p.startsWith("/u/") },

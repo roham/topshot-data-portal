@@ -43,3 +43,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Persona-judge run artifacts (committed evidence is the features.json
+# passes_at + fail_reasons; the screenshots and per-run JSON are local)
+/loop/judge/captures/
+/loop/judge/reports/
+
