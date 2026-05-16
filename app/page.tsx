@@ -15,6 +15,7 @@ import { readTierIndicesSnapshot } from "@/lib/indices/tier-synthesizer";
 import { readTeamIndicesSnapshot } from "@/lib/indices/team-synthesizer";
 import { readSeriesIndicesSnapshot } from "@/lib/indices/series-synthesizer";
 import { listRecentSnapshotKeys } from "@/lib/snapshots/store";
+import { SupabaseHomepageStrip } from "@/components/SupabaseHomepageStrip";
 
 // V4-iter-1: revalidate window widened to 600s so the chronologicalTxBackfill
 // render-time fallback inside the aggregate-economy strip is amortized across
@@ -1208,10 +1209,19 @@ async function loadDepthCaption(): Promise<string> {
   return `${tierAge(day, "day")} · ${tierAge(week, "week")} · ${tierAge(month, "month")}`;
 }
 
-export default async function Home(_: { searchParams?: Promise<{ w?: string }> }) {
-  // Per design.md §1: the homepage no longer reads a global window — each
-  // block has its own default. The query-string contract (?w=...) is honored
-  // for back-compat by callers but does not alter block windows.
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<{ w?: string }>;
+}) {
+  // The Supabase strip at the top of the page reads `?w=` and switches the
+  // player-volume window between mv_player_24h/7d/30d_volume — this is the
+  // "time-period filters MUST work" wiring.
+  const sp = (await searchParams) ?? {};
+  const rawWindow = sp.w;
+  // Per design.md §1: the legacy iter-1..10 cascade below has its own
+  // per-block default windows. The query-string contract is honored for
+  // the Supabase strip and ignored by the legacy cascade.
 
   const setRows = await allSets(200).catch(() => []);
   const setUuidByName = new Map<string, string>();
@@ -1301,6 +1311,12 @@ export default async function Home(_: { searchParams?: Promise<{ w?: string }> }
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
+      {/* Supabase-backed surface — first to render. KPI strip + top players ·
+          window-aware · most active editions (tx_count ≥ 5) · largest sales ·
+          freshness footer. Renders nothing when env vars are unset and the
+          ETL hasn't populated MVs yet; the legacy cascade below picks up. */}
+      <SupabaseHomepageStrip rawWindow={rawWindow} />
+
       {/* V4-iter-1: aggregate-economy strip at DOM order 0 (spec acceptance #1) */}
       <AggregateEconomyStrip data={aggregateEconomy} />
 

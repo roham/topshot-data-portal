@@ -5,6 +5,8 @@ import { KPI } from "@/components/primitives/KPI";
 import { PortfolioBagTable, type BagRow } from "@/components/PortfolioBagTable";
 import { PortfolioRollup } from "@/components/PortfolioRollup";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import { Num } from "@/components/primitives/Num";
+import { getRecentTransactions } from "@/lib/supabase/queries/recent-transactions";
 import type { MintedMoment } from "@/lib/topshot/types";
 
 export const revalidate = 60;
@@ -56,8 +58,25 @@ export default async function PortfolioPage({
   }
   if (!user) notFound();
 
-  const items = await loadFullBag(user.flowAddress);
+  // Bag (live ownership) stays on the GraphQL path — Supabase
+  // `topshot.moments.owner_flow_address` lags ETL cadence and may not always
+  // reflect current owner. Activity (purchases / sales) comes from Supabase.
+  const [items, purchases, sales] = await Promise.all([
+    loadFullBag(user.flowAddress),
+    getRecentTransactions({ buyerSafeName: user.username, limit: 50 }),
+    getRecentTransactions({ limit: 50 }).then((all) =>
+      all.filter((t) => t.seller_safe_name === user.username),
+    ),
+  ]);
   const rows = toBagRows(items);
+  const purchasesSpend = purchases.reduce(
+    (s, t) => s + (t.gross_amount_usd ?? 0),
+    0,
+  );
+  const salesProceeds = sales.reduce(
+    (s, t) => s + (t.gross_amount_usd ?? 0),
+    0,
+  );
 
   const totalCount = rows.length;
   const valueListedUsd = rows.reduce((s, r) => s + (r.lowAskUsd ?? 0), 0);
@@ -126,6 +145,110 @@ export default async function PortfolioPage({
         </Card>
       </div>
 
+      {/* Activity · Supabase */}
+      <Card
+        title="Activity"
+        subtitle={`${purchases.length} buys · ${sales.length} sells · 24h spend ${"$" + purchasesSpend.toFixed(0)} · 24h proceeds ${"$" + salesProceeds.toFixed(0)}`}
+        variant="inset"
+        methodology="topshot.transactions filtered by buyer_safe_name / seller_safe_name = username. Window: 50 most recent SUCCEEDED on each side."
+      >
+        {purchases.length === 0 && sales.length === 0 ? (
+          <EmptyState
+            title="No recent on-chain activity"
+            body="No SUCCEEDED transactions for this username under Supabase ETL coverage. Either this collector has been quiet, or the ETL hasn't backfilled their window."
+          />
+        ) : (
+          <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[var(--border-subtle)]">
+            {/* Buys */}
+            <div className="p-3 space-y-1">
+              <h3 className="text-[11px] tracking-data-label text-[var(--text-faint)] font-mono">
+                Recent buys
+              </h3>
+              {purchases.length === 0 ? (
+                <p className="text-[11px] text-[var(--text-faint)]">None.</p>
+              ) : (
+                <table className="w-full text-[11px]">
+                  <tbody className="divide-y divide-[var(--border-subtle)]">
+                    {purchases.slice(0, 20).map((t) => (
+                      <tr key={t.transaction_id}>
+                        <td className="py-1 pr-2 text-[var(--text)]">
+                          {t.player_name ?? "—"}
+                          {t.serial_number != null && (
+                            <span className="text-[var(--text-faint)]">
+                              {" "}
+                              #{t.serial_number}
+                            </span>
+                          )}
+                          {t.set_name && (
+                            <span className="text-[var(--text-dim)]">
+                              {" "}
+                              · {t.set_name}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1 text-right tnum font-semibold">
+                          <Num
+                            value={
+                              t.gross_amount_usd != null
+                                ? Number(t.gross_amount_usd)
+                                : null
+                            }
+                            format="usd"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {/* Sells */}
+            <div className="p-3 space-y-1">
+              <h3 className="text-[11px] tracking-data-label text-[var(--text-faint)] font-mono">
+                Recent sells
+              </h3>
+              {sales.length === 0 ? (
+                <p className="text-[11px] text-[var(--text-faint)]">None.</p>
+              ) : (
+                <table className="w-full text-[11px]">
+                  <tbody className="divide-y divide-[var(--border-subtle)]">
+                    {sales.slice(0, 20).map((t) => (
+                      <tr key={t.transaction_id}>
+                        <td className="py-1 pr-2 text-[var(--text)]">
+                          {t.player_name ?? "—"}
+                          {t.serial_number != null && (
+                            <span className="text-[var(--text-faint)]">
+                              {" "}
+                              #{t.serial_number}
+                            </span>
+                          )}
+                          {t.set_name && (
+                            <span className="text-[var(--text-dim)]">
+                              {" "}
+                              · {t.set_name}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1 text-right tnum font-semibold text-[var(--up)]">
+                          <Num
+                            value={
+                              t.gross_amount_usd != null
+                                ? Number(t.gross_amount_usd)
+                                : null
+                            }
+                            format="usd"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Honest absence */}
       <Card title="What this page does not yet show" methodology="Honest absence — surfaces below land in subsequent iters.">
         <ul className="text-[11px] text-[var(--text-dim)] space-y-1 list-disc pl-5">
@@ -133,7 +256,6 @@ export default async function PortfolioPage({
           <li>Portfolio value over time — gated on the 30m-portfolio cron writing snapshots for this address; add to PORTFOLIO_WATCHLIST repo variable to start accumulating.</li>
           <li>Compare-to-collector view (vs= param) — UI side renders the second collector when the iter ships.</li>
           <li>CSV export — `csv` palette verb will trigger once the export iter lands.</li>
-          <li>Activity tab — recent buys/sells involving this collector, parsed from the market accumulator.</li>
         </ul>
       </Card>
     </div>

@@ -1,0 +1,82 @@
+name: etl-backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Backfill start (YYYY-MM-DD)"
+        required: true
+        default: "2018-01-01"
+      end_date:
+        description: "Backfill end (YYYY-MM-DD, default = today)"
+        required: false
+        default: ""
+      tables:
+        description: "Comma-separated table keys (default = all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: etl-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/bq-sa.json
+      BQ_PROJECT_ID: dapperlabs-data
+      ETL_BACKFILL_START: ${{ inputs.start_date }}
+      ETL_BACKFILL_END: ${{ inputs.end_date }}
+      ETL_TABLES: ${{ inputs.tables }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Write BQ service-account JSON
+        env:
+          BQ_SA_JSON: ${{ secrets.GCP_BQ_SA_JSON }}
+        run: |
+          umask 077
+          printf '%s' "$BQ_SA_JSON" > /tmp/bq-sa.json
+          test -s /tmp/bq-sa.json || (echo "BQ SA JSON empty"; exit 1)
+
+      - name: Run backfill
+        run: |
+          set -euo pipefail
+          ARGS=""
+          if [ -n "${ETL_TABLES:-}" ]; then
+            ARGS="--tables=$ETL_TABLES"
+          fi
+          node scripts/etl/bq-backfill-historical.mjs $ARGS 2>&1 | tee /tmp/etl-backfill.log
+
+      - name: Refresh materialized views
+        if: success()
+        run: node scripts/etl/bq-refresh-mvs.mjs
+
+      - name: Upload backfill log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: etl-backfill-${{ github.run_id }}
+          path: /tmp/etl-backfill.log
+          retention-days: 30
+
+      - name: Clean SA file
+        if: always()
+        run: rm -f /tmp/bq-sa.json

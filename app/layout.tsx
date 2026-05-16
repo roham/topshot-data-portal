@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
 import { TopNav } from "@/components/TopNav";
+import { EtlFreshnessBadge } from "@/components/EtlFreshnessBadge";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -27,7 +29,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)] antialiased">
         <Providers>
-          <TopNav />
+          <TopNav
+            freshness={
+              <Suspense fallback={null}>
+                <EtlFreshnessBadge />
+              </Suspense>
+            }
+          />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-[var(--border-subtle)] text-[10px] text-[var(--text-faint)] py-3 mt-12 font-mono">
             <div className="max-w-[1440px] mx-auto px-4 flex items-center gap-4">

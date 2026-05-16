@@ -14,7 +14,31 @@ import { Sparkline } from "@/components/primitives/Sparkline";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { DepthLadder } from "@/components/DepthLadder";
 import { TunedValuationOverlay } from "@/components/TunedValuationOverlay";
+import { MomentPriceHistory } from "@/components/MomentPriceHistory";
+import {
+  getMomentHistory,
+  type MomentHistoryWindow,
+} from "@/lib/supabase/queries/moment-detail";
 import type { MintedMoment } from "@/lib/topshot/types";
+
+const HISTORY_WINDOWS: readonly MomentHistoryWindow[] = [
+  "1d",
+  "7d",
+  "1m",
+  "3m",
+  "ytd",
+  "all",
+];
+
+function parseHistoryWindow(
+  raw: string | string[] | undefined,
+): MomentHistoryWindow {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  if (v && (HISTORY_WINDOWS as readonly string[]).includes(v)) {
+    return v as MomentHistoryWindow;
+  }
+  return "all";
+}
 
 // V3 iter-11 — Pro Trader J-P2: per-moment market depth.
 // Five sections: Hero · Valuation · Depth ladder · Recent comps · Parallels matrix.
@@ -83,25 +107,33 @@ function heroSentence(moment: MintedMoment, a: AnchorLine, valuationBand: { lo: 
 
 export default async function MomentPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ flowId: string }>;
+  searchParams?: Promise<{ h?: string }>;
 }) {
   const { flowId } = await params;
+  const sp = (await searchParams) ?? {};
+  const historyWindow = parseHistoryWindow(sp.h);
   const moment = await getMoment(flowId);
   if (!moment) notFound();
 
   const setUuid = moment.set?.id ?? "";
   const playUuid = moment.play?.id ?? "";
 
-  // Parallel data fetches with per-slice failure isolation.
-  const [listedRes, recentRes, parallelsRes] = await Promise.allSettled([
+  // Parallel data fetches with per-slice failure isolation. The Supabase
+  // history is included in this batch — empty arrays are the honest absence
+  // when the moment hasn't traded in the selected window.
+  const [listedRes, recentRes, parallelsRes, historyRes] = await Promise.allSettled([
     setUuid && playUuid ? editionListedSerials(setUuid, playUuid, 50) : Promise.resolve([]),
     setUuid && playUuid ? editionRecentSales(setUuid, playUuid, 20) : Promise.resolve([]),
     playUuid ? editionsForPlay(playUuid) : Promise.resolve([]),
+    getMomentHistory({ flowId, window: historyWindow }),
   ]);
   const listed = listedRes.status === "fulfilled" ? listedRes.value : [];
   const recentSales = recentRes.status === "fulfilled" ? recentRes.value : [];
   const parallels = parallelsRes.status === "fulfilled" ? parallelsRes.value : [];
+  const history = historyRes.status === "fulfilled" ? historyRes.value : [];
 
   const editionFloor = listed.length ? Math.min(...listed.map((l) => l.lowAsk)) : null;
   const valuation = valueMoment(moment, {
@@ -200,6 +232,19 @@ export default async function MomentPage({
         </Card>
         <p className="text-[13px] text-[var(--text)] leading-snug max-w-4xl">{sentence}</p>
       </header>
+
+      {/* ===== Price history · Supabase ===== */}
+      <Card
+        title="Price history"
+        subtitle={`${history.length} sales · this serial · Supabase`}
+        variant="inset"
+        methodology="topshot.transactions filtered by moment_id (resolved from moment_flow_id), state SUCCEEDED, ordered by source_updated_at ASC. Time-tab clicks update ?h= and re-fetch with a different WHERE clause."
+      >
+        <MomentPriceHistory
+          data={history.map((p) => ({ ts: p.ts, price_usd: p.price_usd }))}
+          active={historyWindow}
+        />
+      </Card>
 
       {/* ===== 2. Valuation block ===== */}
       <Card

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { TimeWindowSelector } from "./global/TimeWindowSelector";
 
@@ -41,7 +41,7 @@ function SearchResolver() {
   );
 }
 
-export function TopNav() {
+export function TopNav({ freshness }: { freshness?: ReactNode } = {}) {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-30 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border-subtle)]">
@@ -76,10 +76,12 @@ export function TopNav() {
           <kbd className="hidden lg:inline px-1.5 py-0.5 border border-[var(--border-subtle)] rounded text-[10px] font-mono text-[var(--text-dim)]">
             / or ⌘K
           </kbd>
-          <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-faint)] font-mono">
-            <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--up)] inline-block" />
-            <span className="hidden sm:inline tracking-data-label">live</span>
-          </span>
+          {freshness ?? (
+            <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-faint)] font-mono">
+              <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--up)] inline-block" />
+              <span className="hidden sm:inline tracking-data-label">live</span>
+            </span>
+          )}
         </div>
       </div>
     </header>

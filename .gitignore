@@ -10,6 +10,9 @@ node_modules
 
 # Testing
 /coverage
+/test-results
+/playwright-report
+/playwright/.cache
 
 # Next.js
 /.next/
@@ -30,6 +33,8 @@ yarn-error.log*
 
 # Env files (no .env files should ever be committed)
 .env*
+!.env.local.example
+!.env.example
 
 # Vercel
 .vercel
