@@ -21,7 +21,8 @@ export const CONFIG = {
 
   // ETL behavior
   clientSafeName: "nba_top_shot",
-  chunkRows: Number(process.env.ETL_CHUNK_ROWS ?? 2000), // rows per Supabase upsert batch
+  // 10K row batches are Supabase's ~1MB sweet spot; halved fallback on 413 in upsertChunk.
+  chunkRows: Number(process.env.ETL_CHUNK_ROWS ?? 10000),
   bqPageSize: Number(process.env.BQ_PAGE_SIZE ?? 10000), // rows per BQ getQueryResults page
   cursorOverlapMinutes: Number(process.env.ETL_CURSOR_OVERLAP_MIN ?? 5), // re-pull last 5min for late-arrivers
   retryMax: Number(process.env.ETL_RETRY_MAX ?? 3),
@@ -68,12 +69,20 @@ export const CONFIG = {
     moments: {
       bq: "asset_nba_moment",
       sb: "moments",
+      // Incremental cursor = pipeline timestamp (catches every refresh).
       cursor: "row_updated_at",
+      // Backfill cursor = row's actual updated_at; row_updated_at is the
+      // same value for every row (set by the BQ refresh pipeline), so any
+      // historical date-range filter returns 0 rows. updated_at IS the field
+      // we want to scan over historically. Aligned with the transactions
+      // table's identical fix.
+      backfillCursor: "updated_at",
       pk: "moment_id",
       // moment_secret is partitioned by updated_at; required for cost discipline.
       partitionField: "updated_at",
-      // 40M+ moment rows; daily backfill chunks to stay under scan budget.
-      backfillChunkDays: 1,
+      // Parallel backfill divides date range across workers; 7-day chunks
+      // inside each worker keep BQ scan cost bounded per query.
+      backfillChunkDays: 7,
       staleHours: 0, // every run
     },
     transactions: {

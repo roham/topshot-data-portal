@@ -1,0 +1,99 @@
+name: data-quality-cron
+
+# Continuous data-quality validation suite. Runs `scripts/validation/run.mjs`,
+# which executes the battery defined in `scripts/validation/checks.mjs` and
+# writes per-check rows to `topshot._validation_runs`.
+#
+# IMPORTANT — schedule trigger is intentionally NOT enabled yet.
+#   1. The BigQuery service-account secret `GCP_BQ_SA_JSON` must be present in
+#      this repo's Actions secrets (re-used from `etl-incremental-sync.yml`).
+#      If absent, the BQ probes inside the runner will fail and every check
+#      will record an error.
+#   2. The `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` secrets must be present
+#      (same set the ETL workflows use).
+#
+# Until the operator confirms those secrets exist, this workflow stays
+# `workflow_dispatch`-only. When ready, uncomment the `schedule:` block.
+
+on:
+  workflow_dispatch: {}
+  # schedule:
+  #   - cron: "*/30 * * * *"   # every 30 minutes — enable when secrets confirmed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-quality-cron
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/bq-sa.json
+      BQ_PROJECT_ID: dapperlabs-data
+      RUN_ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Write BQ service-account JSON
+        env:
+          BQ_SA_JSON: ${{ secrets.GCP_BQ_SA_JSON }}
+        run: |
+          umask 077
+          if [ -z "${BQ_SA_JSON:-}" ]; then
+            echo "::error::GCP_BQ_SA_JSON secret is empty — cannot run BQ probes"
+            exit 1
+          fi
+          printf '%s' "$BQ_SA_JSON" > /tmp/bq-sa.json
+          test -s /tmp/bq-sa.json || (echo "BQ SA JSON empty after write"; exit 1)
+
+      - name: Run validation suite
+        id: validate
+        run: |
+          set -o pipefail
+          node scripts/validation/run.mjs 2>&1 | tee /tmp/validation-run.log
+
+      - name: Extract summary into job output
+        if: always()
+        run: |
+          if [ -f /tmp/validation-run.log ]; then
+            SUMMARY_LINE=$(grep -E '^SUMMARY: ' /tmp/validation-run.log | tail -n1 | sed 's/^SUMMARY: //')
+            if [ -n "$SUMMARY_LINE" ]; then
+              echo "## Data-quality run summary" >> "$GITHUB_STEP_SUMMARY"
+              echo '```json' >> "$GITHUB_STEP_SUMMARY"
+              echo "$SUMMARY_LINE" | python3 -m json.tool >> "$GITHUB_STEP_SUMMARY" || echo "$SUMMARY_LINE" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Result table" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E '^\+|^\|' /tmp/validation-run.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-quality-${{ env.RUN_ID }}
+          path: /tmp/validation-run.log
+          retention-days: 30
+
+      - name: Clean SA file
+        if: always()
+        run: rm -f /tmp/bq-sa.json
