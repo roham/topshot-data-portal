@@ -1,0 +1,225 @@
+%% NBA Reference — Entity Relationship Diagram
+%% Mermaid syntax; render with `mmdc -i er-diagram.mmd -o er-diagram.svg`
+%% or paste into a Mermaid-aware Markdown viewer.
+%%
+%% Convention:
+%%   qid columns reference nba_qnumber_index (the spine).
+%%   topshot.* references are SOFT — drawn dashed because they are not enforced
+%%   by Postgres FK (separate schema, independent hydrator).
+
+erDiagram
+
+    nba_qnumber_index ||--o{ nba_players               : "qid"
+    nba_qnumber_index ||--o{ nba_teams                 : "qid / franchise_qid / arena_qid"
+    nba_qnumber_index ||--o{ nba_seasons               : "finals_*_qid"
+    nba_qnumber_index ||--o{ nba_awards                : "recipient_qid"
+    nba_qnumber_index ||--o{ nba_draft                 : "drafted_player_qid / drafting_franchise_qid"
+    nba_qnumber_index ||--o{ nba_transactions          : "primary_player_qid"
+    nba_qnumber_index ||--o{ nba_transaction_legs      : "player_qid"
+    nba_qnumber_index ||--o{ nba_injuries              : "player_qid"
+    nba_qnumber_index ||--o{ nba_l2m_reports           : "committing/disadvantaged_player_qid"
+    nba_qnumber_index ||--o{ nba_plays                 : "primary/secondary/tertiary_player_qid"
+    nba_qnumber_index ||--o{ nba_top_shot_moments_join : "player_qid"
+
+    nba_seasons       ||--o{ nba_games                 : "season_id"
+    nba_seasons       ||--o{ nba_awards                : "season_id"
+
+    nba_teams         ||--o{ nba_team_history          : "team_id"
+    nba_teams         ||--o{ nba_games                 : "home_team_id"
+    nba_teams         ||--o{ nba_games                 : "away_team_id"
+    nba_teams         ||--o{ nba_plays                 : "team_id"
+    nba_teams         ||--o{ nba_lineups               : "team_id"
+    nba_teams         ||--o{ nba_awards                : "team_id"
+    nba_teams         ||--o{ nba_draft                 : "drafting_team_id"
+    nba_teams         ||--o{ nba_transactions          : "from_team_id / to_team_id"
+    nba_teams         ||--o{ nba_transaction_legs      : "team_id"
+    nba_teams         ||--o{ nba_injuries              : "team_id"
+
+    nba_games         ||--o{ nba_plays                 : "game_id"
+    nba_games         ||--o{ nba_lineups               : "game_id"
+    nba_games         ||--o{ nba_injuries              : "game_id"
+    nba_games         ||--o{ nba_l2m_reports           : "game_id"
+    nba_games         ||--o{ nba_top_shot_moments_join : "game_id"
+
+    nba_plays         ||--o{ nba_top_shot_moments_join : "play_id"
+    nba_plays        ||--|| nba_shots                  : "view"
+
+    nba_transactions  ||--o{ nba_transaction_legs      : "transaction_id"
+
+    %% Soft cross-schema linkage (Postgres does not enforce these)
+    topshot_moments  ..o{ nba_top_shot_moments_join : "soft: moment_id"
+    topshot_plays    ..o{ nba_top_shot_moments_join : "soft: top_shot_play_id"
+    topshot_players  ..o{ nba_qnumber_index         : "soft: top_shot_player_id"
+    topshot_teams    ..o{ nba_qnumber_index         : "soft: top_shot_team_id"
+
+    nba_qnumber_index {
+        text qid PK
+        text entity_type
+        text canonical_label
+        text bbref_slug
+        bigint nba_stats_id
+        bigint espn_id
+        text wikipedia_en_title
+        text top_shot_player_id "soft FK → topshot.players"
+        text top_shot_team_id "soft FK → topshot.teams"
+    }
+
+    nba_seasons {
+        text season_id PK
+        text league
+        integer season_year_start
+        integer season_year_end
+        text finals_winner_qid FK
+        text finals_mvp_qid FK
+    }
+
+    nba_teams {
+        text team_id PK
+        text qid FK
+        text franchise_qid FK
+        text league
+        text current_name
+        text abbreviation
+        boolean is_active
+    }
+
+    nba_team_history {
+        text franchise_qid PK
+        integer first_season_year_start PK
+        text team_id FK
+        text name
+        text city
+    }
+
+    nba_players {
+        text player_id PK
+        text qid FK
+        bigint nba_stats_player_id
+        text bbref_slug
+        bigint espn_player_id
+        text full_name
+        date birth_date
+        date death_date
+        boolean is_hall_of_fame
+    }
+
+    nba_games {
+        text game_id PK
+        text season_id FK
+        date game_date
+        text game_type
+        text home_team_id FK
+        text away_team_id FK
+        integer home_score
+        integer away_score
+        integer attendance
+        text venue_qid FK
+        text[] official_qids
+        numeric closing_spread
+    }
+
+    nba_plays {
+        text play_id PK
+        text game_id FK
+        integer event_num
+        integer period
+        numeric clock_seconds_remaining
+        text action
+        text primary_player_qid FK
+        numeric shot_x
+        numeric shot_y
+        boolean shot_made
+        integer shot_value
+    }
+
+    nba_shots {
+        text play_id "view"
+        text shooter_qid
+        numeric shot_x
+        numeric shot_y
+        boolean shot_made
+    }
+
+    nba_lineups {
+        text lineup_id PK
+        text game_id FK
+        text team_id FK
+        integer period
+        text[] player_qids "5 qids"
+        numeric seconds_played
+    }
+
+    nba_awards {
+        text award_id PK
+        text season_id FK
+        text award_type
+        text recipient_qid FK
+        text team_id FK
+        numeric vote_share
+        integer rank
+    }
+
+    nba_draft {
+        text draft_pick_id PK
+        integer draft_year
+        integer overall_pick
+        text drafted_player_qid FK
+        text drafting_team_id FK
+        text drafting_franchise_qid FK
+    }
+
+    nba_transactions {
+        text transaction_id PK
+        date transaction_date
+        text transaction_type
+        text primary_player_qid FK
+        text from_team_id FK
+        text to_team_id FK
+    }
+
+    nba_transaction_legs {
+        text transaction_id PK
+        integer leg_idx PK
+        text direction
+        text team_id FK
+        text player_qid FK
+    }
+
+    nba_injuries {
+        text injury_report_id PK
+        timestamptz report_for_date
+        text player_qid FK
+        text team_id FK
+        text game_id FK
+        text status
+    }
+
+    nba_l2m_reports {
+        text l2m_call_id PK
+        text game_id FK
+        integer period
+        text decision "CC / CNC / IC / INC"
+        text committing_player_qid FK
+    }
+
+    nba_narratives {
+        text narrative_id PK
+        text source_type
+        text source_url
+        text chunk_text
+        text[] linked_player_qids "GIN-indexed"
+        text[] linked_team_qids
+        text[] linked_game_ids
+        text license
+        boolean ai_training_allowed
+    }
+
+    nba_top_shot_moments_join {
+        text top_shot_moment_id PK "soft FK → topshot.moments"
+        text top_shot_play_id "soft FK → topshot.plays"
+        text game_id FK
+        text play_id FK
+        text player_qid FK
+        numeric match_confidence
+        text match_method
+    }
