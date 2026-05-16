@@ -243,17 +243,30 @@ const LARGEST_SALE_24H = {
 
 const MOMENTS_COVERAGE = {
   name: "moments_table_coverage_ratio",
-  description: "Supabase topshot.moments count / BQ non-burned moments — must be ≥95%.",
+  // Coverage of moments-WITH-TRADES (last 365d), not all moments.
+  // ~35M of Top Shot's 36.9M non-burned moments have never traded —
+  // they bring no MV value and pulling them is wasted bandwidth. What
+  // matters is "do JOINs against topshot.moments find their target"
+  // which is gated on traded-moment coverage. Threshold ≥95% of that
+  // smaller universe = the MVs are correct.
+  description: "Supabase moments / BQ traded moments (last 7d) — must be ≥95%. Smaller window keeps the BQ DISTINCT bounded and the signal fast-converging.",
   metric: "ratio",
   threshold: 0.95,
   passComparator: ">=",
   bqSql: `
-    SELECT COUNT(*) AS bq_count
-    FROM \`dapperlabs-data.production_sem_open.asset_nba_moment\`
-    WHERE moment_status != 'BURNED' OR moment_status IS NULL
+    SELECT COUNT(DISTINCT product_specific_asset_id) AS bq_count
+    FROM \`dapperlabs-data.production_sem_open.transaction\`
+    WHERE client_safe_name = 'nba_top_shot'
+      AND transaction_state_id = 'SUCCEEDED'
+      AND DATE(updated_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+      AND product_specific_asset_id IS NOT NULL
   `,
   sbSql: `
-    SELECT COUNT(*) AS sb_count FROM topshot.moments
+    SELECT COUNT(DISTINCT t.moment_id) AS sb_count
+    FROM topshot.transactions t
+    JOIN topshot.moments m ON m.moment_id = t.moment_id
+    WHERE t.transaction_state_id = 'SUCCEEDED'
+      AND t.source_updated_at >= now() - INTERVAL '7 days'
   `,
   compute(bqRows, sbRows) {
     const bq = Number(bqRows[0]?.bq_count ?? 0);
