@@ -73,11 +73,16 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
   const window = parseWindow(rawWindow);
   const label = windowLabel(window);
 
+  // Window-scaled min-trade threshold: 24h-window players rarely have 5+ trades,
+  // but 7d/30d/1y do. Without scaling, the 24h list shows only the ~3 players
+  // with daily volume — looks broken even when data is correct.
+  const minTx = window === "24h" ? 2 : window === "7d" ? 5 : 10;
+
   const [kpis, mostActive, largest, topPlayers, heartbeat] = await Promise.all([
     getHomepageKpis(window),
-    getMostActiveEditions({ window, limit: 20, minTxCount: 5 }),
-    getLargestSales({ window, limit: 10 }),
-    getTopPlayers({ window, limit: 12, minTxCount: 5 }),
+    getMostActiveEditions({ window, limit: 20, minTxCount: minTx }),
+    getLargestSales({ window, limit: 20 }),
+    getTopPlayers({ window, limit: 20, minTxCount: minTx }),
     getEtlHeartbeat(),
   ]);
 
@@ -127,7 +132,7 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
       >
         <div className="px-3 py-2 flex items-baseline gap-3 border-b border-[var(--border-subtle)]">
           <h2 className="text-[13px] font-semibold tracking-section-header">
-            Market · {label} · Supabase
+            Market · {label}
           </h2>
           <span className={`text-[10px] tnum font-mono ml-auto ${footerColorClass}`}>
             {footer.text}
@@ -203,7 +208,7 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
               id="sb-players"
               className="text-[13px] font-semibold tracking-section-header"
             >
-              Top players · {label} · Supabase
+              Top players · {label}
             </h2>
             <span className="text-[10px] text-[var(--text-faint)] font-mono">
               {topPlayers.length} players · ranked by $ volume · filter: ≥5
@@ -303,7 +308,7 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
               id="sb-most-active"
               className="text-[13px] font-semibold tracking-section-header"
             >
-              Most active · editions · {label} · Supabase
+              Most active · editions · {label}
             </h2>
             <span className="text-[10px] text-[var(--text-faint)] font-mono">
               {mostActive.length} editions · $ volume desc · filter: ≥5 trades
@@ -398,7 +403,7 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
               id="sb-largest"
               className="text-[13px] font-semibold tracking-section-header"
             >
-              Largest sales · {label} · Supabase
+              Largest sales · {label}
             </h2>
             <span className="text-[10px] text-[var(--text-faint)] font-mono">
               {largest.length} sales · price desc · from{" "}

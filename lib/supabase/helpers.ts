@@ -94,12 +94,11 @@ const VALID_WINDOWS: ReadonlyArray<TimeWindow> = [
   "24h", "7d", "30d", "90d", "1y", "all",
 ];
 
-// Defaults to 24h per the homepage spec (the strip is "live" by default).
-// Independent of DEFAULT_WINDOW in components/global/window-types.ts which
-// drives the legacy cascade.
+// Defaults to "30d" to match DEFAULT_WINDOW in components/global/window-types.ts —
+// so the nav-highlighted tab (30d on first load) matches the Supabase strip.
 export function parseWindow(
   raw: string | string[] | undefined,
-  defaultWindow: TimeWindow = "24h",
+  defaultWindow: TimeWindow = "30d",
 ): TimeWindow {
   const v = Array.isArray(raw) ? raw[0] : raw;
   return (VALID_WINDOWS as readonly string[]).includes(v ?? "")
