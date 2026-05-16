@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { TIME_WINDOWS, WINDOW_SPECS, useTimeWindow } from "./useTimeWindow";
+import type { TimeWindow } from "./window-types";
 
 // Wrap in Suspense to satisfy nuqs's app-router-prerender expectation
 // and avoid hydration mismatch on initial paint.
@@ -26,8 +27,8 @@ function SelectorShell({
   active,
   onSelect,
 }: {
-  active: "24h" | "7d" | "30d" | "1y" | "all";
-  onSelect: ((w: "24h" | "7d" | "30d" | "1y" | "all") => void) | undefined;
+  active: TimeWindow;
+  onSelect: ((w: TimeWindow) => void) | undefined;
 }) {
   return (
     <div

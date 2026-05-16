@@ -3,27 +3,116 @@
 
 import type { TimeWindow } from "@/components/global/window-types";
 
-export type PlayerVolumeView =
-  | "mv_player_24h_volume"
-  | "mv_player_7d_volume"
-  | "mv_player_30d_volume";
+// ─── Market summary ────────────────────────────────────────────────────────
+export type MarketView =
+  | "mv_market_summary_24h"
+  | "mv_market_summary_7d"
+  | "mv_market_summary_30d"
+  | "mv_market_summary_90d"
+  | "mv_market_summary_1y"
+  | "mv_market_summary_all_time";
 
-// Map portal-wide TimeWindow → the canonical per-player volume MV.
-// 1y / all collapse to 30d until a 365d MV exists; consumers can disclose
-// the collapse in caption text.
-export function windowToPlayerVolumeView(w: TimeWindow): PlayerVolumeView {
+export function windowToMarketView(w: TimeWindow): MarketView {
   switch (w) {
-    case "24h":
-      return "mv_player_24h_volume";
-    case "7d":
-      return "mv_player_7d_volume";
-    case "30d":
-    case "1y":
-    case "all":
-      return "mv_player_30d_volume";
+    case "24h": return "mv_market_summary_24h";
+    case "7d":  return "mv_market_summary_7d";
+    case "30d": return "mv_market_summary_30d";
+    case "90d": return "mv_market_summary_90d";
+    case "1y":  return "mv_market_summary_1y";
+    case "all": return "mv_market_summary_all_time";
   }
 }
 
+// ─── Player volume ─────────────────────────────────────────────────────────
+export type PlayerView =
+  | "mv_player_24h_volume"
+  | "mv_player_7d_volume"
+  | "mv_player_30d_volume"
+  | "mv_player_90d_volume"
+  | "mv_player_1y_volume"
+  | "mv_player_all_time_volume";
+
+export function windowToPlayerView(w: TimeWindow): PlayerView {
+  switch (w) {
+    case "24h": return "mv_player_24h_volume";
+    case "7d":  return "mv_player_7d_volume";
+    case "30d": return "mv_player_30d_volume";
+    case "90d": return "mv_player_90d_volume";
+    case "1y":  return "mv_player_1y_volume";
+    case "all": return "mv_player_all_time_volume";
+  }
+}
+
+// Legacy alias for the older 3-window helper; callers should migrate to
+// windowToPlayerView. Kept exported (and aliased to the new fn) so this
+// rename is non-breaking for any importer we missed.
+export const windowToPlayerVolumeView = windowToPlayerView;
+export type PlayerVolumeView = PlayerView;
+
+// ─── Largest sales ─────────────────────────────────────────────────────────
+// The largest-sales MV family has no 90d variant — 90d collapses to 30d.
+export type LargestSalesView =
+  | "mv_largest_sales_24h"
+  | "mv_largest_sales_7d"
+  | "mv_largest_sales_30d"
+  | "mv_largest_sales_1y"
+  | "mv_largest_sales_all_time";
+
+export function windowToLargestSalesView(w: TimeWindow): LargestSalesView {
+  switch (w) {
+    case "24h": return "mv_largest_sales_24h";
+    case "7d":  return "mv_largest_sales_7d";
+    case "30d":
+    case "90d": return "mv_largest_sales_30d";
+    case "1y":  return "mv_largest_sales_1y";
+    case "all": return "mv_largest_sales_all_time";
+  }
+}
+
+// ─── Edition activity ──────────────────────────────────────────────────────
+// Edition-activity MVs also have no 90d variant — 90d collapses to 30d.
+export type EditionActivityView =
+  | "mv_edition_24h_activity"
+  | "mv_edition_7d_activity"
+  | "mv_edition_30d_activity"
+  | "mv_edition_1y_activity"
+  | "mv_edition_all_time_activity";
+
+export function windowToEditionActivityView(w: TimeWindow): EditionActivityView {
+  switch (w) {
+    case "24h": return "mv_edition_24h_activity";
+    case "7d":  return "mv_edition_7d_activity";
+    case "30d":
+    case "90d": return "mv_edition_30d_activity";
+    case "1y":  return "mv_edition_1y_activity";
+    case "all": return "mv_edition_all_time_activity";
+  }
+}
+
+// ─── Window parsing + labeling ─────────────────────────────────────────────
+const VALID_WINDOWS: ReadonlyArray<TimeWindow> = [
+  "24h", "7d", "30d", "90d", "1y", "all",
+];
+
+// Defaults to 24h per the homepage spec (the strip is "live" by default).
+// Independent of DEFAULT_WINDOW in components/global/window-types.ts which
+// drives the legacy cascade.
+export function parseWindow(
+  raw: string | string[] | undefined,
+  defaultWindow: TimeWindow = "24h",
+): TimeWindow {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return (VALID_WINDOWS as readonly string[]).includes(v ?? "")
+    ? (v as TimeWindow)
+    : defaultWindow;
+}
+
+// Human-readable label used in section headers ("Market · 7d · Supabase").
+export function windowLabel(w: TimeWindow): string {
+  return w === "all" ? "all-time" : w;
+}
+
+// ─── Freshness bucketing ───────────────────────────────────────────────────
 export type FreshnessBucket = "green" | "yellow" | "red";
 
 export interface FreshnessReading {

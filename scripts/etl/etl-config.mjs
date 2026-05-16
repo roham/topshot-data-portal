@@ -79,7 +79,11 @@ export const CONFIG = {
     transactions: {
       bq: "transaction",
       sb: "transactions",
-      cursor: "row_updated_at",
+      // BQ row_updated_at is the pipeline timestamp (recent for all rows, useless
+      // for historical chunked backfill). Transactions are immutable once
+      // SUCCEEDED so updated_at IS the right cursor — and it's the same field
+      // MVs filter on (source_updated_at = BQ updated_at, renamed at upsert).
+      cursor: "updated_at",
       pk: "id", // canonical tx id; we rename to transaction_id in Supabase target
       // Transaction view has special filters: client_safe_name + DATE(updated_at) partition prune.
       partitionField: "updated_at",

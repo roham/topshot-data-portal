@@ -112,7 +112,7 @@ export default async function SetPage({
         variant="inset"
         methodology="topshot.mv_set_24h_activity — rolled up from SUCCEEDED transactions on moments in this set over the trailing 24h."
       >
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
           <div className="p-3">
             <KPI
               label="24h $ volume"
@@ -136,16 +136,6 @@ export default async function SetPage({
                 a?.median_price_usd != null ? Number(a.median_price_usd) : null
               }
               format="usd"
-              size="lg"
-            />
-          </div>
-          <div className="p-3">
-            <KPI
-              label="Unique buyers"
-              value={
-                a?.unique_buyers != null ? Number(a.unique_buyers) : null
-              }
-              format="int"
               size="lg"
             />
           </div>

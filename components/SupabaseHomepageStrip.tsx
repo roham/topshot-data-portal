@@ -1,17 +1,14 @@
 // Server component. Top-of-page KPI strip backed by Supabase MVs.
 //
-// Pulls:
-//   - 24h totals from mv_market_24h_summary (KPI strip)
-//   - Most-active editions from mv_edition_24h_activity (tx_count >= 5 gate)
-//   - Largest sales from mv_largest_sales_24h
-//   - Freshness from topshot._etl_heartbeat
+// Pulls per-window:
+//   - market totals from mv_market_summary_<w> (KPI strip)
+//   - most-active editions from mv_edition_<w>_activity (tx_count >= 5 gate)
+//   - largest sales from mv_largest_sales_<w>
+//   - top players from mv_player_<w>_volume
+//   - freshness from topshot._etl_heartbeat
 //
-// Time-window param `?w=` switches the player-volume cut between
-// mv_player_24h_volume / mv_player_7d_volume / mv_player_30d_volume. The
-// 24h KPI strip stays 24h regardless (it's the market-summary MV).
-//
-// Renders the honest-absence state when MV reads return null/empty: the
-// strip shows em-dashes with a caption explaining "backfill in progress".
+// Time-window param `?w=` switches every block. The strip falls back to an
+// honest-absence state when MV reads return null/empty.
 
 import Link from "next/link";
 import { getHomepageKpis } from "@/lib/supabase/queries/homepage-kpis";
@@ -23,12 +20,19 @@ import { Card } from "@/components/primitives/Card";
 import { KPI } from "@/components/primitives/KPI";
 import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
-import { freshnessBucket } from "@/lib/supabase/helpers";
-import { parseTimeWindow } from "@/components/global/window-types";
+import {
+  freshnessBucket,
+  parseWindow,
+  windowLabel,
+  windowToMarketView,
+  windowToPlayerView,
+  windowToEditionActivityView,
+  windowToLargestSalesView,
+} from "@/lib/supabase/helpers";
 
 interface Props {
-  // The ?w= search param from the page; passed through so the player block
-  // can window-switch. The KPI strip itself stays 24h.
+  // The ?w= search param from the page; parsed via parseWindow so the entire
+  // strip re-routes to the matching MVs for that window.
   rawWindow?: string | string[];
 }
 
@@ -66,19 +70,20 @@ function freshnessFooter(hbLast: string | null): {
 }
 
 export async function SupabaseHomepageStrip({ rawWindow }: Props) {
-  const { window } = parseTimeWindow(rawWindow);
+  const window = parseWindow(rawWindow);
+  const label = windowLabel(window);
 
   const [kpis, mostActive, largest, topPlayers, heartbeat] = await Promise.all([
-    getHomepageKpis(),
-    getMostActiveEditions({ limit: 20, minTxCount: 5 }),
-    getLargestSales({ limit: 10 }),
+    getHomepageKpis(window),
+    getMostActiveEditions({ window, limit: 20, minTxCount: 5 }),
+    getLargestSales({ window, limit: 10 }),
     getTopPlayers({ window, limit: 12, minTxCount: 5 }),
     getEtlHeartbeat(),
   ]);
 
-  // If every Supabase read came back empty, render nothing — the legacy
-  // cascade below already handles the no-data state with its own honest
-  // absence message.
+  // Detect "MV exists but window has no data" — every block came back empty
+  // and the KPI row has zero volume. The strip renders an explicit caption
+  // instead of a misleading $0 row.
   const allEmpty =
     !kpis &&
     mostActive.length === 0 &&
@@ -87,14 +92,23 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
   if (allEmpty) {
     return (
       <Card className="p-3 text-[11px] text-[var(--text-faint)]">
-        Supabase MV reads returned empty. Either env vars are unset (
-        <span className="font-mono">NEXT_PUBLIC_SUPABASE_URL</span> /{" "}
+        Window <span className="font-mono">{label}</span> has no data yet —
+        backfill running. Supabase MV reads returned empty. Either env vars are
+        unset (<span className="font-mono">NEXT_PUBLIC_SUPABASE_URL</span> /{" "}
         <span className="font-mono">NEXT_PUBLIC_SUPABASE_ANON_KEY</span>) or
-        the ETL backfill has not yet completed its first run. Falling through
-        to the snapshot path below.
+        the ETL backfill has not yet completed its first run for this window.
+        Falling through to the snapshot path below.
       </Card>
     );
   }
+
+  // Per-window empty: KPIs row is loaded but volume is 0/null — the MV ran
+  // but its time-bound predicate returned no rows. Show the honest-absence
+  // caption rather than a zeroed strip.
+  const kpisVolumeMissing =
+    !kpis ||
+    kpis.total_volume_usd == null ||
+    Number(kpis.total_volume_usd) === 0;
 
   const footer = freshnessFooter(heartbeat?.last_success_at ?? null);
   const footerColorClass =
@@ -105,52 +119,42 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
         : "text-[var(--down)]";
 
   return (
-    <section className="space-y-5" data-source="supabase">
+    <section className="space-y-5" data-source="supabase" data-window={window}>
       {/* ───── KPI strip ───── */}
-      <Card variant="inset" methodology="topshot.mv_market_24h_summary — single-row 24h rollup over SUCCEEDED transactions. Refreshed every 5-15 min by the ETL cron.">
+      <Card
+        variant="inset"
+        methodology={`topshot.${windowToMarketView(window)} — single-row ${label} rollup over SUCCEEDED transactions. Refreshed every 5-15 min by the ETL cron.`}
+      >
         <div className="px-3 py-2 flex items-baseline gap-3 border-b border-[var(--border-subtle)]">
           <h2 className="text-[13px] font-semibold tracking-section-header">
-            Market · 24h · Supabase
+            Market · {label} · Supabase
           </h2>
           <span className={`text-[10px] tnum font-mono ml-auto ${footerColorClass}`}>
             {footer.text}
           </span>
         </div>
-        {kpis == null ? (
+        {kpisVolumeMissing ? (
           <div className="px-3 py-4 text-[11px] text-[var(--text-faint)]">
-            mv_market_24h_summary is empty — ETL backfill has not completed
-            its first run. KPI strip will populate on next sync.
+            Window <span className="font-mono">{label}</span> has no data yet —
+            backfill running. (
+            <span className="font-mono">{windowToMarketView(window)}</span> is
+            either empty or the ETL backfill has not completed its first run
+            for this window.)
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
             <div className="p-3">
               <KPI
-                label="24h $ volume"
-                value={Number(kpis.total_volume_usd)}
+                label={`${label} $ volume`}
+                value={Number(kpis!.total_volume_usd)}
                 format="usdCompact"
                 size="lg"
               />
             </div>
             <div className="p-3">
               <KPI
-                label="24h trades"
-                value={Number(kpis.total_tx_count)}
-                format="int"
-                size="lg"
-              />
-            </div>
-            <div className="p-3">
-              <KPI
-                label="Unique buyers"
-                value={Number(kpis.unique_buyers)}
-                format="int"
-                size="lg"
-              />
-            </div>
-            <div className="p-3">
-              <KPI
-                label="Unique sellers"
-                value={Number(kpis.unique_sellers)}
+                label={`${label} trades`}
+                value={Number(kpis!.total_tx_count)}
                 format="int"
                 size="lg"
               />
@@ -158,7 +162,15 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
             <div className="p-3">
               <KPI
                 label="Median price"
-                value={kpis.median_price_usd != null ? Number(kpis.median_price_usd) : null}
+                value={kpis!.median_price_usd != null ? Number(kpis!.median_price_usd) : null}
+                format="usd"
+                size="lg"
+              />
+            </div>
+            <div className="p-3">
+              <KPI
+                label="Avg price"
+                value={kpis!.avg_price_usd != null ? Number(kpis!.avg_price_usd) : null}
                 format="usd"
                 size="lg"
               />
@@ -166,8 +178,16 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
             <div className="p-3">
               <KPI
                 label="Largest sale"
-                value={kpis.max_price_usd != null ? Number(kpis.max_price_usd) : null}
+                value={kpis!.max_price_usd != null ? Number(kpis!.max_price_usd) : null}
                 format="usdCompact"
+                size="lg"
+              />
+            </div>
+            <div className="p-3">
+              <KPI
+                label="Unique moments"
+                value={Number(kpis!.unique_moments_traded)}
+                format="int"
                 size="lg"
               />
             </div>
@@ -183,11 +203,11 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
               id="sb-players"
               className="text-[13px] font-semibold tracking-section-header"
             >
-              Top players · {window} · Supabase
+              Top players · {label} · Supabase
             </h2>
             <span className="text-[10px] text-[var(--text-faint)] font-mono">
-              {topPlayers.length} players · ranked by $ volume · filter: ≥5 trades · window: {window}
-              {(window === "1y" || window === "all") && " (mapped to 30d MV — 365d MV not yet live)"}
+              {topPlayers.length} players · ranked by $ volume · filter: ≥5
+              trades · from {windowToPlayerView(window)}
             </span>
             <Link
               href="/movers"
@@ -216,7 +236,7 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
                     Trades
                   </th>
                   <th className="px-3 py-1.5 text-[10px] tracking-data-label text-[var(--text-faint)] text-right">
-                    Unique buyers
+                    Unique moments
                   </th>
                   <th className="px-3 py-1.5 text-[10px] tracking-data-label text-[var(--text-faint)] text-right">
                     Median
@@ -253,7 +273,9 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
                       {Number(p.tx_count).toLocaleString()}
                     </td>
                     <td className="px-3 py-1.5 text-right tnum">
-                      {Number(p.unique_buyers).toLocaleString()}
+                      {p.unique_moments_traded != null
+                        ? Number(p.unique_moments_traded).toLocaleString()
+                        : "—"}
                     </td>
                     <td className="px-3 py-1.5 text-right tnum">
                       <Num
@@ -273,7 +295,7 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
         </section>
       )}
 
-      {/* ───── Most active editions · 24h · gated ≥5 tx ───── */}
+      {/* ───── Most active editions · windowed · gated ≥5 tx ───── */}
       {mostActive.length > 0 && (
         <section aria-labelledby="sb-most-active">
           <div className="flex items-baseline gap-3 mb-2 px-1">
@@ -281,11 +303,11 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
               id="sb-most-active"
               className="text-[13px] font-semibold tracking-section-header"
             >
-              Most active · editions · 24h · Supabase
+              Most active · editions · {label} · Supabase
             </h2>
             <span className="text-[10px] text-[var(--text-faint)] font-mono">
               {mostActive.length} editions · $ volume desc · filter: ≥5 trades
-              (no single-tx noise)
+              · from {windowToEditionActivityView(window)}
             </span>
             <Link
               href="/volume"
@@ -305,13 +327,10 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
                     Edition
                   </th>
                   <th className="px-3 py-1.5 text-[10px] tracking-data-label text-[var(--text-faint)] text-right">
-                    24h $ vol
+                    {label} $ vol
                   </th>
                   <th className="px-3 py-1.5 text-[10px] tracking-data-label text-[var(--text-faint)] text-right">
                     Trades
-                  </th>
-                  <th className="px-3 py-1.5 text-[10px] tracking-data-label text-[var(--text-faint)] text-right">
-                    Traders
                   </th>
                   <th className="px-3 py-1.5 text-[10px] tracking-data-label text-[var(--text-faint)] text-right">
                     Median
@@ -351,9 +370,6 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
                       {Number(r.tx_count).toLocaleString()}
                     </td>
                     <td className="px-3 py-1.5 text-right tnum">
-                      {Number(r.unique_traders).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-1.5 text-right tnum">
                       <Num
                         value={
                           r.median_price_usd != null
@@ -374,7 +390,7 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
         </section>
       )}
 
-      {/* ───── Largest sales · 24h ───── */}
+      {/* ───── Largest sales · windowed ───── */}
       {largest.length > 0 && (
         <section aria-labelledby="sb-largest">
           <div className="flex items-baseline gap-3 mb-2 px-1">
@@ -382,10 +398,11 @@ export async function SupabaseHomepageStrip({ rawWindow }: Props) {
               id="sb-largest"
               className="text-[13px] font-semibold tracking-section-header"
             >
-              Largest sales · 24h · Supabase
+              Largest sales · {label} · Supabase
             </h2>
             <span className="text-[10px] text-[var(--text-faint)] font-mono">
-              {largest.length} sales · price desc · from mv_largest_sales_24h
+              {largest.length} sales · price desc · from{" "}
+              {windowToLargestSalesView(window)}
             </span>
             <Link
               href="/sales"

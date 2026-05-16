@@ -1,11 +1,11 @@
-// Top players by volume in a parameterized window. Routes 24h/7d/30d to the
-// corresponding mv_player_*_volume MV; 1y / all collapse to 30d with a
-// caller-visible hint (caption should disclose).
+// Top players by volume in a parameterized window. Routes each TimeWindow to
+// the corresponding mv_player_*_volume MV — all six windows (24h / 7d / 30d /
+// 90d / 1y / all_time) have a backing MV after migration 0007.
 
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
 import type { TimeWindow } from "@/components/global/window-types";
-import { windowToPlayerVolumeView } from "@/lib/supabase/helpers";
+import { windowToPlayerView } from "@/lib/supabase/helpers";
 import type { Tables } from "@/lib/supabase/database.types";
 
 export type TopPlayerRow = Tables["mv_player_24h_volume"];
@@ -21,7 +21,7 @@ async function _getTopPlayers({
   limit = 20,
   minTxCount = 5,
 }: GetTopPlayersOptions = {}): Promise<TopPlayerRow[]> {
-  const view = windowToPlayerVolumeView(window);
+  const view = windowToPlayerView(window);
   try {
     const sb = getSupabaseServerAnon();
     if (!sb) return [];
@@ -39,16 +39,21 @@ async function _getTopPlayers({
       ...r,
       tx_count: Number(r.tx_count),
       total_volume_usd: Number(r.total_volume_usd),
-      unique_buyers: Number(r.unique_buyers),
-      unique_sellers: Number(r.unique_sellers),
     }));
   } catch (e) {
-    console.error(`[supabase] ${view} threw`, e);
+    console.error(`[supabase] player-volume read threw`, e);
     return [];
   }
 }
 
-export const getTopPlayers = unstable_cache(_getTopPlayers, ["top-players"], {
-  revalidate: 60,
-  tags: ["top-players", "mv_player_volume"],
-});
+export const getTopPlayers = (opts: GetTopPlayersOptions = {}) => {
+  const window = opts.window ?? "24h";
+  return unstable_cache(
+    () => _getTopPlayers(opts),
+    ["top-players", window, String(opts.limit ?? 20), String(opts.minTxCount ?? 5)],
+    {
+      revalidate: 60,
+      tags: ["top-players", `mv_player_${window}_volume`],
+    },
+  )();
+};

@@ -139,12 +139,14 @@ export interface Tables {
   };
 
   // ─── materialized views ─────────────────────────────────────────────
-  mv_market_24h_summary: {
+  // Market summary — single-row per window. Migration 0007 dropped the
+  // buyer/seller distinct-count columns because the BQ source returns
+  // NULL for those identifiers on privacy-stripped marketplace txs,
+  // surfacing 0/1 which is misleading UX.
+  mv_market_summary_24h: {
     singleton_id: number;
     total_tx_count: number;
     total_volume_usd: number;
-    unique_buyers: number;
-    unique_sellers: number;
     unique_moments_traded: number;
     median_price_usd: number | null;
     avg_price_usd: number | null;
@@ -152,37 +154,68 @@ export interface Tables {
     min_price_usd: number | null;
     refreshed_at: string;
   };
+  mv_market_summary_7d: Tables["mv_market_summary_24h"];
+  mv_market_summary_30d: Tables["mv_market_summary_24h"];
+  mv_market_summary_90d: Tables["mv_market_summary_24h"];
+  mv_market_summary_1y: Tables["mv_market_summary_24h"];
+  mv_market_summary_all_time: Tables["mv_market_summary_24h"];
+
+  // Player volume — per-window per-player. Buyer/seller distinct-count
+  // columns dropped (see market summary rationale above);
+  // last_known_team_full_name is present on the older 24h/7d/30d MVs but
+  // absent on the newer 90d/1y/all_time MVs (migration 0007 selects only
+  // last_known_team_id). The shape below covers the post-migration union
+  // — joins surface the team name when missing.
   mv_player_24h_volume: {
     player_id: string;
     player_name: string | null;
     last_known_team_id: string | null;
-    last_known_team_full_name: string | null;
+    last_known_team_full_name?: string | null;
     tx_count: number;
     total_volume_usd: number;
-    unique_buyers: number;
-    unique_sellers: number;
+    avg_price_usd: number | null;
     median_price_usd: number | null;
-    min_price_usd: number | null;
     max_price_usd: number | null;
-    refreshed_at: string;
+    unique_moments_traded: number;
+    refreshed_at?: string;
   };
   mv_player_7d_volume: Tables["mv_player_24h_volume"];
   mv_player_30d_volume: Tables["mv_player_24h_volume"];
+  mv_player_90d_volume: Tables["mv_player_24h_volume"];
+  mv_player_1y_volume: Tables["mv_player_24h_volume"];
+  mv_player_all_time_volume: Tables["mv_player_24h_volume"];
+
+  // Edition activity — per-window per-edition. Post-migration 0007 the
+  // new variants emit total_volume_usd; the legacy 24h variant uses
+  // volume_usd. Component reads both via `volume_usd ?? total_volume_usd`.
   mv_edition_24h_activity: {
     edition_id: string;
     edition_name: string | null;
     set_id: string | null;
+    set_name?: string | null;
     play_id: string | null;
+    play_name?: string | null;
     player_id: string | null;
+    player_name?: string | null;
     tier_name: string | null;
     tx_count: number;
-    volume_usd: number;
-    unique_traders: number;
+    volume_usd?: number;
+    total_volume_usd?: number;
+    unique_traders?: number;
     median_price_usd: number | null;
-    min_price_usd: number | null;
-    max_price_usd: number | null;
-    refreshed_at: string;
+    min_price_usd?: number | null;
+    max_price_usd?: number | null;
+    refreshed_at?: string;
   };
+  mv_edition_7d_activity: Tables["mv_edition_24h_activity"];
+  mv_edition_30d_activity: Tables["mv_edition_24h_activity"];
+  mv_edition_1y_activity: Tables["mv_edition_24h_activity"];
+  mv_edition_all_time_activity: Tables["mv_edition_24h_activity"];
+
+  // Set rollup — unchanged by migration 0007 but the buyer/seller
+  // distinct-count columns the BQ source returned have been removed from
+  // portal surfaces (they were always 0/1 due to privacy stripping; better
+  // to omit than mislead).
   mv_set_24h_activity: {
     set_id: string;
     set_name: string | null;
@@ -192,11 +225,10 @@ export interface Tables {
     tx_count: number;
     volume_usd: number;
     unique_editions_traded: number;
-    unique_buyers: number;
-    unique_sellers: number;
     median_price_usd: number | null;
     refreshed_at: string;
   };
+
   mv_largest_sales_24h: {
     transaction_id: string;
     moment_id: string | null;
@@ -217,8 +249,15 @@ export interface Tables {
     set_name: string | null;
     player_id: string | null;
     player_name: string | null;
-    tier_name: string | null;
+    // migration 0007 drops tier_name from the largest_sales MV family —
+    // the new 7d/30d/1y/all_time variants don't select it. Component
+    // renders TierChip(null) when absent.
+    tier_name?: string | null;
   };
+  mv_largest_sales_7d: Tables["mv_largest_sales_24h"];
+  mv_largest_sales_30d: Tables["mv_largest_sales_24h"];
+  mv_largest_sales_1y: Tables["mv_largest_sales_24h"];
+  mv_largest_sales_all_time: Tables["mv_largest_sales_24h"];
   mv_set_completion_distribution: {
     set_id: string;
     set_name: string | null;
