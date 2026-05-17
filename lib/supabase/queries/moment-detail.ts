@@ -120,6 +120,11 @@ export const getMomentHistory = unstable_cache(
 // GOTCHA: moment_status='LISTED' returns 0 rows in topshot.moments (the BQ
 // ETL never writes that value). Use listing_price_usd IS NOT NULL instead.
 //
+// IMPORTANT: moment.edition?.id from the Top Shot GraphQL API is NOT the same
+// format as topshot.moments.edition_id (the DB uses a composite key like
+// "{play_uuid}+{set_uuid}"). We resolve edition_id from topshot.moments using
+// moment_flow_id first, then run the parallel count queries.
+//
 // Each bucket gets a separate HEAD request that returns only count:
 //   supabaseAdmin().from("moments").select("*", { count: "exact", head: true })
 //   .eq("edition_id", id).<bucket-filter>
@@ -135,21 +140,41 @@ export interface CirculationBucket {
 export interface EditionCirculation {
   buckets: CirculationBucket[];
   dbTotal: number;
-  editionId: string;
+  editionId: string;  // DB edition_id (composite key format from topshot.moments)
 }
 
-async function _getEditionCirculation(editionId: string): Promise<EditionCirculation | null> {
-  if (!editionId) return null;
+// Accept flowId (NOT edition.id from GraphQL API — those use different formats).
+// Resolves topshot.moments.edition_id internally via moment_flow_id lookup.
+async function _getEditionCirculation(flowId: string): Promise<EditionCirculation | null> {
+  if (!flowId) return null;
   try {
     const admin = supabaseAdmin();
-    // Produce a fresh base query for this edition on every call.
+
+    // Step 1: resolve the DB edition_id from moment_flow_id.
+    // The Top Shot GraphQL API's edition.id has a different format from the
+    // DB's composite key (e.g. "{play_uuid}+{set_uuid}").
+    const { data: momentRowRaw, error: momentErr } = await admin
+      .from("moments")
+      .select("edition_id")
+      .eq("moment_flow_id", flowId)
+      .maybeSingle();
+
+    if (momentErr || !momentRowRaw) {
+      console.error("[supabase] edition-circulation: moment lookup failed", momentErr);
+      return null;
+    }
+    // The AdminDatabase generic types the row as Record<string,unknown>; cast to access edition_id.
+    const momentRow = momentRowRaw as Record<string, unknown>;
+    const editionId = (momentRow["edition_id"] as string | null) ?? null;
+    if (!editionId) return null;
+
+    // Step 2: seven parallel HEAD-only count queries — negligible payload.
     const base = () =>
       admin
         .from("moments")
         .select("*", { count: "exact", head: true })
         .eq("edition_id", editionId);
 
-    // Seven parallel HEAD-only count queries — negligible payload.
     const [
       totalRes,
       ownedRes,

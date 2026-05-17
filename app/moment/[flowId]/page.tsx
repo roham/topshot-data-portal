@@ -126,13 +126,14 @@ export default async function MomentPage({
   // Parallel data fetches with per-slice failure isolation. The Supabase
   // history is included in this batch — empty arrays are the honest absence
   // when the moment hasn't traded in the selected window.
-  const editionId = moment.edition?.id ?? "";
+  // Note: getEditionCirculation accepts the flowId (NOT moment.edition?.id —
+  // that uses a different format than topshot.moments.edition_id).
   const [listedRes, recentRes, parallelsRes, historyRes, circulationRes] = await Promise.allSettled([
     setUuid && playUuid ? editionListedSerials(setUuid, playUuid, 50) : Promise.resolve([]),
     setUuid && playUuid ? editionRecentSales(setUuid, playUuid, 20) : Promise.resolve([]),
     playUuid ? editionsForPlay(playUuid) : Promise.resolve([]),
     getMomentHistory({ flowId, window: historyWindow }),
-    editionId ? getEditionCirculation(editionId) : Promise.resolve(null),
+    getEditionCirculation(flowId),
   ]);
   const listed = listedRes.status === "fulfilled" ? listedRes.value : [];
   const recentSales = recentRes.status === "fulfilled" ? recentRes.value : [];
@@ -162,7 +163,9 @@ export default async function MomentPage({
   const tier = moment.tier ?? moment.edition?.tier;
   const parallelId = moment.edition?.parallelID ?? 0;
   const serial = Number(moment.flowSerialNumber);
-  const currentEditionId = editionId;
+  // currentEditionId: use the DB edition_id from the circulation result (if available),
+  // otherwise fall back to the GraphQL API's edition.id (different format, but OK for display).
+  const currentEditionId = circulation?.editionId ?? moment.edition?.id ?? "";
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-3">
