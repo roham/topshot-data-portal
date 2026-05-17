@@ -7,6 +7,31 @@
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
 
+/**
+ * Supabase PostgREST has a server-side max-rows cap (default 1000). To fetch
+ * larger result sets we paginate via .range(from, to). This helper iterates
+ * pages of `pageSize` until either an empty page is returned OR `cap` rows
+ * have been accumulated.
+ */
+type PagedSelector<T> = (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>;
+async function pagedFetch<T>(
+  select: PagedSelector<T>,
+  cap: number,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  while (all.length < cap) {
+    const to = Math.min(from + pageSize - 1, cap - 1);
+    const { data, error } = await select(from, to);
+    if (error || !data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 export interface PlayerMcapRow {
   player_id: string;
   player_name: string | null;
@@ -108,17 +133,20 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
     const asOfDate = dateRow?.date as string | null;
     if (!asOfDate) return empty;
 
-    // ── Stage 2: parallel fetch all the independent slices ──────────────
+    // ── Stage 2: parallel fetch — paginated to bypass PostgREST 1000-row cap ─
+    const sinceDate = new Date(new Date(asOfDate).getTime() - 30 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+
     const [
       topPlayersRes,
-      mcCapsLatestRes,
-      mcCapsAllDatesRes,
-      editionsRes,
-      setsRes,
-      playersRes,
+      mcCapsLatest,
+      mcCapsAllDates,
+      editions,
+      sets,
+      players,
       parallelTypesRes,
     ] = await Promise.all([
-      // Top 20 players by market cap from MV
       sb
         .from("mv_player_market_cap")
         .select(
@@ -126,53 +154,86 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
         )
         .order("total_market_cap_usd", { ascending: false })
         .limit(20),
-
-      // Latest market_caps: load all edition rows for latest date
-      // (PostgREST has no aggregate-by-arbitrary-column; we fetch + aggregate client-side)
-      sb
-        .from("market_caps")
-        .select(
-          "edition_id, market_cap, num_moments_in_circulation, lowest_ask_price",
-        )
-        .eq("date", asOfDate)
-        .not("market_cap", "is", null)
-        .gt("market_cap", 0)
-        .limit(50000),
-
-      // All-dates market_caps for time-series + movers (last 30d to bound payload)
-      sb
-        .from("market_caps")
-        .select("date, market_cap, edition_id")
-        .gte(
-          "date",
-          new Date(
-            new Date(asOfDate).getTime() - 30 * 86_400_000,
-          )
-            .toISOString()
-            .slice(0, 10),
-        )
-        .not("market_cap", "is", null)
-        .gt("market_cap", 0)
-        .limit(200000),
-
-      // Editions lookup (id → tier, set_id, parallel_id, player_id)
-      sb
-        .from("editions")
-        .select("edition_id, tier_name, set_id, parallel_id, player_id")
-        .limit(50000),
-
-      // Sets lookup
-      sb.from("sets").select("set_id, set_name, series_number").limit(5000),
-
-      // Players lookup (for team mapping)
-      sb
-        .from("players")
-        .select("player_id, full_name, last_known_team_full_name, last_known_team_id")
-        .limit(10000),
-
-      // Parallel types lookup
+      pagedFetch<{
+        edition_id: string;
+        market_cap: number | string | null;
+        num_moments_in_circulation: number | string | null;
+        lowest_ask_price: number | string | null;
+      }>(
+        (from, to) =>
+          sb
+            .from("market_caps")
+            .select(
+              "edition_id, market_cap, num_moments_in_circulation, lowest_ask_price",
+            )
+            .eq("date", asOfDate)
+            .not("market_cap", "is", null)
+            .gt("market_cap", 0)
+            .range(from, to),
+        50000,
+      ),
+      pagedFetch<{
+        date: string;
+        market_cap: number | string | null;
+        edition_id: string;
+      }>(
+        (from, to) =>
+          sb
+            .from("market_caps")
+            .select("date, market_cap, edition_id")
+            .gte("date", sinceDate)
+            .not("market_cap", "is", null)
+            .gt("market_cap", 0)
+            .range(from, to),
+        200000,
+      ),
+      pagedFetch<{
+        edition_id: string;
+        tier_name: string | null;
+        set_id: string | null;
+        parallel_id: number | null;
+        player_id: string | null;
+      }>(
+        (from, to) =>
+          sb
+            .from("editions")
+            .select("edition_id, tier_name, set_id, parallel_id, player_id")
+            .range(from, to),
+        50000,
+      ),
+      pagedFetch<{
+        set_id: string;
+        set_name: string | null;
+        series_number: number | null;
+      }>(
+        (from, to) =>
+          sb.from("sets").select("set_id, set_name, series_number").range(from, to),
+        5000,
+      ),
+      pagedFetch<{
+        player_id: string;
+        full_name: string | null;
+        last_known_team_full_name: string | null;
+        last_known_team_id: string | null;
+      }>(
+        (from, to) =>
+          sb
+            .from("players")
+            .select(
+              "player_id, full_name, last_known_team_full_name, last_known_team_id",
+            )
+            .range(from, to),
+        10000,
+      ),
       sb.from("parallel_types").select("parallel_id, name"),
     ]);
+
+    // Wrap raw arrays into the .data-style shape the rest of the code expects
+    const mcCapsLatestRes = { data: mcCapsLatest };
+    const mcCapsAllDatesRes = { data: mcCapsAllDates };
+    const editionsRes = { data: editions };
+    const setsRes = { data: sets };
+    const playersRes = { data: players };
 
     type TopPlayerRaw = {
       player_id: string;
