@@ -124,36 +124,25 @@ Click the cell → expand inline to show per-parallel rows beneath.
 
 **Recommendation: Option D as the default player-page matrix + Option C as the secondary `/parallels` exhaustive route.** Option C is the analyst's mode; Option D is the trader's at-a-glance.
 
-## Market cap formula proposal
+## Market cap formula — KEEP CANONICAL (Roham 2026-05-17 16:50Z)
 
-Replace the current `SUM over editions of (circulation × lowest_ask)` with:
+Floor-based market cap stays the canonical aggregation formula:
 
-**Per parallel (canonical unit):**
 ```
-parallel_mcap = avg_sale_30d × circulation
-```
-when avg_sale_30d is computable (≥1 sale in window). When not (cold parallel):
-```
-parallel_mcap = MIN(low_ask, avg_sale_year) × circulation
-```
-when avg_sale_year is computable. When neither — the parallel has **no market activity for a year**:
-```
-parallel_mcap = NULL (do not contribute to player aggregate; surface as "cold market" tag)
+parallel_mcap = circulation × lowest_ask
+player_mcap   = SUM(parallel_mcap) across all parallels
 ```
 
-**Per player:**
-```
-player_mcap = SUM(parallel_mcap) across all parallels where parallel_mcap is not NULL
-player_cold_market_count = COUNT(parallel_mcap IS NULL)
-```
+Principal's reasoning (verbatim): *"if someone has listed their moment for $5 million, and it's the only one of that moment, then that's what it is. If the fans of other players want to pump the lowest asks of their players, then they should come in and list their stuff too. I mean, every player has one-on-ones, and so I think by showing low ask market cap faithfully, I think that's the best approach."*
 
-This means:
-- Vanity 1-of-1 Ultimate listings with no sales contribute **zero** to the player aggregate (the cold-market case)
-- Real liquid markets contribute their avg_sale × circulation
-- Semi-liquid markets (no 30d sales but some 1-year sales) contribute the conservative min(ask, year-avg)
-- The leaderboard surfaces both `player_mcap` AND `player_cold_market_count` so users can see how much of a player's footprint is in dead markets
+The implication: vanity 1-of-1 Ultimate asks are not a bug, they're a market signal. A listing represents a willingness-to-sell at that price; if no one beats it, the market is genuinely thin and the asker has the floor. Equal treatment across players means equal exposure to that mechanic. Faithfulness > smoothing.
 
-**Crucially:** this formula self-corrects the Podziemski problem. His $5M Ultimate has zero sales in any window → parallel_mcap = NULL → excluded from his player_mcap. His real markets sum to $17.9K. Rankings reflect what's actually trading.
+The audit-driven re-ranking (Jokić / Luka / Kyrie rising on an avg-sale formulation) is therefore **descriptive context**, not a fix-to-apply. The avg-sale numbers stay useful as a *display column* per parallel (see below) but do NOT replace the floor formula at the player-aggregate level.
+
+What this re-frames in the rest of this doc:
+- "Cold market" is not a state that excludes a parallel from the aggregate. It's a tag in the display layer ("no 30d sales") for trader awareness, but the floor still contributes its `lowest_ask × circulation` to the player total.
+- The Podziemski $5M and Angel Reese $1M floor-mcaps are correct. Their rank position is a faithful read of who-has-listed-what — not a metric flaw.
+- The parallel-aware rollup is still the right *structural* change (so traders see per-parallel low_ask + offer + avg_sale instead of edition-keyed only). The formula above just operates at the parallel grain instead of the edition grain — which is mathematically identical today since `edition_id` already encodes parallel.
 
 ## Browsing requirements per Pillar 4
 
@@ -181,10 +170,14 @@ When this design lands as a feature in `features.json`, the acceptance text shou
 
 ## Open questions for Roham's redline
 
-1. **Highest offer** — should we audit the data first (this iteration), or ship without it and add when ETL catches up?
-2. **Cold-market threshold** — is "no 30d sales AND no 1-year sales" the right cold-market trigger, or should it be tighter (e.g., "no sales ever")?
-3. **Default view** — Option D (composite cell) confirmed, or do you want Option C (separate routes) as the default with the matrix being parallel-blind by design?
-4. **Series 8 brand-new sets** — empty rows where LeBron HAS editions but zero listings exist anywhere yet. Cold-market rule above handles this gracefully (NULL → excluded). Confirm that's the right treatment.
-5. **Cross-player parallel browse** — is `/parallels?parallel_id=X` (one parallel across all players) a v1 feature, or v2 after the player page lands?
+**Resolved 2026-05-17 16:50Z:**
+- ~~Market cap formula change~~ → KEEP floor-based. Faithfully show low_ask × circulation. Vanity 1-of-1 asks are market signal, not bug.
 
-Once these are resolved, the design becomes a set of features in features.json with concrete acceptance text, and the loop ships them.
+**Still open:**
+
+1. **Highest offer** — is offer/bid data in the Supabase tables, or is it API-ceiling-blocked? Auditable in 60s. If absent: ship two-of-three (low_ask + avg_sale) with "highest_offer pending data" annotation.
+2. **Series 8 brand-new sets with zero listings** — currently empty rows that look like bugs. Treatment options: (a) collapse to a footer strip "*N sets with no current listings*"; (b) keep visible with a "Listings pending" tag in each cell; (c) keep as-is (silent blank cells). Pick one.
+3. **Default player-page UI** — Option D (composite cell with parallel sparkline + drill-down) confirmed, or do you want a different shape?
+4. **Cross-player parallel browse** (`/parallels?parallel_id=X`) — v1 alongside the player page, or v2?
+
+Once these resolve, encode to features.json with concrete acceptance and the loop ships them.
