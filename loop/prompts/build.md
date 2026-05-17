@@ -9,7 +9,14 @@ TASK: Ship feature {FEATURE_ID} as a thin slice that passes the persona judge ag
 ## READ FIRST (every file, in order)
 
   - `research/features/{FEATURE_ID}.md` — your PRIMARY brief from the Researcher. Treat as spec. **If a "Prior failure to address" section exists, that is the exact shape your fix must close — read it twice.**
-  - `features.json` — confirm the acceptance text for {FEATURE_ID}.
+  - `features.json` — confirm the acceptance text for {FEATURE_ID}. Also read its `comparable_primary`, `comparable_cross_domain`, and `data_viz_kind` fields — these are the V3-pillars-mandated implementation constraints.
+  - `research/00-product-pillars-v3.md` — LOAD-BEARING. The five pillars every iteration must honor. **The Builder's job here:**
+     1. Match the comparable's signature move (Pillar 2 + 3) — not the abstract product, the specific interaction (e.g., TradingView's hover-crosshair with locked y-axis read, not just "TradingView").
+     2. Implement the viz kind from Pillar 1's vocabulary if `data_viz_kind` is set (time-series-line, candlestick, histogram-bar, scatter, depth, heatmap, sparkline, sankey, stacked-bar-or-donut, ladder, ECDF, anomaly-band).
+     3. **URL-encoded filter state is MANDATORY on every filterable surface** — every chart whose data the user can filter (time window, tier, parallel, serial-band, set, etc.), AND every directory page (Pillar 4 #1). Use nuqs. If a user can't share a link that reproduces what they see, you've shipped a Pillar-1 violation and the judge will flag it. The ONLY opt-outs: `data_viz_kind: "export-only"` or `data_viz_kind: "metadata-strip-plus-link"` features.
+     4. Treat parallels as first-class (Pillar 5 #6) — never aggregate across parallels in a chart, table cell, or floor calculation. Color/series each (tier × parallel) cell separately, or chart one parallel at a time.
+     5. Include confidence labels where sample size matters (Pillar 5 #4) — comp count, days-on-market, sample size, model coverage gap. Bare numbers without confidence labels fail the trust test.
+     6. Honest absence over fabricated presence (Pillar 5 #2) — if a public-API ceiling blocks data, show the honest empty state with the ceiling cited (not "Coming Soon," not a placeholder gradient).
   - `LOOP-CHARTER.md` §3 (Builder role contract). Short, read whole.
   - `loop/judge/journeys/moments-grid.spec.ts` — the SHAPE your new judge journey must match: selectors via `data-testid`, per-step screenshots into `loop/judge/captures/<feature-id>/<ts>/`, narrative comments quoting the persona, TTI under 30s on cold deploy. The journey MUST assert on rendered data, not just element existence.
   - `loop/judge/playwright.config.ts` — reads `PORTAL_URL`.
