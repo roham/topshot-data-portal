@@ -49,3 +49,6 @@ next-env.d.ts
 /loop/judge/captures/
 /loop/judge/reports/
 
+# v5 loop runner — transient per-iteration state
+/loop/runner/state/
+
