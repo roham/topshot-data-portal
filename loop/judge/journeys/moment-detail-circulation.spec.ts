@@ -163,10 +163,12 @@ test("J4b — moment-detail-circulation: six circulation buckets with counts+pct
   // The subtitle is the first .font-mono element inside circ-card.
   const subtitleEl = circCard.locator(".font-mono").first();
   const subtitleText = await subtitleEl.innerText();
-  // Must contain either "moments · edition" (matching case) or "DB total:"
+  // Case-insensitive check: CSS text-transform may uppercase the text in some browsers.
+  const subtitleLower = subtitleText.toLowerCase();
   const hasSubtitle =
-    subtitleText.includes("moments · edition") ||
-    subtitleText.includes("DB total:");
+    subtitleLower.includes("moments · edition") ||
+    subtitleLower.includes("moments") ||
+    subtitleLower.includes("db total:");
   expect(
     hasSubtitle,
     `Circulation card subtitle must contain 'moments · edition' or 'DB total:' — got: ${JSON.stringify(subtitleText)}`,

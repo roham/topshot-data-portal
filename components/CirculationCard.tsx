@@ -64,8 +64,8 @@ export function CirculationCard({ circulation, editionCirculationCount }: Props)
 
   return (
     <div data-testid="circ-card">
-      {/* Subtitle bar (reconciliation / confidence label) */}
-      <div className="px-3 pt-1 pb-2 text-[10px] text-[var(--text-faint)] font-mono tracking-data-label">
+      {/* Subtitle bar (reconciliation / confidence label) — normal case, not uppercase */}
+      <div className="px-3 pt-1 pb-2 text-[10px] text-[var(--text-faint)] font-mono tracking-wide">
         {subtitle}
       </div>
 
