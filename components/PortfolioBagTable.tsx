@@ -155,6 +155,12 @@ export function PortfolioBagTable({ rows }: PortfolioBagTableProps) {
     getScrollElement: () => parentRef.current,
     estimateSize: () => 28,
     overscan: 12,
+    // SSR / cold-hydration guard: provide a fallback container height so the
+    // virtualizer renders initial items before the ResizeObserver fires.
+    // Without this, the initial clientHeight of the scroll container is 0
+    // (empty tbody → no forcing-content → max-h-[560px] doesn't help),
+    // causing a deadlock where the virtualizer never renders any rows.
+    initialRect: { width: 0, height: 560 },
   });
 
   if (!rows.length) return null;
