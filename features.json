@@ -481,8 +481,8 @@
       ],
       "priority": 13,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T14:57:13.556Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, I open a player's page and see an editions matrix: rows by set, columns by tier (C/R/L/F), with floor + market cap per cell; plus market cap rank; plus career volume table with 24h/7d/30d/1y/ALL.",
@@ -494,7 +494,14 @@
         "ESPN player page (career stats matrix)",
         "Basketball-Reference per-season table"
       ],
-      "data_viz_kind": "matrix-plus-table-plus-chart"
+      "data_viz_kind": "matrix-plus-table-plus-chart",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T14:57:13.556Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/player-detail/2026-05-17T14-57-08-094Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "sniper-alerts",
