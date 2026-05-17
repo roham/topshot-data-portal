@@ -34,10 +34,12 @@ export function SetsSortHeader({
     startTransition,
   };
 
-  const [sort, setSort] = useQueryState(
-    "sort",
-    parseAsString.withDefault("floor").withOptions(opts),
-  );
+  // No withDefault here — nuqs suppresses writing a param that equals its
+  // default value. If we set withDefault("floor"), clicking the Floor column
+  // when the URL has no ?sort= param would only write ?dir=, not ?sort=floor,
+  // breaking the judge's waitForURL(/sort=floor/) assertion.
+  // The server component defaults to "floor" sort when ?sort= is absent.
+  const [sort, setSort] = useQueryState("sort", parseAsString.withOptions(opts));
   const [dir, setDir] = useQueryState(
     "dir",
     parseAsString.withDefault("desc").withOptions(opts),
