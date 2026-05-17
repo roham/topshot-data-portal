@@ -5,7 +5,6 @@
 // moment_flow_id = $flowId. The transactions table is keyed on moment_id.
 
 import { unstable_cache } from "next/cache";
-import { getSupabaseServerAnon } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type MomentHistoryWindow = "1d" | "7d" | "1m" | "3m" | "ytd" | "all";
@@ -49,15 +48,16 @@ async function _getMomentHistory({
 }: GetMomentHistoryOptions): Promise<MomentHistoryPoint[]> {
   if (!flowId) return [];
   try {
-    const sb = getSupabaseServerAnon();
-    if (!sb) return [];
-    const { data: momentRow, error: momentErr } = await sb
+    const sb = supabaseAdmin();
+    const { data: momentRowRaw, error: momentErr } = await sb
       .from("moments")
       .select("moment_id")
       .eq("moment_flow_id", flowId)
       .maybeSingle();
-    if (momentErr || !momentRow?.moment_id) return [];
-    const momentId = momentRow.moment_id as string;
+    if (momentErr || !momentRowRaw) return [];
+    const momentRow = momentRowRaw as Record<string, unknown>;
+    const momentId = (momentRow["moment_id"] as string | null) ?? null;
+    if (!momentId) return [];
 
     let q = sb
       .from("transactions")
@@ -260,8 +260,7 @@ async function _getMomentEditionPriceDistribution(
 ): Promise<number[]> {
   if (!flowId) return [];
   try {
-    const sb = getSupabaseServerAnon();
-    if (!sb) return [];
+    const sb = supabaseAdmin();
 
     // Stage 0 — resolve moment_id and edition_id from the moment's flowId.
     const { data: anchorRow, error: anchorErr } = await sb
