@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
 } from "recharts";
 import type { SetMcapRow } from "@/lib/supabase/queries/market-cap-landing";
 
@@ -74,6 +75,12 @@ export function TopSetsChart({ rows }: { rows: SetMcapRow[] }) {
           {data.map((d, i) => (
             <Cell key={i} fill={d.color} />
           ))}
+          <LabelList
+            dataKey="mcap"
+            position="right"
+            formatter={(v) => fmtUSD(Number(v))}
+            style={{ fill: "var(--text-dim)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+          />
         </Bar>
       </BarChart>
     </ResponsiveContainer>

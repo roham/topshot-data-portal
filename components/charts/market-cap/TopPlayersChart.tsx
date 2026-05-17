@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
 } from "recharts";
 import type { PlayerMcapRow } from "@/lib/supabase/queries/market-cap-landing";
 
@@ -69,6 +70,12 @@ export function TopPlayersChart({ rows }: { rows: PlayerMcapRow[] }) {
           {data.map((_, i) => (
             <Cell key={i} fill={palette[i % palette.length]} />
           ))}
+          <LabelList
+            dataKey="mcap"
+            position="right"
+            formatter={(v) => fmtUSD(Number(v))}
+            style={{ fill: "var(--text-dim)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+          />
         </Bar>
       </BarChart>
     </ResponsiveContainer>

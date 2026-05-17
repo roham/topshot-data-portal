@@ -47,7 +47,7 @@ export default async function MarketCapPage() {
   return (
     <main className="mx-auto max-w-[1700px] px-4 py-4">
       {/* Header strip — tight, no marketing copy, no hero */}
-      <div className="mb-4 flex items-end justify-between gap-4 flex-wrap">
+      <div className="mb-3 flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1
             className="text-[20px] font-semibold tracking-tight text-[var(--text)]"
@@ -55,12 +55,41 @@ export default async function MarketCapPage() {
           >
             Market Cap
           </h1>
-          <p className="text-[11px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
-            {data.totalEditions.toLocaleString()} editions · total {fmtUSD(data.totalMcap)}
-            {data.asOfDate && ` · as of ${data.asOfDate}`}
-          </p>
+          {data.asOfDate && (
+            <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
+              snapshot as of {data.asOfDate}
+            </p>
+          )}
         </div>
       </div>
+
+      {/* KPI strip — 4 tiles, info-dense without being a table */}
+      {data.totalMcap > 0 && (
+        <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Total market cap</p>
+            <p className="text-[18px] font-semibold mt-1 tabular-nums">{fmtUSD(data.totalMcap)}</p>
+            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">
+              {fmtUSD(data.playerAttributedMcap)} attributed · {fmtUSD(data.totalMcap - data.playerAttributedMcap)} unattributed
+            </p>
+          </div>
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Active editions</p>
+            <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.totalEditions.toLocaleString()}</p>
+            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">non-zero mcap on {data.asOfDate}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Players</p>
+            <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.playerCount.toLocaleString()}</p>
+            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">with attributable market cap</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Top-10 concentration</p>
+            <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.top10SharePct.toFixed(1)}%</p>
+            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">of player-attributed mcap</p>
+          </div>
+        </div>
+      )}
 
       {data.totalMcap === 0 ? (
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-12 text-center">

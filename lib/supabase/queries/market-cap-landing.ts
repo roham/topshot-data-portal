@@ -97,10 +97,16 @@ export interface MarketCapLanding {
   losers: MoverRow[];
   concentration: ConcentrationRow[];
   asOfDate: string | null;
-  /** total mcap across ALL players (sum across mv_player_market_cap). */
+  /** Total mcap on latest date (sum of all market_caps.market_cap rows). Includes player-attributed AND non-player editions. */
   totalMcap: number;
-  /** total active editions in market_caps on latest date. */
+  /** Player-attributed mcap (sum across mv_player_market_cap). Subset of totalMcap. */
+  playerAttributedMcap: number;
+  /** total editions with non-zero mcap on latest date. */
   totalEditions: number;
+  /** distinct players with non-zero mcap. */
+  playerCount: number;
+  /** Top-10-player share of player-attributed mcap as %. */
+  top10SharePct: number;
 }
 
 async function _getMarketCapLanding(): Promise<MarketCapLanding> {
@@ -116,7 +122,10 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
     concentration: [],
     asOfDate: null,
     totalMcap: 0,
+    playerAttributedMcap: 0,
     totalEditions: 0,
+    playerCount: 0,
+    top10SharePct: 0,
   };
 
   const sb = getSupabaseServerAnon();
@@ -543,6 +552,10 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
           }))
         : [];
 
+    // Aggregate counters
+    const totalMcapOnLatest = latestMc.reduce((a, b) => a + b.market_cap, 0);
+    const top10Sum = allMcap.slice(0, 10).reduce((a, b) => a + b, 0);
+
     return {
       topPlayers,
       byTier,
@@ -554,8 +567,11 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
       losers,
       concentration,
       asOfDate,
-      totalMcap: total,
+      totalMcap: totalMcapOnLatest,
+      playerAttributedMcap: total,
       totalEditions: latestMc.length,
+      playerCount: allMcap.length,
+      top10SharePct: total > 0 ? (top10Sum / total) * 100 : 0,
     };
   } catch (err) {
     console.error("market-cap-landing query failed:", err);
