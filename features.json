@@ -401,8 +401,8 @@
       ],
       "priority": 12,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T13:37:17.289Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, I open a pack page and see: dropped-on date, total/sold/unopened counts, % opened, current avg pack value, contents grid showing what moments come from this pack.",
@@ -414,7 +414,14 @@
         "Topps break tracker",
         "Loot box drop-rate transparency tools"
       ],
-      "data_viz_kind": "table-plus-contents-grid"
+      "data_viz_kind": "table-plus-contents-grid",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T13:37:17.289Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/packs-tracker/2026-05-17T13-37-09-477Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "player-detail",
