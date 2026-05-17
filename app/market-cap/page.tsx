@@ -8,7 +8,7 @@
 // Roham 2026-05-17 19:00Z verbatim: "You just load it, and it's just a bunch of graphs."
 
 import type { Metadata } from "next";
-import { getMarketCapLanding } from "@/lib/supabase/queries/market-cap-landing";
+import { getMarketCapLanding, type PlayerMcapRow } from "@/lib/supabase/queries/market-cap-landing";
 import { ChartCard } from "@/components/primitives/ChartCard";
 import { TopPlayersChart } from "@/components/charts/market-cap/TopPlayersChart";
 import { ByTierChart } from "@/components/charts/market-cap/ByTierChart";
@@ -18,6 +18,7 @@ import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
 import { TotalOverTimeChart } from "@/components/charts/market-cap/TotalOverTimeChart";
 import { MoversChart } from "@/components/charts/market-cap/MoversChart";
 import { ConcentrationChart } from "@/components/charts/market-cap/ConcentrationChart";
+import { McapFormulaToggle, parseMcapFormula } from "@/components/market-cap/McapFormulaToggle";
 
 export const metadata: Metadata = {
   title: "Market Cap · TS·PORTAL",
@@ -35,14 +36,34 @@ function fmtUSD(n: number): string {
   return `$${n.toFixed(0)}`;
 }
 
-export default async function MarketCapPage() {
+export default async function MarketCapPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mcap?: string }>;
+}) {
+  const sp = await searchParams;
+  const formula = parseMcapFormula(sp.mcap);
   const data = await getMarketCapLanding();
 
-  const topPlayer = data.topPlayers[0];
+  // Choose mcap source per formula. Re-rank top players for avg-sale view.
+  const topPlayersRanked: PlayerMcapRow[] =
+    formula === "avg_sale"
+      ? [...data.topPlayers]
+          .sort((a, b) => b.avg_sale_market_cap_usd - a.avg_sale_market_cap_usd)
+          .slice(0, 20)
+      : data.topPlayers.slice(0, 20);
+
+  const topPlayer = topPlayersRanked[0];
   const topTier = data.byTier[0];
   const topSet = data.topSets[0];
   const topTeam = data.byTeam[0];
-  const top10Share = data.concentration.find((c) => c.top_n === 10)?.share_pct;
+
+  const headlineTotal = formula === "avg_sale" ? data.totalAvgSaleMcap : data.totalMcap;
+  const headlineConcShare =
+    formula === "avg_sale" ? data.top10ShareAvgSalePct : data.top10SharePct;
+  const concentrationRows =
+    formula === "avg_sale" ? data.concentrationAvgSale : data.concentration;
+  const formulaLabel = formula === "avg_sale" ? "avg sale (30d) × circulation" : "lowest ask × circulation";
 
   return (
     <main className="mx-auto max-w-[1700px] px-4 py-4">
@@ -57,20 +78,25 @@ export default async function MarketCapPage() {
           </h1>
           {data.asOfDate && (
             <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
-              snapshot as of {data.asOfDate}
+              snapshot as of {data.asOfDate} · {formulaLabel}
             </p>
           )}
         </div>
+        <McapFormulaToggle />
       </div>
 
-      {/* KPI strip — 4 tiles, info-dense without being a table */}
+      {/* KPI strip — 4 tiles, info-dense without being a table. Reactive to formula. */}
       {data.totalMcap > 0 && (
         <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
-            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Total market cap</p>
-            <p className="text-[18px] font-semibold mt-1 tabular-nums">{fmtUSD(data.totalMcap)}</p>
+            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">
+              {formula === "avg_sale" ? "Avg-sale market cap" : "Floor market cap"}
+            </p>
+            <p className="text-[18px] font-semibold mt-1 tabular-nums">{fmtUSD(headlineTotal)}</p>
             <p className="text-[10px] text-[var(--text-dim)] mt-0.5">
-              {fmtUSD(data.playerAttributedMcap)} attributed · {fmtUSD(data.totalMcap - data.playerAttributedMcap)} unattributed
+              {formula === "avg_sale"
+                ? `vs ${fmtUSD(data.totalMcap)} on lowest-ask basis`
+                : `${fmtUSD(data.playerAttributedMcap)} attributed · ${fmtUSD(data.totalMcap - data.playerAttributedMcap)} unattributed`}
             </p>
           </div>
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
@@ -85,8 +111,10 @@ export default async function MarketCapPage() {
           </div>
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
             <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Top-10 concentration</p>
-            <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.top10SharePct.toFixed(1)}%</p>
-            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">of player-attributed mcap</p>
+            <p className="text-[18px] font-semibold mt-1 tabular-nums">{headlineConcShare.toFixed(1)}%</p>
+            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">
+              by {formula === "avg_sale" ? "avg-sale" : "floor"} mcap
+            </p>
           </div>
         </div>
       )}
@@ -105,18 +133,22 @@ export default async function MarketCapPage() {
           {/* Row 1 — the two info-richest charts: ranking + composition */}
           <ChartCard
             title="Top 20 players"
-            subtitle="ranked by total market cap"
+            subtitle={`ranked by ${formula === "avg_sale" ? "30d avg-sale" : "floor"} market cap`}
             asOf={data.asOfDate ?? undefined}
             testId="chart-top-players"
             href="/players"
             caption={
               topPlayer
-                ? `${topPlayer.player_name ?? topPlayer.player_id} leads at ${fmtUSD(topPlayer.total_market_cap_usd)} across ${topPlayer.edition_count} editions.`
+                ? `${topPlayer.player_name ?? topPlayer.player_id} leads at ${fmtUSD(formula === "avg_sale" ? topPlayer.avg_sale_market_cap_usd : topPlayer.total_market_cap_usd)} across ${topPlayer.edition_count} editions.`
                 : "No player data."
             }
-            methodology="topshot.mv_player_market_cap ranked by total_market_cap_usd descending. Color gradient = rank."
+            methodology={
+              formula === "avg_sale"
+                ? "Avg sale price × total circulation, per player. Sourced from topshot.mv_player_30d_volume joined to mv_player_market_cap. Avoids floor-cap artifacts from vanity 1-of-1 asks; reflects what the market actually transacted at."
+                : "topshot.mv_player_market_cap ranked by total_market_cap_usd descending. Floor formula: circulation × lowest_ask per edition. Doctrine canonical. Color gradient = rank."
+            }
           >
-            <TopPlayersChart rows={data.topPlayers} />
+            <TopPlayersChart rows={topPlayersRanked} formula={formula} />
           </ChartCard>
 
           <ChartCard
@@ -205,18 +237,14 @@ export default async function MarketCapPage() {
 
           <ChartCard
             title="Market cap concentration"
-            subtitle="cumulative share by top-N players · log scale"
+            subtitle={`cumulative share · ${formula === "avg_sale" ? "avg-sale" : "floor"} basis · log scale`}
             asOf={data.asOfDate ?? undefined}
             testId="chart-concentration"
             href="/players"
-            caption={
-              top10Share != null
-                ? `Top 10 players hold ${top10Share.toFixed(1)}% of player-attributed mcap.`
-                : "Concentration data not available."
-            }
-            methodology="Sum of top-N mcap divided by sum of all mv_player_market_cap rows. Log-scale x-axis from 10 to 1000."
+            caption={`Top 10 players hold ${headlineConcShare.toFixed(1)}% of ${formula === "avg_sale" ? "avg-sale" : "floor"}-attributed mcap.`}
+            methodology="Sum of top-N mcap divided by total. Log-scale x-axis from 10 to 1000."
           >
-            <ConcentrationChart rows={data.concentration} />
+            <ConcentrationChart rows={concentrationRows} />
           </ChartCard>
 
           {/* Row 5 — full-width: movers (gainers + losers on one canvas) */}

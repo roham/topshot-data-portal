@@ -21,10 +21,16 @@ function fmtUSD(n: number): string {
   return `$${n.toFixed(0)}`;
 }
 
-export function TopPlayersChart({ rows }: { rows: PlayerMcapRow[] }) {
+export function TopPlayersChart({
+  rows,
+  formula = "floor",
+}: {
+  rows: PlayerMcapRow[];
+  formula?: "floor" | "avg_sale";
+}) {
   const data = rows.map((r) => ({
     name: r.player_name ?? r.player_id,
-    mcap: r.total_market_cap_usd,
+    mcap: formula === "avg_sale" ? r.avg_sale_market_cap_usd : r.total_market_cap_usd,
     team: r.team_name ?? "",
   }));
 

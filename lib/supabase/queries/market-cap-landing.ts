@@ -36,8 +36,17 @@ export interface PlayerMcapRow {
   player_id: string;
   player_name: string | null;
   team_name: string | null;
+  /** Floor-based mcap: SUM(circulation × lowest_ask) per edition, doctrine canonical. */
   total_market_cap_usd: number;
+  /** Avg-sale based mcap: avg_sale_30d × total_circulation (player-level approximation). */
+  avg_sale_market_cap_usd: number;
+  /** 30d transaction count for this player. */
+  tx_count_30d: number;
+  /** Avg sale price across this player's 30d transactions. */
+  avg_sale_price_30d: number;
   edition_count: number;
+  /** Total moments in circulation across this player's editions. */
+  total_circulation: number;
 }
 
 export interface TierMcapRow {
@@ -96,17 +105,23 @@ export interface MarketCapLanding {
   gainers: MoverRow[];
   losers: MoverRow[];
   concentration: ConcentrationRow[];
+  /** Avg-sale-based concentration (alternative formula). */
+  concentrationAvgSale: ConcentrationRow[];
   asOfDate: string | null;
-  /** Total mcap on latest date (sum of all market_caps.market_cap rows). Includes player-attributed AND non-player editions. */
+  /** Total floor mcap on latest date (sum of all market_caps.market_cap rows). */
   totalMcap: number;
+  /** Total avg-sale-based mcap (sum across players: avg_sale × circulation). */
+  totalAvgSaleMcap: number;
   /** Player-attributed mcap (sum across mv_player_market_cap). Subset of totalMcap. */
   playerAttributedMcap: number;
   /** total editions with non-zero mcap on latest date. */
   totalEditions: number;
   /** distinct players with non-zero mcap. */
   playerCount: number;
-  /** Top-10-player share of player-attributed mcap as %. */
+  /** Top-10-player share of player-attributed floor mcap as %. */
   top10SharePct: number;
+  /** Top-10-player share by avg-sale mcap. */
+  top10ShareAvgSalePct: number;
 }
 
 async function _getMarketCapLanding(): Promise<MarketCapLanding> {
@@ -120,12 +135,15 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
     gainers: [],
     losers: [],
     concentration: [],
+    concentrationAvgSale: [],
     asOfDate: null,
     totalMcap: 0,
+    totalAvgSaleMcap: 0,
     playerAttributedMcap: 0,
     totalEditions: 0,
     playerCount: 0,
     top10SharePct: 0,
+    top10ShareAvgSalePct: 0,
   };
 
   const sb = getSupabaseServerAnon();
@@ -156,13 +174,15 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
       players,
       parallelTypesRes,
     ] = await Promise.all([
+      // Top players by floor-mcap — fetch a wider sample (200) so we can also
+      // re-rank by avg-sale-mcap and ship both top-20 lists from the same fetch.
       sb
         .from("mv_player_market_cap")
         .select(
-          "player_id, player_name, last_known_team_full_name, total_market_cap_usd, edition_count",
+          "player_id, player_name, last_known_team_full_name, total_market_cap_usd, total_moments_in_circulation, edition_count",
         )
         .order("total_market_cap_usd", { ascending: false })
-        .limit(20),
+        .limit(200),
       // NOTE: every paged query has an explicit .order(...) so .range()
       // pagination returns deterministic, balanced chunks. Without ordering,
       // PostgREST returns rows in unspecified order and pages skew toward
@@ -250,6 +270,31 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
       sb.from("parallel_types").select("parallel_id, name"),
     ]);
 
+    // Stage 2b: 30d player volume (for avg-sale mcap formula).
+    // Paged because mv_player_30d_volume can exceed 1000 rows.
+    const volume30dRaw = await pagedFetch<{
+      player_id: string;
+      tx_count: number | string | null;
+      total_volume_usd: number | string | null;
+    }>(
+      (from, to) =>
+        sb
+          .from("mv_player_30d_volume")
+          .select("player_id, tx_count, total_volume_usd")
+          .order("player_id", { ascending: true })
+          .range(from, to),
+      5000,
+    );
+    const volByPid = new Map<string, { tx_count: number; total_volume_usd: number }>(
+      volume30dRaw.map((v) => [
+        v.player_id,
+        {
+          tx_count: Number(v.tx_count ?? 0),
+          total_volume_usd: Number(v.total_volume_usd ?? 0),
+        },
+      ]),
+    );
+
     // Wrap raw arrays into the .data-style shape the rest of the code expects
     const mcCapsLatestRes = { data: mcCapsLatest };
     const mcCapsAllDatesRes = { data: mcCapsAllDates };
@@ -262,18 +307,29 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
       player_name: string | null;
       last_known_team_full_name: string | null;
       total_market_cap_usd: number | string | null;
+      total_moments_in_circulation: number | string | null;
       edition_count: number | string | null;
     };
-    const topPlayers: PlayerMcapRow[] = ((topPlayersRes.data ?? []) as TopPlayerRaw[]).map(
-      (r) =>
-        ({
-          player_id: r.player_id,
-          player_name: r.player_name ?? null,
-          team_name: r.last_known_team_full_name ?? null,
-          total_market_cap_usd: Number(r.total_market_cap_usd ?? 0),
-          edition_count: Number(r.edition_count ?? 0),
-        }) satisfies PlayerMcapRow,
-    );
+    const topPlayersAll: PlayerMcapRow[] = ((topPlayersRes.data ?? []) as TopPlayerRaw[]).map((r) => {
+      const circ = Number(r.total_moments_in_circulation ?? 0);
+      const vol = volByPid.get(r.player_id);
+      const tx = vol?.tx_count ?? 0;
+      const totalVol = vol?.total_volume_usd ?? 0;
+      const avgSale = tx > 0 ? totalVol / tx : 0;
+      return {
+        player_id: r.player_id,
+        player_name: r.player_name ?? null,
+        team_name: r.last_known_team_full_name ?? null,
+        total_market_cap_usd: Number(r.total_market_cap_usd ?? 0),
+        avg_sale_market_cap_usd: avgSale * circ,
+        tx_count_30d: tx,
+        avg_sale_price_30d: avgSale,
+        edition_count: Number(r.edition_count ?? 0),
+        total_circulation: circ,
+      } satisfies PlayerMcapRow;
+    });
+    // Top 20 by floor (canonical doctrine ordering).
+    const topPlayers: PlayerMcapRow[] = topPlayersAll.slice(0, 20);
 
     // Editions index for joining
     type EditionLite = {
@@ -592,8 +648,34 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
     const totalMcapOnLatest = latestMc.reduce((a, b) => a + b.market_cap, 0);
     const top10Sum = allMcap.slice(0, 10).reduce((a, b) => a + b, 0);
 
+    // Avg-sale aggregates — derive from topPlayersAll (top 200 by floor).
+    // Sorted by avg-sale-mcap for the alternative ranking.
+    const byAvgSale = [...topPlayersAll].sort(
+      (a, b) => b.avg_sale_market_cap_usd - a.avg_sale_market_cap_usd,
+    );
+    const totalAvgSaleMcap = topPlayersAll.reduce(
+      (a, p) => a + p.avg_sale_market_cap_usd,
+      0,
+    );
+    const top10AvgSaleSum = byAvgSale
+      .slice(0, 10)
+      .reduce((a, p) => a + p.avg_sale_market_cap_usd, 0);
+
+    // Avg-sale concentration curve — parallel to the floor one but using
+    // avg-sale-mcap as the basis.
+    const avgSaleMcaps = byAvgSale.map((p) => p.avg_sale_market_cap_usd);
+    const concentrationAvgSale: ConcentrationRow[] =
+      totalAvgSaleMcap > 0
+        ? [10, 25, 50, 100, 250, 500, 1000].map((n) => ({
+            top_n: n,
+            share_pct:
+              (avgSaleMcaps.slice(0, n).reduce((a, b) => a + b, 0) / totalAvgSaleMcap) * 100,
+          }))
+        : [];
+
     return {
-      topPlayers,
+      // topPlayers stays sorted by floor mcap; the page chooses ordering at render time
+      topPlayers: topPlayersAll, // ship top 200; page can switch ordering between floor and avg-sale
       byTier,
       byParallel,
       topSets,
@@ -602,12 +684,16 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
       gainers,
       losers,
       concentration,
+      concentrationAvgSale,
       asOfDate,
       totalMcap: totalMcapOnLatest,
+      totalAvgSaleMcap,
       playerAttributedMcap: total,
       totalEditions: latestMc.length,
       playerCount: allMcap.length,
       top10SharePct: total > 0 ? (top10Sum / total) * 100 : 0,
+      top10ShareAvgSalePct:
+        totalAvgSaleMcap > 0 ? (top10AvgSaleSum / totalAvgSaleMcap) * 100 : 0,
     };
   } catch (err) {
     console.error("market-cap-landing query failed:", err);
