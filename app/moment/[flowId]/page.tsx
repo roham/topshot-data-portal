@@ -42,7 +42,7 @@ function parseHistoryWindow(
   if (v && (HISTORY_WINDOWS as readonly string[]).includes(v)) {
     return v as MomentHistoryWindow;
   }
-  return "all";
+  return "1m";
 }
 
 // V3 iter-11 — Pro Trader J-P2: per-moment market depth.
