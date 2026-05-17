@@ -137,7 +137,9 @@ test("J2 — portfolio review: /u/roham renders bag table with required columns,
   expect(href, "first bag-row-link must point to /moment/<flowId>").toMatch(/^\/moment\//);
 
   await firstRowLink.click();
-  await page.waitForURL(/\/moment\//, { timeout: 15_000 });
+  // On cold Vercel serverless boot the moment detail page fetches GraphQL +
+  // Supabase; allow up to 60s for the "load" event on a cold deploy.
+  await page.waitForURL(/\/moment\//, { timeout: 60_000 });
   await page.screenshot({ path: path.join(CAPTURE_DIR, "05-moment-detail.png"), fullPage: true });
 
   // Step 7 acceptance: moment detail renders non-trivial content (not 404).
