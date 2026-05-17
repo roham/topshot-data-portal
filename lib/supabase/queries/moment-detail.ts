@@ -234,16 +234,18 @@ export const getEditionCirculation = unstable_cache(
 
 // ── Edition sale price distribution (for the price-bucket histogram) ──────
 //
-// Fetches up to 500 completed SUCCEEDED transactions for an edition and returns
-// just the gross_amount_usd values so the client can bucket them into a histogram.
+// Fetches up to 500 completed SUCCEEDED transaction prices for an edition and
+// returns them as number[] for client-side bucketing.
 //
-// Uses PostgREST embedded relation: transactions JOIN moments!inner via moment_id FK.
-// Filter: moments.edition_id = $editionId (DB composite key format —
-//   e.g. "{play_uuid}+{set_uuid}"). Do NOT pass moment.edition?.id (GraphQL format).
-//   Always pass `circulation?.editionId` (already resolved in the page).
+// Two-stage approach (avoids PostgREST embedded-relation syntax gotchas):
+//   Stage 1: Fetch up to 300 moment_ids for the edition from topshot.moments.
+//            Uses supabaseAdmin() (service-role) so it bypasses RLS — consistent
+//            with getEditionCirculation().
+//   Stage 2: Query topshot.transactions WHERE moment_id IN (...) AND state=SUCCEEDED.
+//            Limit 500. Optional time-window filter via windowToSince().
 //
-// Time-window filter: optional `since` date derived from the active `historyWindow`
-// using the shared `windowToSince()` helper above.
+// editionId must be the DB composite key (e.g. "{play_uuid}+{set_uuid}"),
+// NOT moment.edition?.id (GraphQL format). Pass circulation?.editionId.
 
 async function _getMomentEditionPriceDistribution(
   editionId: string,
@@ -251,15 +253,35 @@ async function _getMomentEditionPriceDistribution(
 ): Promise<number[]> {
   if (!editionId) return [];
   try {
-    const sb = getSupabaseServerAnon();
-    if (!sb) return [];
+    const admin = supabaseAdmin();
 
+    // Stage 1 — resolve moment_ids for the edition.
+    // Limit 300: enough for a representative histogram sample; avoids large payload.
+    const { data: momentRows, error: momentErr } = await admin
+      .from("moments")
+      .select("moment_id")
+      .eq("edition_id", editionId)
+      .limit(300);
+
+    if (momentErr) {
+      console.error("[supabase] edition-price-distribution: moment lookup failed", momentErr);
+      return [];
+    }
+
+    type MomentRow = { moment_id: string };
+    const momentIds = ((momentRows as MomentRow[] | null) ?? [])
+      .map((r) => r.moment_id)
+      .filter(Boolean);
+
+    if (momentIds.length === 0) return [];
+
+    // Stage 2 — fetch transaction prices for those moment_ids.
     const since = windowToSince(window);
 
-    let q = sb
+    let q = admin
       .from("transactions")
-      .select("gross_amount_usd, moments!inner(edition_id)")
-      .eq("moments.edition_id", editionId)
+      .select("gross_amount_usd")
+      .in("moment_id", momentIds)
       .eq("transaction_state_id", "SUCCEEDED")
       .not("gross_amount_usd", "is", null)
       .order("source_updated_at", { ascending: false })
@@ -269,14 +291,13 @@ async function _getMomentEditionPriceDistribution(
 
     const { data, error } = await q;
     if (error) {
-      console.error("[supabase] edition-price-distribution read failed", error);
+      console.error("[supabase] edition-price-distribution: transactions query failed", error);
       return [];
     }
 
-    // We only care about the price column; the embedded moments row is just for filtering.
-    type Row = { gross_amount_usd: number | null };
-    return ((data as Row[] | null) ?? [])
-      .filter((r): r is Row & { gross_amount_usd: number } => r.gross_amount_usd != null)
+    type TxRow = { gross_amount_usd: number | null };
+    return ((data as TxRow[] | null) ?? [])
+      .filter((r): r is TxRow & { gross_amount_usd: number } => r.gross_amount_usd != null)
       .map((r) => Number(r.gross_amount_usd));
   } catch (e) {
     console.error("[supabase] edition-price-distribution threw", e);
