@@ -40,7 +40,13 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 import fs from "node:fs";
-import { createClient } from "@supabase/supabase-js";
+// Use project-standard admin client — bypasses RLS, schema="topshot" applied
+// via createClient<AdminDatabase,"topshot"> generics (matching admin.ts pattern).
+// The prior raw createClient() + @ts-expect-error caused schema to be
+// silently ignored in some SDK versions → queries hit public.transactions
+// (doesn't exist) → txErr thrown → beforeAll threw → empty captures.
+// Relative import avoids @/ alias resolution uncertainty in Playwright esbuild.
+import { supabaseAdmin } from "../../../lib/supabase/admin";
 
 const TS = new Date().toISOString().replace(/[:.]/g, "-");
 const CAPTURE_DIR = path.join(
@@ -63,35 +69,43 @@ let KNOWN_FLOW_ID = "";
 test.beforeAll(async () => {
   fs.mkdirSync(CAPTURE_DIR, { recursive: true });
 
-  // ── Pattern C from research/wiki/gotchas/judge-journeys-must-assert-data-rendered.md
-  // Find a moment_id with ≥5 SUCCEEDED transactions in the last 30 days,
-  // then resolve its moment_flow_id for the URL (/moment/[flowId]).
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error(
-      "[judge] moment-detail-chart: NEXT_PUBLIC_SUPABASE_URL and " +
-        "SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) are required " +
-        "for the data-bearing entity lookup.",
-    );
+  // ── Env-var guard: load .env.local if vars aren't in the process env ─────
+  // Fresh orchestrator spawns (or `node loop/judge/run.mjs` invoked directly)
+  // may not have NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY exported in the
+  // shell. Reading .env.local here covers that gap without requiring dotenv.
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
+    const envLocalPath = path.resolve(__dirname, "../../../.env.local");
+    if (fs.existsSync(envLocalPath)) {
+      const raw = fs.readFileSync(envLocalPath, "utf-8");
+      for (const line of raw.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eqIdx = trimmed.indexOf("=");
+        if (eqIdx < 0) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+        if (key && !(key in process.env)) process.env[key] = val;
+      }
+      console.log("[judge] moment-detail-chart: loaded env vars from .env.local");
+    }
   }
 
-  // Using the admin (service-role) client to bypass RLS for the lookup.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = createClient(supabaseUrl, supabaseKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    // @ts-expect-error db.schema is valid at runtime but types vary by version
-    db: { schema: "topshot" },
-  });
+  // ── Pattern C — use project-standard supabaseAdmin() ─────────────────────
+  // supabaseAdmin() from lib/supabase/admin.ts uses createClient<AdminDatabase,"topshot">
+  // with proper TypeScript generics, which guarantees db.schema="topshot" is
+  // applied at construction time. The prior approach (raw createClient + @ts-expect-error)
+  // may have silently fallen back to public schema in some @supabase/supabase-js versions,
+  // causing .from("transactions") to hit public.transactions (non-existent),
+  // returning txErr → beforeAll throw → empty captures directory.
+  //
+  // Find a moment_id with ≥5 SUCCEEDED transactions in the last 30 days,
+  // then resolve its moment_flow_id for the URL (/moment/[flowId]).
+  const sb = supabaseAdmin();
 
   // Pull up to 5 000 SUCCEEDED transactions from the last 30 days,
   // group by moment_id client-side, pick the most-traded one.
   const since30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: txData, error: txErr } = await (sb as any)
+  const { data: txData, error: txErr } = await sb
     .from("transactions")
     .select("moment_id")
     .eq("transaction_state_id", "SUCCEEDED")
@@ -125,8 +139,7 @@ test.beforeAll(async () => {
 
   // Resolve moment_flow_id from moment_id.
   // (moment_flow_id is the URL parameter in /moment/[flowId])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: momentRow, error: momentErr } = await (sb as any)
+  const { data: momentRow, error: momentErr } = await sb
     .from("moments")
     .select("moment_flow_id")
     .eq("moment_id", topMomentId)
