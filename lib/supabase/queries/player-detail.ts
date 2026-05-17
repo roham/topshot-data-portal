@@ -128,15 +128,96 @@ async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
       if (!rankErr && aboveCount != null) marketCapRank = aboveCount + 1;
     }
 
-    const editionRows =
-      (editionsRes.data as Array<{
-        edition_id: string;
-        edition_name: string | null;
-        tier_name: string | null;
-        set_id: string | null;
-        mint_count: number | null;
-        sets: { set_name: string | null; series_number: number | null } | null;
-      }> | null) ?? [];
+    type EditionQueryRow = {
+      edition_id: string;
+      edition_name: string | null;
+      tier_name: string | null;
+      set_id: string | null;
+      mint_count: number | null;
+      sets: { set_name: string | null; series_number: number | null } | null;
+    };
+
+    const EDITIONS_SELECT = `edition_id, edition_name, tier_name, set_id, mint_count,
+         sets(set_name, series_number)`;
+
+    let editionRows: EditionQueryRow[] =
+      (editionsRes.data as EditionQueryRow[] | null) ?? [];
+
+    // ── Fallback chain: editions.player_id uses a different format than ───
+    // players.player_id in the BQ seed (observed in prod: all top-200 market-cap
+    // players return 0 editions via player_id eq query).
+    // mirrors moments-grid.ts player_name resolution pattern.
+    if (editionRows.length === 0) {
+      // Attempt 1 — exact match on mv_player_market_cap.player_name
+      // (derived from same BQ seed as editions.player_name, should match exactly)
+      const mcPlayerName =
+        (mcRes.data as Tables["mv_player_market_cap"] | null)?.player_name ??
+        null;
+      if (mcPlayerName) {
+        const { data: fb1, error: fb1Err } = await sb
+          .from("editions")
+          .select(EDITIONS_SELECT)
+          .eq("player_name", mcPlayerName)
+          .limit(500);
+        if (!fb1Err && fb1 && (fb1 as EditionQueryRow[]).length > 0) {
+          editionRows = fb1 as EditionQueryRow[];
+        } else if (fb1Err) {
+          console.error(
+            "[player-detail] fallback 1 (mc player_name) failed",
+            fb1Err,
+          );
+        }
+      }
+    }
+
+    if (editionRows.length === 0) {
+      // Attempt 2 — exact match on players.full_name
+      const fullName =
+        (playerRes.data as Tables["players"] | null)?.full_name ?? null;
+      if (fullName) {
+        const { data: fb2, error: fb2Err } = await sb
+          .from("editions")
+          .select(EDITIONS_SELECT)
+          .eq("player_name", fullName)
+          .limit(500);
+        if (!fb2Err && fb2 && (fb2 as EditionQueryRow[]).length > 0) {
+          editionRows = fb2 as EditionQueryRow[];
+        } else if (fb2Err) {
+          console.error(
+            "[player-detail] fallback 2 (full_name eq) failed",
+            fb2Err,
+          );
+        }
+      }
+    }
+
+    if (editionRows.length === 0) {
+      // Attempt 3 — case-insensitive exact match on players.full_name
+      // (ilike without wildcards = case-insensitive eq, handles accented chars)
+      const fullName =
+        (playerRes.data as Tables["players"] | null)?.full_name ?? null;
+      if (fullName) {
+        const { data: fb3, error: fb3Err } = await sb
+          .from("editions")
+          .select(EDITIONS_SELECT)
+          .ilike("player_name", fullName)
+          .limit(500);
+        if (!fb3Err && fb3 && (fb3 as EditionQueryRow[]).length > 0) {
+          editionRows = fb3 as EditionQueryRow[];
+        } else if (fb3Err) {
+          console.error(
+            "[player-detail] fallback 3 (full_name ilike) failed",
+            fb3Err,
+          );
+        }
+      }
+    }
+
+    if (editionRows.length === 0) {
+      console.warn(
+        `[player-detail] no editions resolved for player_id=${playerId} via any fallback`,
+      );
+    }
 
     const editions = editionRows.map((e) => ({
       edition_id: e.edition_id,
