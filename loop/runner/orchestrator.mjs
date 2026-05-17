@@ -322,7 +322,7 @@ async function runResearcher({ featureId, dryRun }) {
   const expectedArtifact = resolve(RESEARCH_OUTPUT_DIR, `${featureId}.md`);
 
   if (dryRun) {
-    log(`[dry-run] would spawn researcher: claude --print --add-dir ${ROOT} --permission-mode acceptEdits`);
+    log(`[dry-run] would spawn researcher: claude --print --add-dir ${ROOT} --dangerously-skip-permissions`);
     log(`[dry-run] researcher prompt rendered from ${RESEARCH_PROMPT} (${promptText.length} chars)`);
     log(`[dry-run] researcher log would stream to ${logFile}`);
     log(`[dry-run] expected artifact: ${expectedArtifact}`);
@@ -335,10 +335,10 @@ async function runResearcher({ featureId, dryRun }) {
     command: "claude",
     args: [
       "--print",
+      "--bare",
       "--add-dir",
       ROOT,
-      "--permission-mode",
-      "acceptEdits",
+      "--dangerously-skip-permissions",
     ],
     logFile,
     timeoutMs: RESEARCHER_TIMEOUT_MS,
@@ -373,7 +373,7 @@ async function runBuilder({ featureId, dryRun }) {
   const doneMarker = statePath(featureId, "done.json");
 
   if (dryRun) {
-    log(`[dry-run] would spawn builder: claude --print --add-dir ${ROOT} --permission-mode acceptEdits`);
+    log(`[dry-run] would spawn builder: claude --print --add-dir ${ROOT} --dangerously-skip-permissions`);
     log(`[dry-run] builder prompt rendered from ${BUILD_PROMPT} (${promptText.length} chars)`);
     log(`[dry-run] builder log would stream to ${logFile}`);
     log(`[dry-run] expected done marker: ${doneMarker}`);
@@ -385,10 +385,10 @@ async function runBuilder({ featureId, dryRun }) {
     command: "claude",
     args: [
       "--print",
+      "--bare",
       "--add-dir",
       ROOT,
-      "--permission-mode",
-      "acceptEdits",
+      "--dangerously-skip-permissions",
     ],
     logFile,
     timeoutMs: BUILDER_TIMEOUT_MS,
