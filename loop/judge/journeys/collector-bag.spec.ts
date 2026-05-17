@@ -95,6 +95,10 @@ test("J2 — portfolio review: /u/roham renders bag table with required columns,
   await page.screenshot({ path: path.join(CAPTURE_DIR, "03-columns-present.png"), fullPage: true });
 
   // ── Step 4 — Bag rows render in the DOM (virtualized visible window) ──
+  // TanStack Virtual uses useLayoutEffect to measure the scroll container
+  // after mount, then triggers a re-render with the visible items.
+  // We must wait for the first row to appear before counting.
+  await page.locator('[data-testid="bag-row"]').first().waitFor({ state: "visible", timeout: 15_000 });
   const visibleRows = await page.locator('[data-testid="bag-row"]').count();
   expect(visibleRows, "At least 1 bag-row must be in the visible DOM window").toBeGreaterThan(0);
 
