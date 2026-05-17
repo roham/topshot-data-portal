@@ -193,10 +193,23 @@
       ],
       "priority": 6,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T10:03:44.595Z",
       "blocked": false,
-      "fail_reasons": [],
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T09:50:52.358Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/collector-bag-2026-05-17T09-50-52-358Z.md"
+        },
+        {
+          "at": "2026-05-17T09:54:28.070Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/collector-bag-2026-05-17T09-54-28-070Z.md"
+        },
+        {
+          "at": "2026-05-17T09:59:03.996Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/collector-bag-2026-05-17T09-59-03-996Z.md"
+        }
+      ],
       "acceptance": "As a trader, I visit /u/<some-known-username> and see the actual list of moments they own — at minimum: play, edition, serial, tier, last sale, current listing price, acquired-at. The BAG table count matches the header total.",
       "data_source": "topshot.moments WHERE owner_flow_address = (SELECT flow_address FROM users WHERE username = $u)",
       "implementation_hint": "Handover Section 2E says this is broken — root cause likely a flow_address resolution or schema mismatch. Read PortfolioBagTable.tsx + debug the query.",
@@ -206,7 +219,14 @@
         "Robinhood positions table",
         "Card Ladder Pro portfolio"
       ],
-      "data_viz_kind": "table"
+      "data_viz_kind": "table",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T10:03:44.595Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/collector-bag/2026-05-17T10-03-15-541Z",
+          "portal_url": "https://topshot-data-portal-106tdp6w5-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "set-completion-histogram",
