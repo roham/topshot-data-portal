@@ -17,7 +17,7 @@
 // See LOOP-CHARTER.md §3 for role contracts, §5 for exit conditions, and
 // loop/runner/README.md for operator usage.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -193,12 +193,38 @@ function writeCrashLog(featureId, err) {
   return p;
 }
 
-function renderPromptTemplate(templatePath, featureId) {
-  if (!existsSync(templatePath)) {
-    logErr(`prompt template missing: ${templatePath}`);
+// Prompts loaded once at startup so branch-switching during an iteration
+// (Builder checks out feature branch) cannot leave the orchestrator unable to
+// re-read them. Held in memory for the life of the process.
+const PROMPT_CACHE = { research: null, build: null };
+
+function loadPromptsAtStartup() {
+  if (!existsSync(RESEARCH_PROMPT)) {
+    logErr(`prompt template missing: ${RESEARCH_PROMPT}`);
     process.exit(2);
   }
-  const tpl = readFileSync(templatePath, "utf8");
+  if (!existsSync(BUILD_PROMPT)) {
+    logErr(`prompt template missing: ${BUILD_PROMPT}`);
+    process.exit(2);
+  }
+  PROMPT_CACHE.research = readFileSync(RESEARCH_PROMPT, "utf8");
+  PROMPT_CACHE.build = readFileSync(BUILD_PROMPT, "utf8");
+}
+
+function renderPromptTemplate(templatePath, featureId) {
+  // Resolve to cached text via path identity (no re-read; survives branch switches).
+  let tpl;
+  if (templatePath === RESEARCH_PROMPT && PROMPT_CACHE.research) {
+    tpl = PROMPT_CACHE.research;
+  } else if (templatePath === BUILD_PROMPT && PROMPT_CACHE.build) {
+    tpl = PROMPT_CACHE.build;
+  } else {
+    if (!existsSync(templatePath)) {
+      logErr(`prompt template missing: ${templatePath}`);
+      process.exit(2);
+    }
+    tpl = readFileSync(templatePath, "utf8");
+  }
   return tpl.replaceAll("{FEATURE_ID}", featureId);
 }
 
@@ -408,14 +434,47 @@ async function runBuilder({ featureId, dryRun }) {
   return { ok: true, doneMarker, markerData };
 }
 
-async function runJudge({ featureId, deployUrl, dryRun }) {
+/**
+ * Synchronously switch the working tree to a target branch. Used by runJudge
+ * to ensure the feature branch's journey spec is on disk before the judge
+ * runner reads it.
+ */
+function gitCheckout(branchName) {
+  return spawnSync("git", ["-C", ROOT, "checkout", branchName], {
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+  });
+}
+
+function gitCurrentBranch() {
+  const r = spawnSync("git", ["-C", ROOT, "rev-parse", "--abbrev-ref", "HEAD"], {
+    encoding: "utf8",
+  });
+  return r.stdout?.trim() || "main";
+}
+
+async function runJudge({ featureId, deployUrl, branchName, dryRun }) {
   const logFile = statePath(featureId, "judge.log");
 
   if (dryRun) {
+    log(`[dry-run] would checkout branch: ${branchName ?? "(none — staying put)"}`);
     log(`[dry-run] would spawn judge: node ${JUDGE_RUNNER} --feature ${featureId}`);
     log(`[dry-run] judge env PORTAL_URL=${deployUrl}`);
     log(`[dry-run] judge log would stream to ${logFile}`);
     return { ok: true, dryRun: true };
+  }
+
+  // Step A: checkout the feature branch so the journey spec is on disk.
+  // Skip if no branchName (defensive — older done.json shape).
+  let restoreBranch = null;
+  if (branchName) {
+    restoreBranch = gitCurrentBranch();
+    const co = gitCheckout(branchName);
+    if (co.status !== 0) {
+      logErr(`judge: failed to checkout ${branchName}: ${co.stderr?.trim()}`);
+      return { ok: false, reason: `git checkout ${branchName} failed: ${co.stderr?.trim()}` };
+    }
+    log(`judge: checked out ${branchName} (will restore to ${restoreBranch} after)`);
   }
 
   log(`judge dispatch: feature=${featureId} portal=${deployUrl} log=${logFile}`);
@@ -427,6 +486,17 @@ async function runJudge({ featureId, deployUrl, dryRun }) {
     logFile,
     timeoutMs: JUDGE_TIMEOUT_MS,
   });
+
+  // Step B: restore the previous branch (best-effort; log on failure but
+  // don't override the judge outcome).
+  if (restoreBranch) {
+    const restore = gitCheckout(restoreBranch);
+    if (restore.status !== 0) {
+      logErr(`judge: failed to restore ${restoreBranch}: ${restore.stderr?.trim()}`);
+    } else {
+      log(`judge: restored ${restoreBranch}`);
+    }
+  }
 
   if (res.spawnError) {
     return { ok: false, reason: `judge spawn error: ${res.spawnError.message}` };
@@ -523,9 +593,11 @@ async function runIteration({ requestedFeatureId, portalUrl, dryRun }) {
   const deployUrl = dryRun
     ? portalUrl
     : buildRes.markerData?.deploy_url ?? portalUrl;
+  const branchName = dryRun ? null : buildRes.markerData?.branch_name ?? null;
   const judgeRes = await runJudge({
     featureId: feature.id,
     deployUrl,
+    branchName,
     dryRun,
   });
 
@@ -569,6 +641,13 @@ async function main() {
       process.exit(2);
     }
   }
+
+  // Load prompts into memory ONCE at startup. Iteration's branch-switching
+  // (Builder checks out feature branch, Judge checks out feature branch) can
+  // leave the prompt files missing from the working tree mid-iteration — the
+  // in-memory copies survive.
+  loadPromptsAtStartup();
+
   if (!existsSync(JUDGE_RUNNER)) {
     logErr(`missing judge runner: ${JUDGE_RUNNER}`);
     process.exit(2);

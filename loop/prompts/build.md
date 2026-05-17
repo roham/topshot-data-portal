@@ -40,10 +40,11 @@ SHIP THE FEATURE — execute every step in order. Do not skip. If a step fails, 
 
   6. **Push.** `git push -u origin dexter/v5-{FEATURE_ID}`
 
-  7. **Open a PR.**
-       gh pr create --base main --head dexter/v5-{FEATURE_ID} \
+  7. **Open a DRAFT PR.** Draft = not visible noise to the principal until Judge passes.
+       gh pr create --base main --head dexter/v5-{FEATURE_ID} --draft \
          --title "[v5 loop] {FEATURE_ID}" \
-         --body "<two paragraphs: (a) what shipped, mapping each implementation choice to a features.json[{FEATURE_ID}].acceptance bullet; (b) 'ready for judge'>"
+         --body "<two paragraphs: (a) what shipped, mapping each implementation choice to a features.json[{FEATURE_ID}].acceptance bullet; (b) 'awaiting local judge'>"
+     Capture the PR URL from this command output — you'll need it in step 11.5.
 
   8. **Wait for the Vercel preview.** Poll:
        vercel ls --json | jq -r '.[] | select(.meta.githubCommitRef == "dexter/v5-{FEATURE_ID}") | .url'
@@ -56,10 +57,21 @@ SHIP THE FEATURE — execute every step in order. Do not skip. If a step fails, 
 
  10. **Redeploy** to pick up the new env vars: `vercel redeploy <preview-url>`. Wait until `state=Ready` again.
 
- 11. **Smoke-test the deploy.** Run, at minimum:
+ 11. **Smoke-test the deploy serves HTML.** Run, at minimum:
        curl -sI "<preview-url>/moments"  → expect HTTP 200
        curl -sI "<preview-url><features.json[{FEATURE_ID}].routes[0]>" → expect HTTP 200 + Content-Type text/html
-     If either fails, do NOT write a `done.json`; write `failed.md` instead and exit non-zero.
+     If either fails, do NOT write a `done.json` or mark the PR ready; write `failed.md` (leave PR in draft) and exit non-zero.
+
+ 11.5. **Run the Judge locally — this is the gate before the PR becomes visible.** Make sure Playwright's chromium browser is installed first; then run the judge against the preview deploy:
+       npx playwright install chromium 2>&1 | tail -3
+       PORTAL_URL=<preview-url> node loop/judge/run.mjs --feature {FEATURE_ID}
+     Capture the judge runner's exit code.
+     - **Exit 0** (judge passed, features.json flipped by the runner): flip the PR out of draft so the principal can review it.
+         gh pr ready <pr-url-from-step-7>
+       Then continue to step 12.
+     - **Exit 1** (judge failed, fail report written by the runner to loop/judge/reports/): the PR STAYS DRAFT. Do NOT mark it ready. Do NOT write done.json. Write loop/runner/state/{FEATURE_ID}.failed.md describing which acceptance bullet failed (read the latest report under loop/judge/reports/{FEATURE_ID}-*.md and quote the failing assertion). Exit non-zero. The orchestrator schedules a re-attempt; next iteration's Researcher reads the fail report and the next Builder fixes the gap.
+     - **Exit 2** (judge runner error — config / IO / missing journey spec): same as Exit 1 — leave PR draft, write failed.md describing the runner-error shape, exit non-zero.
+     This step is the load-bearing gate: public-facing PRs and the done.json marker only exist when the persona journey actually passes. If you skip this step, you ship noise to the principal — that is the documented failure mode this brief exists to prevent.
 
  12. **Write the done marker** to `/Users/ro/dapper/topshot-data-portal/loop/runner/state/{FEATURE_ID}.done.json`, containing EXACTLY:
        {
@@ -69,7 +81,7 @@ SHIP THE FEATURE — execute every step in order. Do not skip. If a step fails, 
          "smoke_passed": true,
          "pr_url": "<https://github.com/.../pull/N>"
        }
-     The orchestrator reads `deploy_url` from this file to point the judge at the right URL. If `smoke_passed: false`, the orchestrator treats this as a failure.
+     The orchestrator reads `deploy_url` from this file. By the time you write this marker, you have ALREADY passed the judge locally (step 11.5), so the orchestrator's own subsequent judge dispatch is a belt-and-suspenders re-verification — it should also pass cleanly.
 
  13. **Return to main.** `git checkout main`. The orchestrator's next iteration must find the working tree clean and main checked out.
 
