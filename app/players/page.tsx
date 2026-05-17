@@ -109,17 +109,26 @@ function sortRows(
   });
 }
 
+// Normalize league values stored in topshot.players.
+// The DB stores "LEAGUE_NBA" / "LEAGUE_WNBA" (uppercase with prefix).
+// We normalize to "NBA" / "WNBA" for display, URL params, and testids.
+function normalizeLeague(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  // Strip common prefix variants and uppercase
+  return raw.replace(/^league[_-]?/i, "").toUpperCase() || raw.toUpperCase();
+}
+
 // ── Client-side filter logic (no extra DB round-trips — works on cached rows) ─
 function filterRows(
   rows: PlayerMarketCapRow[],
-  league: string | undefined,
+  league: string | undefined,    // URL param — already normalized (e.g., "NBA")
   selectedTeams: string[],
   activeFilter: string | undefined,
 ): PlayerMarketCapRow[] {
   return rows.filter((r) => {
-    // League filter
+    // League filter — compare normalized league from DB against URL param
     if (league) {
-      if (r.league !== league) return false;
+      if (normalizeLeague(r.league) !== league) return false;
     }
     // Team filter (multi-select OR — any of the selected teams)
     if (selectedTeams.length > 0) {
@@ -161,16 +170,19 @@ export default async function PlayersPage({
   // ── Fetch (cached 5 min) ──────────────────────────────────────────────────
   const { rows: allRows, as_of_date } = await getPlayersMarketCap();
 
-  // ── Derive available leagues (from all rows, alphabetical) ────────────────
+  // ── Derive available leagues (normalized: "LEAGUE_NBA" → "NBA") ──────────
   const availableLeagues = [
     ...new Set(
-      allRows.map((r) => r.league).filter((l): l is string => !!l),
+      allRows
+        .map((r) => normalizeLeague(r.league))
+        .filter((l): l is string => !!l),
     ),
   ].sort();
 
   // ── Derive available teams (cascade: if league is selected, narrow to that league) ──
+  // Use normalized league comparison so "LEAGUE_NBA" matches URL param "NBA"
   const leagueBaseRows = leagueParam
-    ? allRows.filter((r) => r.league === leagueParam)
+    ? allRows.filter((r) => normalizeLeague(r.league) === leagueParam)
     : allRows;
   const availableTeams = [
     ...new Set(
