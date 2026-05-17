@@ -135,35 +135,51 @@ test.beforeAll(async () => {
     );
   }
 
-  const topMomentId = sorted[0][0];
+  // Take up to 50 top candidates and batch-resolve moment_flow_id.
+  // Some moment_ids in transactions may not exist in moments (e.g. burned/removed
+  // moments whose rows were deleted). We pick the first candidate that resolves.
+  const topCandidates = sorted.slice(0, 50).map(([id]) => id);
 
-  // Resolve moment_flow_id from moment_id.
-  // (moment_flow_id is the URL parameter in /moment/[flowId])
-  const { data: momentRow, error: momentErr } = await sb
+  const { data: momentRows, error: momentErr } = await sb
     .from("moments")
-    .select("moment_flow_id")
-    .eq("moment_id", topMomentId)
-    .maybeSingle();
+    .select("moment_id, moment_flow_id")
+    .in("moment_id", topCandidates);
 
-  if (momentErr || !momentRow) {
+  if (momentErr) {
     throw new Error(
-      `[judge] moment-detail-chart: Could not resolve moment_flow_id ` +
-        `for moment_id=${topMomentId}: ${JSON.stringify(momentErr)}`,
+      `[judge] moment-detail-chart: moments batch lookup failed: ${JSON.stringify(momentErr)}`,
     );
   }
 
-  KNOWN_FLOW_ID = (momentRow as { moment_flow_id: string }).moment_flow_id;
+  type MomentRow = { moment_id: string; moment_flow_id: string | null };
+  const resolvedRows = (momentRows as MomentRow[] | null) ?? [];
+
+  // Build a map and pick the best candidate (highest tx_count with valid flow_id).
+  const flowMap = new Map<string, string>();
+  for (const r of resolvedRows) {
+    if (r.moment_id && r.moment_flow_id) flowMap.set(r.moment_id, r.moment_flow_id);
+  }
+
+  for (const [id, txCount] of sorted) {
+    const flowId = flowMap.get(id);
+    if (flowId) {
+      KNOWN_FLOW_ID = flowId;
+      console.log(
+        `[judge] moment-detail-chart: resolved KNOWN_FLOW_ID=${KNOWN_FLOW_ID} ` +
+          `(moment_id=${id}, tx_count_30d=${txCount})`,
+      );
+      break;
+    }
+  }
+
   if (!KNOWN_FLOW_ID) {
     throw new Error(
-      `[judge] moment-detail-chart: moment_flow_id is null/empty ` +
-        `for moment_id=${topMomentId}`,
+      "[judge] moment-detail-chart: No moment_id with ≥5 SUCCEEDED transactions " +
+        "could be resolved to a moment_flow_id. " +
+        `top_candidates=${topCandidates.length}, resolved_in_moments=${resolvedRows.length}. ` +
+        "Check topshot.moments ↔ topshot.transactions FK integrity.",
     );
   }
-
-  console.log(
-    `[judge] moment-detail-chart: resolved KNOWN_FLOW_ID=${KNOWN_FLOW_ID} ` +
-      `(moment_id=${topMomentId}, tx_count_30d=${sorted[0][1]})`,
-  );
 });
 
 test(
