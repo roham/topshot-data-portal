@@ -17,8 +17,10 @@ import { TunedValuationOverlay } from "@/components/TunedValuationOverlay";
 import { MomentPriceHistory } from "@/components/MomentPriceHistory";
 import {
   getMomentHistory,
+  getEditionCirculation,
   type MomentHistoryWindow,
 } from "@/lib/supabase/queries/moment-detail";
+import { CirculationCard } from "@/components/CirculationCard";
 import type { MintedMoment } from "@/lib/topshot/types";
 
 const HISTORY_WINDOWS: readonly MomentHistoryWindow[] = [
@@ -124,16 +126,19 @@ export default async function MomentPage({
   // Parallel data fetches with per-slice failure isolation. The Supabase
   // history is included in this batch — empty arrays are the honest absence
   // when the moment hasn't traded in the selected window.
-  const [listedRes, recentRes, parallelsRes, historyRes] = await Promise.allSettled([
+  const editionId = moment.edition?.id ?? "";
+  const [listedRes, recentRes, parallelsRes, historyRes, circulationRes] = await Promise.allSettled([
     setUuid && playUuid ? editionListedSerials(setUuid, playUuid, 50) : Promise.resolve([]),
     setUuid && playUuid ? editionRecentSales(setUuid, playUuid, 20) : Promise.resolve([]),
     playUuid ? editionsForPlay(playUuid) : Promise.resolve([]),
     getMomentHistory({ flowId, window: historyWindow }),
+    editionId ? getEditionCirculation(editionId) : Promise.resolve(null),
   ]);
   const listed = listedRes.status === "fulfilled" ? listedRes.value : [];
   const recentSales = recentRes.status === "fulfilled" ? recentRes.value : [];
   const parallels = parallelsRes.status === "fulfilled" ? parallelsRes.value : [];
   const history = historyRes.status === "fulfilled" ? historyRes.value : [];
+  const circulation = circulationRes.status === "fulfilled" ? circulationRes.value : null;
 
   const editionFloor = listed.length ? Math.min(...listed.map((l) => l.lowAsk)) : null;
   const valuation = valueMoment(moment, {
@@ -157,7 +162,7 @@ export default async function MomentPage({
   const tier = moment.tier ?? moment.edition?.tier;
   const parallelId = moment.edition?.parallelID ?? 0;
   const serial = Number(moment.flowSerialNumber);
-  const currentEditionId = moment.edition?.id ?? "";
+  const currentEditionId = editionId;
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-3">
@@ -243,6 +248,20 @@ export default async function MomentPage({
         <MomentPriceHistory
           data={history.map((p) => ({ ts: p.ts, price_usd: p.price_usd }))}
           active={historyWindow}
+        />
+      </Card>
+
+      {/* ===== Circulation breakdown · Supabase ===== */}
+      {/* From research/personas/pro-trader.md J4: "I see circulation breakdown:
+          how many are owned, listed, in a pack, locker room, burned." */}
+      <Card
+        title="Circulation"
+        variant="inset"
+        methodology="topshot.moments aggregated by edition_id; listing predicate: listing_price_usd IS NOT NULL (moment_status='LISTED' not written by BQ ETL). Six parallel PostgREST HEAD count calls."
+      >
+        <CirculationCard
+          circulation={circulation}
+          editionCirculationCount={moment.edition?.circulationCount ?? null}
         />
       </Card>
 

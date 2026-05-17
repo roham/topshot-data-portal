@@ -6,6 +6,7 @@
 
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type MomentHistoryWindow = "1d" | "7d" | "1m" | "3m" | "ytd" | "all";
 
@@ -109,4 +110,99 @@ export const getMomentHistory = unstable_cache(
   _getMomentHistory,
   ["moment-history"],
   { revalidate: 60, tags: ["moment-history"] },
+);
+
+// ── Edition circulation breakdown ─────────────────────────────────────────
+// Six OTM-named buckets (per research/features/moment-detail-circulation.md §5).
+// Uses PostgREST-native parallel count calls (head: true) — avoids exec_sql
+// and avoids streaming rows for large Common editions (40K–60K rows).
+//
+// GOTCHA: moment_status='LISTED' returns 0 rows in topshot.moments (the BQ
+// ETL never writes that value). Use listing_price_usd IS NOT NULL instead.
+//
+// Each bucket gets a separate HEAD request that returns only count:
+//   supabaseAdmin().from("moments").select("*", { count: "exact", head: true })
+//   .eq("edition_id", id).<bucket-filter>
+// Total is an unconditional count for the same edition_id.
+
+export interface CirculationBucket {
+  label: string;   // OTM-style label (trader's word)
+  slug: string;    // data-testid slug: owned | listings | owned-locked | in-pack | locker-room | burned
+  count: number;
+  pct: number;     // 0–100, denominator = total (not edition.circulationCount)
+}
+
+export interface EditionCirculation {
+  buckets: CirculationBucket[];
+  dbTotal: number;
+  editionId: string;
+}
+
+async function _getEditionCirculation(editionId: string): Promise<EditionCirculation | null> {
+  if (!editionId) return null;
+  try {
+    const admin = supabaseAdmin();
+    // Produce a fresh base query for this edition on every call.
+    const base = () =>
+      admin
+        .from("moments")
+        .select("*", { count: "exact", head: true })
+        .eq("edition_id", editionId);
+
+    // Seven parallel HEAD-only count queries — negligible payload.
+    const [
+      totalRes,
+      ownedRes,
+      listingsRes,
+      lockedRes,
+      inPackRes,
+      lockerRoomRes,
+      burnedRes,
+    ] = await Promise.all([
+      // Total: unconditional
+      base(),
+      // Owned (unlisted, unlocked): MINTED + no listing price
+      base().eq("moment_status", "MINTED").is("listing_price_usd", null),
+      // Listings: listing_price_usd IS NOT NULL (not moment_status='LISTED' — empty)
+      base().not("listing_price_usd", "is", null),
+      // Owned-locked: LOCKED status
+      base().eq("moment_status", "LOCKED"),
+      // In a Pack: IN_PACK status
+      base().eq("moment_status", "IN_PACK"),
+      // Locker Room: LOCKER_ROOM status
+      base().eq("moment_status", "LOCKER_ROOM"),
+      // Burned: BURNED status
+      base().eq("moment_status", "BURNED"),
+    ]);
+
+    const dbTotal = totalRes.count ?? 0;
+    const rawCounts = [
+      ownedRes.count ?? 0,
+      listingsRes.count ?? 0,
+      lockedRes.count ?? 0,
+      inPackRes.count ?? 0,
+      lockerRoomRes.count ?? 0,
+      burnedRes.count ?? 0,
+    ];
+    const LABELS = ["Owned", "Listings", "Owned-locked", "In a Pack", "Locker Room", "Burned"];
+    const SLUGS = ["owned", "listings", "owned-locked", "in-pack", "locker-room", "burned"];
+
+    const buckets: CirculationBucket[] = LABELS.map((label, i) => ({
+      label,
+      slug: SLUGS[i],
+      count: rawCounts[i],
+      pct: dbTotal > 0 ? (rawCounts[i] / dbTotal) * 100 : 0,
+    }));
+
+    return { buckets, dbTotal, editionId };
+  } catch (e) {
+    console.error("[supabase] edition-circulation threw", e);
+    return null;
+  }
+}
+
+export const getEditionCirculation = unstable_cache(
+  _getEditionCirculation,
+  ["edition-circulation"],
+  { revalidate: 60, tags: ["edition-circulation"] },
 );
