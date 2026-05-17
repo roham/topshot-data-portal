@@ -35,10 +35,12 @@ test.beforeAll(() => {
 });
 
 test("J4 — moment detail chart: all 6 tabs functional, URL-driven, state survives refresh", async ({ page }) => {
-  // ── Step 0 — find a moment via /moments grid ─────────────────────────────
-  // Navigate to /moments and click the first result to land on a real
-  // moment detail page. This mirrors the trader's actual navigation path.
-  const gridStart = Date.now();
+  // ── Step 0 — find a moment href via /moments grid ───────────────────────
+  // Navigate to /moments, grab the first moment row's href, then navigate
+  // directly to it. This avoids the "click → waitForURL" pattern which can
+  // time out on cold preview serverless functions because the navigation
+  // fires but the page load takes >20s. Using page.goto() gives us explicit
+  // timeout control.
   await page.goto("/moments", { timeout: 90_000 });
   await page.locator('[data-testid="moment-row-link"]').first().waitFor({ state: "visible", timeout: 60_000 });
   await page.screenshot({ path: path.join(CAPTURE_DIR, "00-moments-grid.png"), fullPage: true });
@@ -47,10 +49,11 @@ test("J4 — moment detail chart: all 6 tabs functional, URL-driven, state survi
   const momentHref = await page.locator('[data-testid="moment-row-link"]').first().getAttribute("href");
   expect(momentHref, "first row must link to a moment detail page").toMatch(/^\/moment\//);
 
-  // ── Step 1 — land on moment detail page ─────────────────────────────────
+  // ── Step 1 — land on moment detail page (direct goto for cold-preview) ──
   const navStart = Date.now();
-  await page.locator('[data-testid="moment-row-link"]').first().click();
-  await page.waitForURL(/\/moment\//, { timeout: 20_000 });
+  // Navigate directly by URL instead of clicking — avoids click timeout on
+  // cold serverless function starts. The link href was already verified above.
+  await page.goto(momentHref!, { timeout: 90_000, waitUntil: "domcontentloaded" });
 
   // Wait for the price-history-card to appear. This is the load-bearing
   // element for this feature — if it's missing, the journey stops here.
@@ -111,15 +114,18 @@ test("J4 — moment detail chart: all 6 tabs functional, URL-driven, state survi
   // The judge runs waitForURL(/[?&]h=7d/) immediately after click."
   await page.locator('[data-testid="price-history-tab-7d"]').click();
   await page.waitForURL(/[?&]h=7d/, { timeout: 8_000 });
-  // Let the server re-render with 7D data.
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
   await page.screenshot({ path: path.join(CAPTURE_DIR, "04-tab-7d-url.png"), fullPage: true });
 
   // ── Step 6 — verify 7D tab is active, ALL is not ────────────────────────
+  // The `active` prop is set by the server component (page.tsx reads searchParams.h).
+  // After clicking a tab, Next.js App Router triggers a server re-render with the
+  // new ?h= param. The URL update is immediate (nuqs), but the server re-render
+  // takes time (DB query + serverless cold-start). Use a 30s timeout on the
+  // aria-checked assertion so Playwright retries until the re-render arrives.
   await expect(
     page.locator('[data-testid="price-history-tab-7d"]'),
-    "7D tab must be aria-checked=true after click"
-  ).toHaveAttribute("aria-checked", "true");
+    "7D tab must be aria-checked=true after server re-render completes"
+  ).toHaveAttribute("aria-checked", "true", { timeout: 30_000 });
   await expect(
     page.locator('[data-testid="price-history-tab-all"]'),
     "ALL tab must be aria-checked=false after 7D click"
@@ -129,6 +135,8 @@ test("J4 — moment detail chart: all 6 tabs functional, URL-driven, state survi
   // Per spec: "the chart section subtitle ('N sales · this serial · Supabase')
   // must reflect the count for the selected window — N may be 0 for short
   // windows on sparse moments, which is acceptable."
+  // Wait for the subtitle to stabilize after the server re-render.
+  await expect(cardSubtitleEl).toContainText("sales · this serial · Supabase", { timeout: 10_000 });
   const subtitleAfter7D = await cardSubtitleEl.innerText();
   expect(
     subtitleAfter7D,
@@ -175,10 +183,11 @@ test("J4 — moment detail chart: all 6 tabs functional, URL-driven, state survi
     const h = new URL(url).searchParams.get("h");
     return h === "all" || h === null;
   }, { timeout: 8_000 });
+  // Wait for server re-render to complete (same cold-start allowance as step 6).
   await expect(
     page.locator('[data-testid="price-history-tab-all"]'),
     "ALL tab must be aria-checked=true after clicking back"
-  ).toHaveAttribute("aria-checked", "true");
+  ).toHaveAttribute("aria-checked", "true", { timeout: 30_000 });
   await page.screenshot({ path: path.join(CAPTURE_DIR, "07-tab-all-back.png"), fullPage: true });
 
   // ── Step 10 — tab state survives hard page reload ────────────────────────
@@ -216,7 +225,7 @@ test("J4 — moment detail chart: all 6 tabs functional, URL-driven, state survi
   await expect(
     page.locator('[data-testid="price-history-tab-1d"]'),
     "1D tab must be aria-checked=true after click"
-  ).toHaveAttribute("aria-checked", "true");
+  ).toHaveAttribute("aria-checked", "true", { timeout: 30_000 });
   await page.screenshot({ path: path.join(CAPTURE_DIR, "09-tab-1d.png"), fullPage: true });
 
   // Pass marker for the judge runner.

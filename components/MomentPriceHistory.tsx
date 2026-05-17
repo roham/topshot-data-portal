@@ -50,9 +50,16 @@ export function MomentPriceHistory({ data, active }: Props) {
 }
 
 function Inner({ data, active }: Props) {
+  // shallow: false — instructs nuqs to call router.replace() instead of only
+  // history.replaceState(). router.replace() triggers a Next.js App Router
+  // navigation which causes the server component (page.tsx) to re-render with
+  // the new ?h= searchParam, fetching new getMomentHistory data for the window.
+  // Without shallow:false, nuqs only updates the URL bar and the server never
+  // sees the new param — the chart stays frozen on the initial server render.
+  // Options are chained via .withOptions() on the parser (nuqs v2 API).
   const [_w, setW] = useQueryState(
     "h",
-    parseAsStringEnum<Window>([...WINDOWS]).withDefault("all"),
+    parseAsStringEnum<Window>([...WINDOWS]).withDefault("all").withOptions({ shallow: false }),
   );
   return (
     <div className="space-y-2">
