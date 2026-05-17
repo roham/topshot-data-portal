@@ -128,6 +128,14 @@ export default async function MomentsPage({
               showing {startRow.toLocaleString("en-US")}–{endRow.toLocaleString("en-US")}
             </span>
             <span className="ml-auto flex items-center gap-3">
+              {cappedTotal && (
+                <span
+                  className="text-[var(--text-faint)] text-[10px]"
+                  data-testid="moments-export-cap-notice"
+                >
+                  10,000 row limit — narrow filters for complete slice
+                </span>
+              )}
               <a
                 href={`/api/moments/export?${exportQs.toString()}`}
                 className="text-[var(--text-dim)] hover:text-[var(--accent)] underline-offset-2 hover:underline"

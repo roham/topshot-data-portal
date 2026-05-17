@@ -4,7 +4,7 @@
 // (via supabase-js admin client) with LIMIT capped at MAX_ROWS. Returns
 // text/csv with Content-Disposition triggering a browser download.
 //
-// Cap: 2,500 rows. Pro traders narrow filters to slice the universe; full-
+// Cap: 10,000 rows. Pro traders narrow filters to slice the universe; full-
 // universe export is intentionally not supported (would be many MB).
 
 import { NextResponse } from "next/server";
@@ -12,9 +12,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-// PostgREST default max-rows = 1000. We respect it; if a trader needs more
-// they narrow the filter. v2 could request bigger limits via server policy.
-const MAX_ROWS = 1_000;
+// 10K-row export via PostgREST native (NOT exec_sql — 30× slower at this row
+// count; see research/wiki/gotchas/exec-sql-rpc-is-30x-slower-than-postgrest.md).
+const MAX_ROWS = 10_000;
 
 interface EditionLite {
   edition_id: string;
