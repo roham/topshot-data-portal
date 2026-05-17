@@ -93,6 +93,8 @@ Sequential turns of the three roles (Researcher → Builder → Judge), one feat
 
 - 2026-05-17 — `moment-detail-circulation` flipped `passes:true` (judge run against https://topshot-data-portal.vercel.app; capture: /home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/moment-detail-circulation/2026-05-17T17-12-45-843Z)
 
+- 2026-05-17 — `parallels-route-v1` flipped `passes:true` (judge run against https://topshot-data-portal.vercel.app; capture: /home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/parallels-route-v1/2026-05-17T17-49-52-397Z)
+
 ## Failed (judge fail-reports for re-research)
 
 - 2026-05-16 — `moments-grid` FAILED judge (report: /Users/ro/dapper/topshot-data-portal/loop/judge/reports/moments-grid-2026-05-16T22-08-23-333Z.md)

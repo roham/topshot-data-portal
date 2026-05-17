@@ -805,8 +805,8 @@
       "priority": 3,
       "otm_parity": false,
       "beyond_otm": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T17:50:08.534Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, I land on /parallels?player=201939 (Curry) and see one row per (set × tier × subedition_id) — circulation, listings count, low_ask (or NEW DROP tag if zero listings), high_offer. Switch player via the picker (Curry / LeBron / Podziemski / SGA / Cooper Flagg / Wembanyama / Luka / Angel Reese). Initial scaffold authored 2026-05-17 by Dexter; loop deepens to: add tier+parallel filter rail (Pillar 4), sortable column headers, EXPORT, avg_sale_30d column (computable via moments→transactions join through moment_id), URL-encoded filter state via nuqs.",
@@ -822,7 +822,14 @@
       "seed_entities": {
         "player_id": "201939",
         "note": "Curry default; picker exposes 8 known-good players"
-      }
+      },
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T17:50:08.534Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/parallels-route-v1/2026-05-17T17-49-52-397Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "player-detail-variant-a-three-axis-matrix",
