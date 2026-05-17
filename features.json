@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md \u00a73-4 and research/00-product-pillars-v3.md. v1.2.0: re-opened 8 features after Roham's 14:40Z visual review found honest-empty-state was passing where data-rendering was needed.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "authored_at": "2026-05-16T20:50:00Z",
   "authored_by": "dexter",
   "reference": {
@@ -253,7 +253,13 @@
           "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/collector-bag/2026-05-17T10-03-15-541Z",
           "portal_url": "https://topshot-data-portal-106tdp6w5-ros-projects-9a9bb0c9.vercel.app"
         }
-      ]
+      ],
+      "seed_entities": {
+        "username": "roham",
+        "expected_min_rows": 100,
+        "header_kpi_bag_size_min": 1000,
+        "notes": "Roham confirmed 2026-05-17 15:00Z. Prior screenshot showed BAG SIZE 3000, $15.5M listed, 485 distinct players. Use /u/roham as the journey target; assert tableBody.tr.count >= 1500 (half of 3000 bag size as the data-rendering floor)."
+      }
     },
     {
       "id": "set-completion-histogram",
@@ -670,7 +676,14 @@
         "Strava compare-runners",
         "Polymarket position-overlap analyzer"
       ],
-      "data_viz_kind": "side-by-side-table-plus-overlay-chart"
+      "data_viz_kind": "side-by-side-table-plus-overlay-chart",
+      "seed_entities": {
+        "usernames": [
+          "roham",
+          "TBD_second_username"
+        ],
+        "notes": "First username confirmed by Roham. Second username pending. Until provided, journey may pick a second active collector with \u2265100 moments from Supabase."
+      }
     },
     {
       "id": "packs-best-hits-scanner",

@@ -153,3 +153,15 @@ The 404s were because Dexter passed Roham placeholder URLs (`/u/someuser`); the 
 Roham's 2026-05-17 14:40Z verbatim: "24 hours is not a short enough window or not a long enough window. That's no problem. Let's just default to showing 30-day windows."
 
 This applies to every time-window selector across the portal. The `default-window-30d-meta` feature in features.json captures this; future iterations honoring this gotcha will check both the new pillars file AND this gotcha.
+
+## Canonical known-good seeds (provided by Roham)
+
+When the journey needs a real entity and Supabase resolution returns nothing or the wrong shape, fall back to these. The judge journey SHOULD still query Supabase first (to catch schema drift); these are insurance.
+
+- **Collector username:** `roham` — BAG SIZE 3,000, EST. LISTED VALUE $15.5M, 485 distinct players. Use as primary seed for `collector-bag`, `cross-collector-compare`, and any /u/<username> route.
+- **Pack ID:** TBD — Roham to provide a sealed pack with active marketplace data for `packs-best-hits-scanner`.
+- **Moment flowId:** resolve at runtime per Pattern A/B/C above — no hard-coded seed yet (the prior `47863705` seed was a 0-sales serial; do not reuse).
+- **Set ID:** resolve at runtime via `mv_set_completion_distribution` non-empty pick — no hard-coded seed yet.
+- **Player ID:** resolve at runtime via player with ≥10 editions.
+
+When a seed is hard-coded as a "canonical known-good," it MUST be verified to still hold each iteration (Supabase ETL might evolve the schema, an entity might lose data). Pattern: query first, fall back to seed only if query fails.
