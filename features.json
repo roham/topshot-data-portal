@@ -301,8 +301,8 @@
       ],
       "priority": 9,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T11:55:42.356Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, I type a serial number into the 'True Value by serial' input on a moment detail page and see a price estimate for that specific serial (or an honest 'not enough comps' message).",
@@ -314,7 +314,14 @@
         "PSA pop-by-grade report",
         "StockX size-keyed sale ladder"
       ],
-      "data_viz_kind": "input-plus-chart-overlay"
+      "data_viz_kind": "input-plus-chart-overlay",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T11:55:42.356Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/moment-detail-serial-overlay/2026-05-17T11-55-37-775Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "players-directory",
