@@ -587,19 +587,30 @@ async function runIteration({ requestedFeatureId, portalUrl, dryRun }) {
     return { exitCode: 1, terminal: false, feature };
   }
 
-  // 9. Judge
+  // 9. Judge — skip if Builder already ran judge locally and reported judge_passed:true.
+  // This is the gpt-5 + claude-sub-agent convergent finding from the 2026-05-17 review:
+  // the redundant Judge phase doubles wall-clock and duplicates progress.md lines.
+  // Builder's local Judge IS the canonical pass; orchestrator records the outcome.
   state.phase = "judging";
   writeIterationState(feature.id, state);
   const deployUrl = dryRun
     ? portalUrl
     : buildRes.markerData?.deploy_url ?? portalUrl;
   const branchName = dryRun ? null : buildRes.markerData?.branch_name ?? null;
-  const judgeRes = await runJudge({
-    featureId: feature.id,
-    deployUrl,
-    branchName,
-    dryRun,
-  });
+  const builderJudgePassed = !dryRun && buildRes.markerData?.judge_passed === true;
+
+  let judgeRes;
+  if (builderJudgePassed) {
+    log(`judge: Builder already ran Judge locally (done.json#judge_passed=true) — skipping redundant orchestrator-side dispatch`);
+    judgeRes = { ok: true, skipped: true };
+  } else {
+    judgeRes = await runJudge({
+      featureId: feature.id,
+      deployUrl,
+      branchName,
+      dryRun,
+    });
+  }
 
   // 10. Outcome
   if (judgeRes.ok) {
