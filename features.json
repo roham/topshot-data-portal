@@ -94,10 +94,19 @@
       ],
       "priority": 3,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T08:32:54.879Z",
       "blocked": false,
-      "fail_reasons": [],
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T08:18:38.097Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/moment-detail-circulation-2026-05-17T08-18-38-097Z.md"
+        },
+        {
+          "at": "2026-05-17T08:30:39.417Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/moment-detail-circulation-2026-05-17T08-30-39-417Z.md"
+        }
+      ],
       "acceptance": "As a trader, I see for this edition: absolute count + % of total for each of Owned, Listings, Owned-locked, In a Pack, Locker Room, Burned. Numbers sum to total circulation.",
       "data_source": "topshot.moments aggregated by edition_id, status flags",
       "implementation_hint": "Aggregate query over topshot.moments grouped by moment_status; handle moment_status='LISTED' empty by deriving from listing_price_usd IS NOT NULL",
@@ -107,7 +116,14 @@
         "Glassnode supply categories stacked area",
         "NFTGo holder distribution"
       ],
-      "data_viz_kind": "stacked-bar-or-donut"
+      "data_viz_kind": "stacked-bar-or-donut",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T08:32:54.879Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/moment-detail-circulation/2026-05-17T08-32-52-170Z",
+          "portal_url": "https://topshot-data-portal-daxq6ucka-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "players-marketcap",
