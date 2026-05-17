@@ -361,10 +361,19 @@
       ],
       "priority": 11,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T13:16:49.790Z",
       "blocked": false,
-      "fail_reasons": [],
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T13:04:52.658Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/sets-directory-2026-05-17T13-04-52-658Z.md"
+        },
+        {
+          "at": "2026-05-17T13:14:35.626Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/sets-directory-2026-05-17T13-14-35-626Z.md"
+        }
+      ],
       "acceptance": "As a trader, I browse, search, and filter every Top Shot set by series, release date, current floor, and 7-day volume.",
       "data_source": "topshot.sets JOIN topshot.editions + transaction aggregates",
       "implementation_hint": "Currently stub per handover; needs new page + sortable table",
@@ -374,7 +383,14 @@
         "PSA Set Registry browse",
         "Discogs releases (sortable + faceted)"
       ],
-      "data_viz_kind": "table-with-filter-rail"
+      "data_viz_kind": "table-with-filter-rail",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T13:16:49.790Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/sets-directory/2026-05-17T13-16-28-145Z",
+          "portal_url": "https://topshot-data-portal-64vm6pjt0-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "packs-tracker",
