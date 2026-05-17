@@ -399,7 +399,7 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
       cur.edition_count += 1;
       parallelAgg.set(pname, cur);
     }
-    const byParallel: ParallelMcapRow[] = Array.from(parallelAgg.entries())
+    const byParallelLive: ParallelMcapRow[] = Array.from(parallelAgg.entries())
       .map(([parallel_name, v]) => ({
         parallel_name,
         parallel_id: v.parallel_id,
@@ -407,6 +407,26 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
         edition_count: v.edition_count,
       }))
       .sort((a, b) => b.total_mcap - a.total_mcap);
+
+    // Augment with zero-mcap placeholder rows for every named parallel that
+    // currently has 0 editions in our DB. This makes the chart show the full
+    // taxonomy (Base + 22 named) as a scaffold — empty rows surface the
+    // sibling-edition ETL gap honestly per doctrine §P8 (NEW DROP framing
+    // for empty markets; here the "NEW DROP" framing is "ETL fill pending").
+    const liveById = new Set(byParallelLive.map((p) => p.parallel_id));
+    const placeholders: ParallelMcapRow[] = [];
+    for (const pt of parallelsRaw) {
+      if (pt.parallel_id <= 0) continue; // skip Base (0) — already in liveById
+      if (!liveById.has(pt.parallel_id)) {
+        placeholders.push({
+          parallel_name: pt.name,
+          parallel_id: pt.parallel_id,
+          total_mcap: 0,
+          edition_count: 0,
+        });
+      }
+    }
+    const byParallel: ParallelMcapRow[] = [...byParallelLive, ...placeholders];
 
     // ── Aggregation: by set (top 20) ────────────────────────────────────
     const setAgg = new Map<string, { total_mcap: number }>();

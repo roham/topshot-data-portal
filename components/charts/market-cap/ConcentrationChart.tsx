@@ -72,8 +72,11 @@ export function ConcentrationChart({ rows }: { rows: ConcentrationRow[] }) {
           formatter={(value) => [`${Number(value).toFixed(1)}%`, "Share"]}
           labelFormatter={(label) => `Top ${label} players`}
         />
-        <ReferenceLine y={50} stroke="var(--accent)" strokeDasharray="3 3">
-          <Label value="50%" position="right" style={{ fill: "var(--accent)", fontSize: 10 }} />
+        <ReferenceLine y={50} stroke="var(--accent)" strokeDasharray="3 3" strokeOpacity={0.6}>
+          <Label value="50% share" position="insideRight" style={{ fill: "var(--accent)", fontSize: 10, fontFamily: "var(--font-mono)" }} />
+        </ReferenceLine>
+        <ReferenceLine y={80} stroke="var(--text-dim)" strokeDasharray="3 3" strokeOpacity={0.4}>
+          <Label value="80% share" position="insideRight" style={{ fill: "var(--text-dim)", fontSize: 10, fontFamily: "var(--font-mono)" }} />
         </ReferenceLine>
         <Line
           type="monotone"

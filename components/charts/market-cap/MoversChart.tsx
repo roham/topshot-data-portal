@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
   ReferenceLine,
+  LabelList,
 } from "recharts";
 import type { MoverRow } from "@/lib/supabase/queries/market-cap-landing";
 import { DIRECTION_COLOR } from "@/lib/chart-palette";
@@ -99,6 +100,22 @@ export function MoversChart({
           {data.map((d, i) => (
             <Cell key={i} fill={d.color} />
           ))}
+          <LabelList
+            dataKey="pct"
+            position="right"
+            formatter={(v) => {
+              const n = Number(v);
+              return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
+            }}
+            style={{ fill: "var(--text-dim)", fontSize: 10, fontFamily: "var(--font-mono)" }}
+          />
+          <LabelList
+            dataKey="latest"
+            position="insideLeft"
+            offset={6}
+            formatter={(v) => fmtUSD(Number(v))}
+            style={{ fill: "rgba(0,0,0,0.7)", fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 600 }}
+          />
         </Bar>
       </BarChart>
     </ResponsiveContainer>

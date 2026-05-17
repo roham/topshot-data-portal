@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
 } from "recharts";
 import type { ParallelMcapRow } from "@/lib/supabase/queries/market-cap-landing";
 import { colorForParallel } from "@/lib/chart-palette";
@@ -25,15 +26,19 @@ export function ByParallelChart({ rows }: { rows: ParallelMcapRow[] }) {
     name: r.parallel_name,
     mcap: r.total_mcap,
     editions: r.edition_count,
-    color: colorForParallel(r.parallel_id ?? null),
+    color:
+      r.total_mcap > 0
+        ? colorForParallel(r.parallel_id ?? null)
+        : "var(--border-subtle)", // empty parallels render as subtle outline ghosts
+    isEmpty: r.total_mcap === 0,
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={400}>
+    <ResponsiveContainer width="100%" height={420}>
       <BarChart
         data={data}
         layout="vertical"
-        margin={{ top: 4, right: 20, left: 4, bottom: 4 }}
+        margin={{ top: 4, right: 50, left: 4, bottom: 4 }}
       >
         <XAxis
           type="number"
@@ -46,7 +51,7 @@ export function ByParallelChart({ rows }: { rows: ParallelMcapRow[] }) {
           dataKey="name"
           width={130}
           stroke="var(--text-faint)"
-          tick={{ fontSize: 10 }}
+          tick={{ fontSize: 10, fill: "var(--text-dim)" }}
           interval={0}
         />
         <Tooltip
@@ -56,14 +61,25 @@ export function ByParallelChart({ rows }: { rows: ParallelMcapRow[] }) {
             fontSize: 11,
           }}
           formatter={(value, _name, _item, _idx, payload) => {
-            const eds = (payload as unknown as { editions?: number })?.editions;
-            return [fmtUSD(Number(value)), eds != null ? `${eds} editions` : "Market cap"];
+            const p = payload as unknown as { editions?: number; isEmpty?: boolean };
+            if (p?.isEmpty) return ["—", "Sibling-edition ETL pending"];
+            return [fmtUSD(Number(value)), p?.editions != null ? `${p.editions} editions` : "Market cap"];
           }}
         />
         <Bar dataKey="mcap" radius={[0, 2, 2, 0]}>
           {data.map((d, i) => (
-            <Cell key={i} fill={d.color} />
+            <Cell key={i} fill={d.color} fillOpacity={d.isEmpty ? 0.3 : 1} />
           ))}
+          <LabelList
+            dataKey="mcap"
+            position="right"
+            formatter={(v) => {
+              const n = Number(v);
+              if (!n) return "(pending fill)";
+              return fmtUSD(n);
+            }}
+            style={{ fill: "var(--text-faint)", fontSize: 9, fontFamily: "var(--font-mono)" }}
+          />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
