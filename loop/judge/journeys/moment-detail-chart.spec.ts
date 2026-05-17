@@ -90,108 +90,104 @@ test.beforeAll(async () => {
     }
   }
 
-  // ── Moments-first Pattern C — mirrors getMomentHistory's query path ─────────
-  // Prior approach queried transactions broadly and tried to reverse-join to
-  // moments. This failed because some transaction moment_ids are for burned/
-  // removed moments that no longer exist in topshot.moments.
+  // ── Transactions-first Pattern C (v3) — avoids sampling bias ────────────
+  // Prior Pattern-C sampled from topshot.moments WHERE listing_price_usd IS NOT
+  // NULL (listed moments), then batch-checked for recent transactions. This had a
+  // structural sampling bias: recently-SOLD moments have listing_price_usd = NULL
+  // after the sale, so they were excluded from the sample. The batch transaction
+  // query returned 0 rows for all sampled moments → step 4b always showed empty.
   //
-  // NEW: Query moments first (guaranteed to exist in the table) → batch-check
-  // which ones have transactions → pick the one with the most trades.
-  // This mirrors the production query path: moments → moment_id → transactions.
+  // Root cause fix: query topshot.transactions DIRECTLY for recent SUCCEEDED
+  // trades (by completed_at, the actual sale date), aggregate client-side by
+  // moment_id, then look up the moment_flow_id. This directly finds moments with
+  // actual recent sales — no sampling bias from listing state.
   //
-  // supabaseAdmin() bypasses RLS, uses db.schema="topshot" via generics.
+  // Note: production getMomentHistory now also uses completed_at per research
+  // note §8 fix 2 (source_updated_at was the BQ ETL ingestion date, not sale date).
+
   const sb = supabaseAdmin();
   const since30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
-  // Step 1: Get a broad sample of moments that are currently active (listed or
-  // recently acquired). Limit 500 to get enough coverage without large payloads.
-  type MRow = { moment_id: string; moment_flow_id: string | null };
+  // Step 1: Query SUCCEEDED transactions with completed_at in the last 30 days.
+  // Limit 2000 to cover high-volume moments without huge payloads.
+  type TxRow = { moment_id: string };
+  const { data: recentTxData, error: txErr } = await sb
+    .from("transactions")
+    .select("moment_id")
+    .eq("transaction_state_id", "SUCCEEDED")
+    .not("gross_amount_usd", "is", null)
+    .not("completed_at", "is", null)
+    .gte("completed_at", since30d)
+    .order("completed_at", { ascending: false })
+    .limit(2000);
 
-  const { data: sampleData, error: sampleErr } = await sb
-    .from("moments")
-    .select("moment_id, moment_flow_id")
-    .not("moment_flow_id", "is", null)
-    .not("listing_price_usd", "is", null)
-    .limit(500);
-
-  if (sampleErr) {
+  if (txErr) {
     throw new Error(
-      `[judge] moment-detail-chart: moments sample query failed: ${JSON.stringify(sampleErr)}`,
+      `[judge] moment-detail-chart: transactions query failed: ${JSON.stringify(txErr)}`,
     );
   }
 
-  const sample = (sampleData as MRow[] | null) ?? [];
-  if (!sample.length) {
-    throw new Error(
-      "[judge] moment-detail-chart: topshot.moments returned 0 rows with " +
-        "listing_price_usd IS NOT NULL. ETL may be stale or RLS blocks access.",
-    );
-  }
-
-  // Step 2: batch-query transactions for these moment_ids to find those with
-  // recent trades. Process in groups of 50 (PostgREST IN URL-length safety).
-  const momentIds = sample.map((r) => r.moment_id).filter(Boolean) as string[];
+  // Step 2: count by moment_id, pick the one with the most 30-day trades.
   const txCounts = new Map<string, number>();
-  const BATCH_SIZE = 50;
-
-  for (let i = 0; i < Math.min(momentIds.length, 300); i += BATCH_SIZE) {
-    const batch = momentIds.slice(i, i + BATCH_SIZE);
-    const { data: batchTxData } = await sb
-      .from("transactions")
-      .select("moment_id")
-      .in("moment_id", batch)
-      .eq("transaction_state_id", "SUCCEEDED")
-      .not("gross_amount_usd", "is", null)
-      .gte("source_updated_at", since30d)
-      .limit(2000);
-
-    for (const t of (batchTxData ?? []) as Array<{ moment_id: string }>) {
-      if (t.moment_id)
-        txCounts.set(t.moment_id, (txCounts.get(t.moment_id) ?? 0) + 1);
-    }
+  for (const t of (recentTxData ?? []) as TxRow[]) {
+    if (t.moment_id) txCounts.set(t.moment_id, (txCounts.get(t.moment_id) ?? 0) + 1);
   }
 
-  // Step 3: build flow_id map and pick the best candidate.
-  const flowMap = new Map<string, string>();
-  for (const r of sample) {
-    if (r.moment_id && r.moment_flow_id) flowMap.set(r.moment_id, r.moment_flow_id);
-  }
+  console.log(
+    `[judge] moment-detail-chart: found ${txCounts.size} distinct moments with ` +
+    `SUCCEEDED transactions in last 30d (total rows=${recentTxData?.length ?? 0})`,
+  );
 
   const sortedByTx = [...txCounts.entries()].sort(([, a], [, b]) => b - a);
-
-  // Prefer ≥5 trades; fall back to ≥1 trade if none.
+  // Prefer ≥5 trades; fall back to ≥1 if the platform has low recent volume.
   const bestEntry =
     sortedByTx.find(([, c]) => c >= 5) ?? sortedByTx.find(([, c]) => c >= 1);
 
-  if (bestEntry) {
-    KNOWN_FLOW_ID = flowMap.get(bestEntry[0]) ?? "";
-    console.log(
-      `[judge] moment-detail-chart: resolved KNOWN_FLOW_ID=${KNOWN_FLOW_ID} ` +
-        `(moment_id=${bestEntry[0]}, tx_count_30d=${bestEntry[1]})`,
+  if (!bestEntry) {
+    throw new Error(
+      "[judge] moment-detail-chart: 0 SUCCEEDED transactions with completed_at in " +
+        `last 30 days. tx_count_map_size=${txCounts.size}. ` +
+        "Check topshot.transactions completed_at population and RLS. " +
+        "If Top Shot has genuinely had 0 sales in 30 days, mark feature blocked.",
     );
   }
 
-  // Last resort: use the first listed moment even if 0 recent transactions.
-  // The step-4b SVG assertion will fail if 0 trades → actionable failure.
-  if (!KNOWN_FLOW_ID) {
-    const fallback = sample.find((r) => r.moment_flow_id);
-    KNOWN_FLOW_ID = fallback?.moment_flow_id ?? "";
-    if (KNOWN_FLOW_ID) {
-      console.log(
-        `[judge] moment-detail-chart: WARNING — falling back to first listed moment ` +
-          `KNOWN_FLOW_ID=${KNOWN_FLOW_ID} (0 recent transactions found via batch query). ` +
-          "Step 4b SVG assertion may fail.",
-      );
-    }
+  const bestMomentId = bestEntry[0];
+  const bestTxCount = bestEntry[1];
+
+  // Step 3: look up moment_flow_id for the best moment_id.
+  type MRow = { moment_flow_id: string | null };
+  const { data: momentRowData, error: momentErr } = await sb
+    .from("moments")
+    .select("moment_flow_id")
+    .eq("moment_id", bestMomentId)
+    .maybeSingle();
+
+  if (momentErr) {
+    throw new Error(
+      `[judge] moment-detail-chart: moment lookup failed for moment_id=${bestMomentId}: ` +
+        JSON.stringify(momentErr),
+    );
+  }
+  if (!momentRowData) {
+    throw new Error(
+      `[judge] moment-detail-chart: moment_id=${bestMomentId} not found in topshot.moments. ` +
+        "Transaction references a moment that was removed from the table.",
+    );
   }
 
+  KNOWN_FLOW_ID = (momentRowData as MRow).moment_flow_id ?? "";
   if (!KNOWN_FLOW_ID) {
     throw new Error(
-      "[judge] moment-detail-chart: Could not resolve any KNOWN_FLOW_ID. " +
-        `sample_size=${sample.length}, moments_with_tx=${txCounts.size}. ` +
-        "Check topshot.moments listing_price_usd population.",
+      `[judge] moment-detail-chart: moment_flow_id is null for moment_id=${bestMomentId}. ` +
+        "Check topshot.moments.moment_flow_id population.",
     );
   }
+
+  console.log(
+    `[judge] moment-detail-chart: resolved KNOWN_FLOW_ID=${KNOWN_FLOW_ID} ` +
+      `(moment_id=${bestMomentId}, tx_count_30d=${bestTxCount})`,
+  );
 });
 
 test(

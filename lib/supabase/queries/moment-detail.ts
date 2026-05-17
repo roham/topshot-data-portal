@@ -11,7 +11,7 @@ export type MomentHistoryWindow = "1d" | "7d" | "1m" | "3m" | "ytd" | "all";
 
 export interface MomentHistoryPoint {
   transaction_id: string;
-  ts: string; // ISO source_updated_at
+  ts: string; // ISO completed_at (actual sale settlement date)
   price_usd: number;
   buyer_safe_name: string | null;
   seller_safe_name: string | null;
@@ -59,11 +59,16 @@ async function _getMomentHistory({
     const momentId = (momentRow["moment_id"] as string | null) ?? null;
     if (!momentId) return [];
 
+    // Use completed_at (actual sale settlement date) per features.json data_source spec.
+    // source_updated_at is the BQ ETL row-ingestion timestamp — using it as a window
+    // filter incorrectly excludes historical sales that were backfill-loaded after the
+    // sale date, and the prior runs showed 0 rows for all sampled listed moments.
+    // completed_at has a dedicated index: idx_transactions_completed_at DESC NULLS LAST.
     let q = sb
       .from("transactions")
       .select(
         `transaction_id,
-         source_updated_at,
+         completed_at,
          gross_amount_usd,
          buyer_safe_name,
          seller_safe_name`,
@@ -71,10 +76,11 @@ async function _getMomentHistory({
       .eq("moment_id", momentId)
       .eq("transaction_state_id", "SUCCEEDED")
       .not("gross_amount_usd", "is", null)
-      .order("source_updated_at", { ascending: true });
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: true });
 
     const since = windowToSince(window);
-    if (since) q = q.gte("source_updated_at", since);
+    if (since) q = q.gte("completed_at", since);
 
     const { data, error } = await q;
     if (error) {
@@ -83,19 +89,19 @@ async function _getMomentHistory({
     }
     type Row = {
       transaction_id: string;
-      source_updated_at: string | null;
+      completed_at: string | null;
       gross_amount_usd: number | null;
       buyer_safe_name: string | null;
       seller_safe_name: string | null;
     };
     return ((data as Row[] | null) ?? [])
       .filter(
-        (r): r is Row & { source_updated_at: string; gross_amount_usd: number } =>
-          !!r.source_updated_at && r.gross_amount_usd != null,
+        (r): r is Row & { completed_at: string; gross_amount_usd: number } =>
+          !!r.completed_at && r.gross_amount_usd != null,
       )
       .map((r) => ({
         transaction_id: r.transaction_id,
-        ts: r.source_updated_at,
+        ts: r.completed_at,
         price_usd: Number(r.gross_amount_usd),
         buyer_safe_name: r.buyer_safe_name,
         seller_safe_name: r.seller_safe_name,
@@ -108,7 +114,8 @@ async function _getMomentHistory({
 
 export const getMomentHistory = unstable_cache(
   _getMomentHistory,
-  ["moment-history"],
+  // v2: busts the old source_updated_at-keyed cache; now uses completed_at.
+  ["moment-history-v2"],
   { revalidate: 60, tags: ["moment-history"] },
 );
 
@@ -299,6 +306,7 @@ async function _getMomentEditionPriceDistribution(
     const momentIds = [anchorMomentId, ...additionalIds];
 
     // Stage 2 — fetch transaction prices for those moment_ids.
+    // Use completed_at (actual sale date) consistent with getMomentHistory.
     const since = windowToSince(window);
 
     let q = sb
@@ -307,10 +315,11 @@ async function _getMomentEditionPriceDistribution(
       .in("moment_id", momentIds)
       .eq("transaction_state_id", "SUCCEEDED")
       .not("gross_amount_usd", "is", null)
-      .order("source_updated_at", { ascending: false })
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
       .limit(500);
 
-    if (since) q = q.gte("source_updated_at", since);
+    if (since) q = q.gte("completed_at", since);
 
     const { data, error } = await q;
     if (error) {
