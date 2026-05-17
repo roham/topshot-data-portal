@@ -9,17 +9,19 @@ interface CardProps {
   children: ReactNode;
   variant?: "default" | "inset" | "dense";
   className?: string;
+  "data-testid"?: string;
 }
 
 // Section card. Surface-1 bg, subtle 1px border, 6px radius, 12px padding.
 // Has an optional section header (uppercase mono, tracking 0.06em), optional
 // right slot, and an optional methodology caption at the bottom (the honest-
 // disclosure footer for any chart card).
-export function Card({ title, subtitle, right, methodology, children, variant = "default", className }: CardProps) {
+export function Card({ title, subtitle, right, methodology, children, variant = "default", className, "data-testid": dataTestId }: CardProps) {
   const padding =
     variant === "inset" ? "p-0" : variant === "dense" ? "p-2" : "p-3";
   return (
     <section
+      data-testid={dataTestId}
       className={cn(
         "bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-md",
         padding,

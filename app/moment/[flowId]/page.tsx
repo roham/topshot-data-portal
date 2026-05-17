@@ -235,10 +235,11 @@ export default async function MomentPage({
 
       {/* ===== Price history · Supabase ===== */}
       <Card
+        data-testid="price-history-card"
         title="Price history"
         subtitle={`${history.length} sales · this serial · Supabase`}
         variant="inset"
-        methodology="topshot.transactions filtered by moment_id (resolved from moment_flow_id), state SUCCEEDED, ordered by source_updated_at ASC. Time-tab clicks update ?h= and re-fetch with a different WHERE clause."
+        methodology="topshot.transactions filtered by moment_id (resolved from moment_flow_id), state SUCCEEDED, ordered by completed_at ASC. Time-tab clicks update ?h= and re-fetch with a different WHERE clause."
       >
         <MomentPriceHistory
           data={history.map((p) => ({ ts: p.ts, price_usd: p.price_usd }))}

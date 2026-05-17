@@ -72,6 +72,7 @@ function Inner({ data, active }: Props) {
                 key={w}
                 role="radio"
                 aria-checked={isActive}
+                data-testid={`price-history-tab-${w}`}
                 onClick={() => void setW(w)}
                 className={
                   "px-2 py-1 text-[10px] tracking-data-label font-mono transition-colors " +
