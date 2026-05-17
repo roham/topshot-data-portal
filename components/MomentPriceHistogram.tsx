@@ -135,14 +135,16 @@ interface Props {
 
 export function MomentPriceHistogram({ prices, window }: Props) {
   // Honest absence (Pillar 5 §2): EmptyState, not a blank chart area.
+  // NOTE: data-testid="price-histogram" is intentionally NOT here — it lives on
+  // the server-rendered wrapper div in app/moment/[flowId]/page.tsx. This avoids
+  // Playwright hydration-race failures where getByText / locator("svg") return 0
+  // during React's reconciliation phase (research/features/moment-detail-histogram.md §8).
   if (prices.length === 0) {
     return (
-      <div data-testid="price-histogram">
-        <EmptyState
-          title="No sale data for this window"
-          body={`No completed transactions for this edition in the ${WINDOW_LABELS[window]} window. Source: topshot.transactions filtered by edition_id via moments!inner.`}
-        />
-      </div>
+      <EmptyState
+        title="No sale data for this window"
+        body={`No completed transactions for this edition in the ${WINDOW_LABELS[window]} window. Source: topshot.transactions filtered by edition_id via moments!inner.`}
+      />
     );
   }
 
@@ -150,7 +152,7 @@ export function MomentPriceHistogram({ prices, window }: Props) {
   const buckets = pricesToBuckets(prices, bucketWidth);
 
   return (
-    <div data-testid="price-histogram" className="px-3 pb-3">
+    <div className="px-3 pb-3">
       <ResponsiveContainer width="100%" height={220}>
         <BarChart
           data={buckets}

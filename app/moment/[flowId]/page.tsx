@@ -279,7 +279,13 @@ export default async function MomentPage({
         variant="inset"
         methodology="topshot.transactions filtered by edition_id via moments!inner; SUCCEEDED state only; up to 500 most-recent transactions; buckets auto-derived from price range."
       >
-        <MomentPriceHistogram prices={priceDistribution} window={historyWindow} />
+        {/* data-testid on this server-rendered wrapper — NOT inside the "use client"
+            MomentPriceHistogram component — so Playwright's locator anchor is
+            SSR-stable and immune to React hydration races (see
+            research/features/moment-detail-histogram.md §8). */}
+        <div data-testid="price-histogram">
+          <MomentPriceHistogram prices={priceDistribution} window={historyWindow} />
+        </div>
       </Card>
 
       {/* ===== Circulation breakdown · Supabase ===== */}
