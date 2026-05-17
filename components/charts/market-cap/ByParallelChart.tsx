@@ -10,32 +10,7 @@ import {
   Cell,
 } from "recharts";
 import type { ParallelMcapRow } from "@/lib/supabase/queries/market-cap-landing";
-
-const palette = [
-  "#94a3b8", // Base — neutral
-  "#fbbf24", // Explosion
-  "#f87171", // Torn
-  "#60a5fa", // Vortex
-  "#34d399", // Rippled
-  "#a78bfa", // Coded
-  "#fb7185", // Halftone
-  "#22d3ee", // Bubbled
-  "#fdba74", // Diced
-  "#c084fc", // Bit
-  "#67e8f9", // Vibe
-  "#86efac", // Astra
-  "#fcd34d", // Diamond
-  "#fca5a5", // Voltage
-  "#bef264", // Livewire
-  "#f9a8d4", // Championship
-  "#fdba74", // Club Collection
-  "#7dd3fc", // Blockchain
-  "#a3e635", // Hardcourt
-  "#f0abfc", // Hexwave
-  "#fde047", // Jukebox
-  "#a5b4fc", // Galactic
-  "#f472b6", // Omega
-];
+import { colorForParallel } from "@/lib/chart-palette";
 
 function fmtUSD(n: number): string {
   if (!n) return "$0";
@@ -50,6 +25,7 @@ export function ByParallelChart({ rows }: { rows: ParallelMcapRow[] }) {
     name: r.parallel_name,
     mcap: r.total_mcap,
     editions: r.edition_count,
+    color: colorForParallel(r.parallel_id ?? null),
   }));
 
   return (
@@ -86,7 +62,7 @@ export function ByParallelChart({ rows }: { rows: ParallelMcapRow[] }) {
         />
         <Bar dataKey="mcap" radius={[0, 2, 2, 0]}>
           {data.map((d, i) => (
-            <Cell key={i} fill={palette[i % palette.length]} />
+            <Cell key={i} fill={d.color} />
           ))}
         </Bar>
       </BarChart>

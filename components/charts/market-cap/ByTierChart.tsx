@@ -11,16 +11,7 @@ import {
   LabelList,
 } from "recharts";
 import type { TierMcapRow } from "@/lib/supabase/queries/market-cap-landing";
-
-const tierColor: Record<string, string> = {
-  Common: "#94a3b8",
-  Fandom: "#fcd34d",
-  Rare: "#67e8f9",
-  Legendary: "#a78bfa",
-  Ultimate: "#fb7185",
-  Anthology: "#f472b6",
-  Unknown: "#475569",
-};
+import { colorForTier } from "@/lib/chart-palette";
 
 function fmtUSD(n: number): string {
   if (!n) return "$0";
@@ -35,7 +26,7 @@ export function ByTierChart({ rows }: { rows: TierMcapRow[] }) {
     tier: r.tier_name,
     mcap: r.total_mcap,
     editions: r.edition_count,
-    color: tierColor[r.tier_name] ?? "#475569",
+    color: colorForTier(r.tier_name),
   }));
 
   return (

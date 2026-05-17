@@ -11,13 +11,7 @@ import {
   LabelList,
 } from "recharts";
 import type { PlayerMcapRow } from "@/lib/supabase/queries/market-cap-landing";
-
-const palette = [
-  "#7dd3fc", "#67e8f9", "#5eead4", "#86efac", "#bef264",
-  "#fde047", "#fdba74", "#fca5a5", "#f9a8d4", "#c4b5fd",
-  "#7dd3fc", "#67e8f9", "#5eead4", "#86efac", "#bef264",
-  "#fde047", "#fdba74", "#fca5a5", "#f9a8d4", "#c4b5fd",
-];
+import { colorForRank } from "@/lib/chart-palette";
 
 function fmtUSD(n: number): string {
   if (!n) return "$0";
@@ -68,7 +62,7 @@ export function TopPlayersChart({ rows }: { rows: PlayerMcapRow[] }) {
         />
         <Bar dataKey="mcap" radius={[0, 2, 2, 0]}>
           {data.map((_, i) => (
-            <Cell key={i} fill={palette[i % palette.length]} />
+            <Cell key={i} fill={colorForRank(i)} />
           ))}
           <LabelList
             dataKey="mcap"

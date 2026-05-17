@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { MoverRow } from "@/lib/supabase/queries/market-cap-landing";
+import { DIRECTION_COLOR } from "@/lib/chart-palette";
 
 function fmtUSD(n: number): string {
   if (!n) return "$0";
@@ -40,13 +41,13 @@ export function MoversChart({
         name: m.player_name,
         pct: m.pct_change,
         latest: m.latest_mcap,
-        color: "#fb7185",
+        color: DIRECTION_COLOR.down,
       })),
     ...gainers.map((m) => ({
       name: m.player_name,
       pct: m.pct_change,
       latest: m.latest_mcap,
-      color: "#5eead4",
+      color: DIRECTION_COLOR.up,
     })),
   ];
 
