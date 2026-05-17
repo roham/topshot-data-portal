@@ -163,6 +163,10 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
         )
         .order("total_market_cap_usd", { ascending: false })
         .limit(20),
+      // NOTE: every paged query has an explicit .order(...) so .range()
+      // pagination returns deterministic, balanced chunks. Without ordering,
+      // PostgREST returns rows in unspecified order and pages skew toward
+      // earlier-inserted rows (latest-date data ends up under-represented).
       pagedFetch<{
         edition_id: string;
         market_cap: number | string | null;
@@ -178,6 +182,7 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
             .eq("date", asOfDate)
             .not("market_cap", "is", null)
             .gt("market_cap", 0)
+            .order("edition_id", { ascending: true })
             .range(from, to),
         50000,
       ),
@@ -193,6 +198,8 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
             .gte("date", sinceDate)
             .not("market_cap", "is", null)
             .gt("market_cap", 0)
+            .order("date", { ascending: true })
+            .order("edition_id", { ascending: true })
             .range(from, to),
         200000,
       ),
@@ -207,6 +214,7 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
           sb
             .from("editions")
             .select("edition_id, tier_name, set_id, parallel_id, player_id")
+            .order("edition_id", { ascending: true })
             .range(from, to),
         50000,
       ),
@@ -216,7 +224,11 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
         series_number: number | null;
       }>(
         (from, to) =>
-          sb.from("sets").select("set_id, set_name, series_number").range(from, to),
+          sb
+            .from("sets")
+            .select("set_id, set_name, series_number")
+            .order("set_id", { ascending: true })
+            .range(from, to),
         5000,
       ),
       pagedFetch<{
@@ -231,6 +243,7 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
             .select(
               "player_id, full_name, last_known_team_full_name, last_known_team_id",
             )
+            .order("player_id", { ascending: true })
             .range(from, to),
         10000,
       ),
@@ -532,13 +545,16 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
     }
 
     // ── Concentration ────────────────────────────────────────────────
-    // Use top-N share from mv_player_market_cap
-    const { data: allPlayers } = await sb
-      .from("mv_player_market_cap")
-      .select("total_market_cap_usd")
-      .order("total_market_cap_usd", { ascending: false })
-      .limit(2000);
-    const allPlayersRaw = (allPlayers ?? []) as Array<{ total_market_cap_usd: number | string | null }>;
+    // Use top-N share from mv_player_market_cap (paged because PostgREST caps at 1000)
+    const allPlayersRaw = await pagedFetch<{ total_market_cap_usd: number | string | null }>(
+      (from, to) =>
+        sb
+          .from("mv_player_market_cap")
+          .select("total_market_cap_usd")
+          .order("total_market_cap_usd", { ascending: false })
+          .range(from, to),
+      5000,
+    );
     const allMcap: number[] = allPlayersRaw.map((p) =>
       Number(p.total_market_cap_usd ?? 0),
     );
