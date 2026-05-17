@@ -59,8 +59,8 @@
       ],
       "priority": 2,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T07:56:57.424Z",
       "blocked": false,
       "fail_reasons": [
         {
@@ -77,7 +77,14 @@
         "TradingView candlestick + time-window selector",
         "StockX historical sales chart"
       ],
-      "data_viz_kind": "time-series-line"
+      "data_viz_kind": "time-series-line",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T07:56:57.424Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/moment-detail-chart/2026-05-17T07-56-47-394Z",
+          "portal_url": "https://topshot-data-portal-7em5i1hu8-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "moment-detail-circulation",
