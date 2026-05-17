@@ -28,6 +28,9 @@ export interface PlayerMarketCapRow {
   delta_pct_24h: number | null;        // null when prior-day snapshot absent (honest absence)
   sparkline: number[];                 // 7-day market cap totals, oldest→newest
   as_of_date: string | null;
+  // Stage 4 additions — from topshot.players (filter rail)
+  league: string | null;
+  last_play_date: string | null;       // ISO date; null = draft-only/historical player
 }
 
 export interface PlayersMarketCapResult {
@@ -146,6 +149,36 @@ async function _getPlayersMarketCap(): Promise<PlayersMarketCapResult> {
     const latestDate = distinctDates[0] ?? null;
     const prevDate = distinctDates[1] ?? null;
 
+    // ── Stage 4: league + date_of_last_play from topshot.players ─────────
+    // Native PostgREST filter — never exec_sql (gotcha: exec-sql-rpc-is-30x-slower).
+    // ≤ 200 rows; completes in < 100ms.
+    let playerMetaRows: Array<{
+      player_id: string;
+      league: string | null;
+      date_of_last_play: string | null;
+    }> = [];
+
+    if (playerIds.length > 0) {
+      const { data: pmData, error: pmErr } = await sb
+        .from("players")
+        .select("player_id, league, date_of_last_play")
+        .in("player_id", playerIds);
+
+      if (pmErr) {
+        console.error("[players-marketcap] players meta read failed", pmErr);
+      } else {
+        playerMetaRows =
+          (pmData as typeof playerMetaRows | null) ?? [];
+      }
+    }
+
+    const leagueByPlayer = new Map<string, string | null>();
+    const lastPlayByPlayer = new Map<string, string | null>();
+    for (const pm of playerMetaRows) {
+      leagueByPlayer.set(pm.player_id, pm.league);
+      lastPlayByPlayer.set(pm.player_id, pm.date_of_last_play ?? null);
+    }
+
     // ── Build result rows ─────────────────────────────────────────────────
     const rows: PlayerMarketCapRow[] = mvRows.map((mv) => {
       const totalMinted = mintedByPlayer.get(mv.player_id) ?? null;
@@ -180,6 +213,8 @@ async function _getPlayersMarketCap(): Promise<PlayersMarketCapResult> {
         delta_pct_24h: deltaPct,
         sparkline,
         as_of_date: mv.as_of_date,
+        league: leagueByPlayer.get(mv.player_id) ?? null,
+        last_play_date: lastPlayByPlayer.get(mv.player_id) ?? null,
       };
     });
 
