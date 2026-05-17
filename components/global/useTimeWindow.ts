@@ -18,7 +18,12 @@ export {
 export type { TimeWindow, WindowSpec } from "./window-types";
 
 function parserFor(def: TimeWindow) {
-  return parseAsStringEnum<TimeWindow>([...TIME_WINDOWS]).withDefault(def);
+  // shallow: false → URL changes trigger a real navigation event so server
+  // components reading searchParams re-run. Without this, the URL updates
+  // but the page stays on whatever data it loaded with.
+  return parseAsStringEnum<TimeWindow>([...TIME_WINDOWS])
+    .withDefault(def)
+    .withOptions({ shallow: false });
 }
 
 /**

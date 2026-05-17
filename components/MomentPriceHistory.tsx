@@ -62,7 +62,9 @@ function Inner({ data, active }: Props) {
   // to initialise nuqs — nuqs reads `?h=` from the URL on mount so they agree.
   const [currentW, setW] = useQueryState(
     "h",
-    parseAsStringEnum<Window>([...WINDOWS]).withDefault("1m"),
+    parseAsStringEnum<Window>([...WINDOWS])
+      .withDefault("1m")
+      .withOptions({ history: "replace", shallow: false }),
   );
   // Fall back to server prop if nuqs hasn't hydrated yet (SSR).
   const displayW = currentW ?? active;

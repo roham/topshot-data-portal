@@ -99,7 +99,12 @@ function Inner({
   recentSales,
   initialSerial,
 }: SerialValuationInputProps) {
-  const [serial, setSerial] = useQueryState("s", parseAsInteger);
+  // shallow:false so the URL change re-runs the server component that
+   // resolves valuation for the new serial.
+  const [serial, setSerial] = useQueryState(
+    "s",
+    parseAsInteger.withOptions({ history: "replace", shallow: false }),
+  );
 
   // On first render, nuqs reads `?s=` from URL, so `serial` will equal
   // `initialSerial` if set (or null if not). We don't need to initialise
