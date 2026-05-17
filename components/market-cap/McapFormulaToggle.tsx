@@ -2,8 +2,8 @@
 
 import { Suspense } from "react";
 import { useQueryState, parseAsStringEnum } from "nuqs";
+import type { McapFormula } from "@/lib/market-cap/mcap-formula";
 
-export type McapFormula = "floor" | "avg_sale";
 const FORMULAS: McapFormula[] = ["floor", "avg_sale"];
 
 const LABELS: Record<McapFormula, { label: string; sub: string }> = {
@@ -53,7 +53,3 @@ export function McapFormulaToggle() {
   );
 }
 
-/** Server-side helper: parses ?mcap=... from searchParams without nuqs/Suspense. */
-export function parseMcapFormula(value: string | undefined | null): McapFormula {
-  return value === "avg_sale" ? "avg_sale" : "floor";
-}

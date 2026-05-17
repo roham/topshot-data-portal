@@ -18,7 +18,8 @@ import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
 import { TotalOverTimeChart } from "@/components/charts/market-cap/TotalOverTimeChart";
 import { MoversChart } from "@/components/charts/market-cap/MoversChart";
 import { ConcentrationChart } from "@/components/charts/market-cap/ConcentrationChart";
-import { McapFormulaToggle, parseMcapFormula } from "@/components/market-cap/McapFormulaToggle";
+import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
+import { parseMcapFormula } from "@/lib/market-cap/mcap-formula";
 
 export const metadata: Metadata = {
   title: "Market Cap · TS·PORTAL",
