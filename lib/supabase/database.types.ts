@@ -279,6 +279,60 @@ export interface Tables {
     refreshed_at: string;
   };
 
+  // ─── packs + drops ──────────────────────────────────────────────────
+  packs: {
+    pack_id: string;
+    pack_listing_id: string | null;
+    pack_flow_id: string | null;
+    drop_id: string | null;
+    reservation_id: string | null;
+    version: string | null;
+    pack_name: string | null;
+    description: string | null;
+    image_url: string | null;
+    is_starter_pack: boolean | null;
+    is_reward: boolean | null;
+    max_order_quantity: number | null;
+    moments_per_pack: number | null;
+    total_packs: number | null;
+    total_moments: number | null;
+    pack_status: "SEALED" | "OPENED" | null;
+    opened_at: string | null;
+    fulfillment_tx_hash: string | null;
+    is_preorder: boolean | null;
+    price: number | null;
+    currency: string | null;
+    leagues: string[] | null;
+    primary_league: string | null;
+    secondary_league: string | null;
+    gated_criteria: string | null;
+    sale_type: string | null;
+    pack_tier_id: string | null;
+    pack_tier_name: string | null;
+    pack_rarity: number | null;
+    started_at: string | null;
+    expired_at: string | null;
+    container_pack_id: string | null;
+    is_container: boolean | null;
+    inserted_at: string;
+    updated_at: string;
+  };
+  drops: {
+    drop_id: string;
+    started_at: string | null;
+    expired_at: string | null;
+    drop_duration_type: string | null;
+    is_active: boolean | null;
+    has_preorders: boolean | null;
+    total_pack_listings: number | null;
+    total_packs: number | null;
+    total_moments: number | null;
+    percent_reserved_packs: number | null;
+    is_queued: boolean | null;
+    inserted_at: string;
+    updated_at: string;
+  };
+
   // ─── ETL heartbeat (anon-read) ─────────────────────────────────────
   _etl_heartbeat: {
     id: number;
