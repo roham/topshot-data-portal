@@ -90,94 +90,106 @@ test.beforeAll(async () => {
     }
   }
 
-  // ── Pattern C — use project-standard supabaseAdmin() ─────────────────────
-  // supabaseAdmin() from lib/supabase/admin.ts uses createClient<AdminDatabase,"topshot">
-  // with proper TypeScript generics, which guarantees db.schema="topshot" is
-  // applied at construction time. The prior approach (raw createClient + @ts-expect-error)
-  // may have silently fallen back to public schema in some @supabase/supabase-js versions,
-  // causing .from("transactions") to hit public.transactions (non-existent),
-  // returning txErr → beforeAll throw → empty captures directory.
+  // ── Moments-first Pattern C — mirrors getMomentHistory's query path ─────────
+  // Prior approach queried transactions broadly and tried to reverse-join to
+  // moments. This failed because some transaction moment_ids are for burned/
+  // removed moments that no longer exist in topshot.moments.
   //
-  // Find a moment_id with ≥5 SUCCEEDED transactions in the last 30 days,
-  // then resolve its moment_flow_id for the URL (/moment/[flowId]).
+  // NEW: Query moments first (guaranteed to exist in the table) → batch-check
+  // which ones have transactions → pick the one with the most trades.
+  // This mirrors the production query path: moments → moment_id → transactions.
+  //
+  // supabaseAdmin() bypasses RLS, uses db.schema="topshot" via generics.
   const sb = supabaseAdmin();
-
-  // Pull up to 5 000 SUCCEEDED transactions from the last 30 days,
-  // group by moment_id client-side, pick the most-traded one.
   const since30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const { data: txData, error: txErr } = await sb
-    .from("transactions")
-    .select("moment_id")
-    .eq("transaction_state_id", "SUCCEEDED")
-    .not("gross_amount_usd", "is", null)
-    .gte("source_updated_at", since30d)
-    .limit(5000);
 
-  if (txErr) {
-    throw new Error(
-      `[judge] moment-detail-chart: transactions query failed: ${JSON.stringify(txErr)}`,
-    );
-  }
+  // Step 1: Get a broad sample of moments that are currently active (listed or
+  // recently acquired). Limit 500 to get enough coverage without large payloads.
+  type MRow = { moment_id: string; moment_flow_id: string | null };
 
-  const counts = new Map<string, number>();
-  for (const t of (txData ?? []) as Array<{ moment_id: string }>) {
-    if (t.moment_id)
-      counts.set(t.moment_id, (counts.get(t.moment_id) ?? 0) + 1);
-  }
-  const sorted = [...counts.entries()]
-    .filter(([, c]) => c >= 5)
-    .sort(([, a], [, b]) => b - a);
-
-  if (!sorted.length) {
-    throw new Error(
-      "[judge] moment-detail-chart: No moment_id with ≥5 SUCCEEDED " +
-        "transactions in the last 30 days. Check topshot.transactions ETL.",
-    );
-  }
-
-  // Take up to 50 top candidates and batch-resolve moment_flow_id.
-  // Some moment_ids in transactions may not exist in moments (e.g. burned/removed
-  // moments whose rows were deleted). We pick the first candidate that resolves.
-  const topCandidates = sorted.slice(0, 50).map(([id]) => id);
-
-  const { data: momentRows, error: momentErr } = await sb
+  const { data: sampleData, error: sampleErr } = await sb
     .from("moments")
     .select("moment_id, moment_flow_id")
-    .in("moment_id", topCandidates);
+    .not("moment_flow_id", "is", null)
+    .not("listing_price_usd", "is", null)
+    .limit(500);
 
-  if (momentErr) {
+  if (sampleErr) {
     throw new Error(
-      `[judge] moment-detail-chart: moments batch lookup failed: ${JSON.stringify(momentErr)}`,
+      `[judge] moment-detail-chart: moments sample query failed: ${JSON.stringify(sampleErr)}`,
     );
   }
 
-  type MomentRow = { moment_id: string; moment_flow_id: string | null };
-  const resolvedRows = (momentRows as MomentRow[] | null) ?? [];
+  const sample = (sampleData as MRow[] | null) ?? [];
+  if (!sample.length) {
+    throw new Error(
+      "[judge] moment-detail-chart: topshot.moments returned 0 rows with " +
+        "listing_price_usd IS NOT NULL. ETL may be stale or RLS blocks access.",
+    );
+  }
 
-  // Build a map and pick the best candidate (highest tx_count with valid flow_id).
+  // Step 2: batch-query transactions for these moment_ids to find those with
+  // recent trades. Process in groups of 50 (PostgREST IN URL-length safety).
+  const momentIds = sample.map((r) => r.moment_id).filter(Boolean) as string[];
+  const txCounts = new Map<string, number>();
+  const BATCH_SIZE = 50;
+
+  for (let i = 0; i < Math.min(momentIds.length, 300); i += BATCH_SIZE) {
+    const batch = momentIds.slice(i, i + BATCH_SIZE);
+    const { data: batchTxData } = await sb
+      .from("transactions")
+      .select("moment_id")
+      .in("moment_id", batch)
+      .eq("transaction_state_id", "SUCCEEDED")
+      .not("gross_amount_usd", "is", null)
+      .gte("source_updated_at", since30d)
+      .limit(2000);
+
+    for (const t of (batchTxData ?? []) as Array<{ moment_id: string }>) {
+      if (t.moment_id)
+        txCounts.set(t.moment_id, (txCounts.get(t.moment_id) ?? 0) + 1);
+    }
+  }
+
+  // Step 3: build flow_id map and pick the best candidate.
   const flowMap = new Map<string, string>();
-  for (const r of resolvedRows) {
+  for (const r of sample) {
     if (r.moment_id && r.moment_flow_id) flowMap.set(r.moment_id, r.moment_flow_id);
   }
 
-  for (const [id, txCount] of sorted) {
-    const flowId = flowMap.get(id);
-    if (flowId) {
-      KNOWN_FLOW_ID = flowId;
+  const sortedByTx = [...txCounts.entries()].sort(([, a], [, b]) => b - a);
+
+  // Prefer ≥5 trades; fall back to ≥1 trade if none.
+  const bestEntry =
+    sortedByTx.find(([, c]) => c >= 5) ?? sortedByTx.find(([, c]) => c >= 1);
+
+  if (bestEntry) {
+    KNOWN_FLOW_ID = flowMap.get(bestEntry[0]) ?? "";
+    console.log(
+      `[judge] moment-detail-chart: resolved KNOWN_FLOW_ID=${KNOWN_FLOW_ID} ` +
+        `(moment_id=${bestEntry[0]}, tx_count_30d=${bestEntry[1]})`,
+    );
+  }
+
+  // Last resort: use the first listed moment even if 0 recent transactions.
+  // The step-4b SVG assertion will fail if 0 trades → actionable failure.
+  if (!KNOWN_FLOW_ID) {
+    const fallback = sample.find((r) => r.moment_flow_id);
+    KNOWN_FLOW_ID = fallback?.moment_flow_id ?? "";
+    if (KNOWN_FLOW_ID) {
       console.log(
-        `[judge] moment-detail-chart: resolved KNOWN_FLOW_ID=${KNOWN_FLOW_ID} ` +
-          `(moment_id=${id}, tx_count_30d=${txCount})`,
+        `[judge] moment-detail-chart: WARNING — falling back to first listed moment ` +
+          `KNOWN_FLOW_ID=${KNOWN_FLOW_ID} (0 recent transactions found via batch query). ` +
+          "Step 4b SVG assertion may fail.",
       );
-      break;
     }
   }
 
   if (!KNOWN_FLOW_ID) {
     throw new Error(
-      "[judge] moment-detail-chart: No moment_id with ≥5 SUCCEEDED transactions " +
-        "could be resolved to a moment_flow_id. " +
-        `top_candidates=${topCandidates.length}, resolved_in_moments=${resolvedRows.length}. ` +
-        "Check topshot.moments ↔ topshot.transactions FK integrity.",
+      "[judge] moment-detail-chart: Could not resolve any KNOWN_FLOW_ID. " +
+        `sample_size=${sample.length}, moments_with_tx=${txCounts.size}. ` +
+        "Check topshot.moments listing_price_usd population.",
     );
   }
 });
