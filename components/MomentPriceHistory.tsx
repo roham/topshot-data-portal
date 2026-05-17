@@ -64,6 +64,7 @@ function Inner({ data, active }: Props) {
           className="inline-flex items-center bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded overflow-hidden"
           role="radiogroup"
           aria-label="History window"
+          data-testid="price-history-tabs"
         >
           {WINDOWS.map((w) => {
             const isActive = w === active;
@@ -72,6 +73,7 @@ function Inner({ data, active }: Props) {
                 key={w}
                 role="radio"
                 aria-checked={isActive}
+                data-testid={`price-tab-${w}`}
                 onClick={() => void setW(w)}
                 className={
                   "px-2 py-1 text-[10px] tracking-data-label font-mono transition-colors " +
@@ -85,7 +87,10 @@ function Inner({ data, active }: Props) {
             );
           })}
         </div>
-        <span className="ml-auto text-[10px] text-[var(--text-faint)] font-mono">
+        <span
+          className="ml-auto text-[10px] text-[var(--text-faint)] font-mono"
+          data-testid="price-history-window-label"
+        >
           {data.length} sales · {active === "all" ? "all time" : LABELS[active]}
         </span>
       </div>
@@ -97,13 +102,16 @@ function Inner({ data, active }: Props) {
 function Chart({ data }: { data: PricePoint[] }) {
   if (data.length === 0) {
     return (
-      <div className="px-3 pb-3 text-[11px] text-[var(--text-faint)]">
+      <div
+        className="px-3 pb-3 text-[11px] text-[var(--text-faint)]"
+        data-testid="price-history-empty"
+      >
         No transactions for this moment in the selected window.
       </div>
     );
   }
   return (
-    <div className="h-[280px] w-full px-3 pb-3">
+    <div className="h-[280px] w-full px-3 pb-3" data-testid="price-history-chart">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={data.map((p) => ({
