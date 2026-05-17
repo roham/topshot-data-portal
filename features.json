@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md §3-4 and research/00-product-pillars-v3.md. v1.2.0: re-opened 8 features after Roham's 14:40Z visual review found honest-empty-state was passing where data-rendering was needed.",
-  "version": "1.3.0",
+  "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md \u00a73-4 and research/00-product-pillars-v3.md. v1.2.0: re-opened 8 features after Roham's 14:40Z visual review found honest-empty-state was passing where data-rendering was needed.",
+  "version": "1.4.0",
   "authored_at": "2026-05-16T20:50:00Z",
   "authored_by": "dexter",
   "reference": {
@@ -70,16 +70,16 @@
         {
           "at": "2026-05-17T14:51:56.116342Z",
           "report": "inline: Roham visual review 2026-05-17 14:40Z",
-          "shape": "Judge passed against flowId 47863705 which has 0 sales for that specific serial → chart was honestly empty → judge accepted empty state. Need to pick a flowId with ≥5 sales in the underlying moment (not serial-specific) to demonstrate the chart actually redraws."
+          "shape": "Judge passed against flowId 47863705 which has 0 sales for that specific serial \u2192 chart was honestly empty \u2192 judge accepted empty state. Need to pick a flowId with \u22655 sales in the underlying moment (not serial-specific) to demonstrate the chart actually redraws."
         },
         {
           "at": "2026-05-17T16:36:18.459Z",
           "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/moment-detail-chart-2026-05-17T16-36-18-459Z.md"
         }
       ],
-      "acceptance": "As a trader, I open a moment detail page for a flowId WITH AT LEAST 5 RECORDED SALES, click between time-window tabs (1D, 7D, 1M, 3M, YTD, ALL), and the chart line actually redraws with sale dots. The 1Y window shows multiple dots; the 1D window shows the most recent sale(s) or honest empty for old moments. Tab state survives a page refresh. The default time window on landing is 30D (not 24H — most low-volume moments have no 24h activity).",
+      "acceptance": "As a trader, I open a moment detail page for a flowId WITH AT LEAST 5 RECORDED SALES, click between time-window tabs (1D, 7D, 1M, 3M, YTD, ALL), and the chart line actually redraws with sale dots. The 1Y window shows multiple dots; the 1D window shows the most recent sale(s) or honest empty for old moments. Tab state survives a page refresh. The default time window on landing is 30D (not 24H \u2014 most low-volume moments have no 24h activity).",
       "data_source": "topshot.transactions WHERE moment_id = $id AND completed_at >= $window_start",
-      "implementation_hint": "Existing MomentPriceHistory component — handover says tabs decorative; check if URL updates only or actually refetches; client-side state with prefetched data per window",
+      "implementation_hint": "Existing MomentPriceHistory component \u2014 handover says tabs decorative; check if URL updates only or actually refetches; client-side state with prefetched data per window",
       "judge_journey": "loop/judge/journeys/moment-detail-chart.spec.ts",
       "comparable_primary": "OTM moment detail price chart (1D/7D/1M/3M/YTD/ALL tabs)",
       "comparable_cross_domain": [
@@ -123,7 +123,7 @@
         {
           "at": "2026-05-17T14:51:56.116342Z",
           "report": "inline: Roham visual review 2026-05-17 14:40Z",
-          "shape": "Need to verify the circulation breakdown actually shows non-zero buckets — honest empty state is NOT an acceptable PASS here. Judge must pick a flowId from an actively-traded edition."
+          "shape": "Need to verify the circulation breakdown actually shows non-zero buckets \u2014 honest empty state is NOT an acceptable PASS here. Judge must pick a flowId from an actively-traded edition."
         }
       ],
       "acceptance": "As a trader, I see for this edition: absolute count + % of total for each of Owned, Listings, Owned-locked, In a Pack, Locker Room, Burned. Numbers sum to total circulation. The numbers MUST be non-zero for at least Owned and Listings on a flowId with active marketplace presence. Default time window: 30D for any time-keyed metric on this page.",
@@ -159,14 +159,14 @@
         {
           "at": "2026-05-17T14:51:56.116342Z",
           "report": "inline: Roham visual review 2026-05-17 14:40Z",
-          "shape": "Default window 24H caused most rows to show '—' for the delta column per Roham. Reshipping with 30D default. Also: Total Minted and Circ % only populating for some players — Researcher needs to investigate the JOIN."
+          "shape": "Default window 24H caused most rows to show '\u2014' for the delta column per Roham. Reshipping with 30D default. Also: Total Minted and Circ % only populating for some players \u2014 Researcher needs to investigate the JOIN."
         }
       ],
-      "acceptance": "As a trader, I land on /players and see a sortable table ranked by MARKET CAP. Columns: # / Player / Team / # Editions / Total Minted / Circ % / Market Cap / 30D Δ% (DEFAULT 30D, NOT 24H — low-volume moments have no 24h activity for most rows). Sort headers: clickable, persistent across navigation. Total Minted + Circ % populated for ≥80% of visible rows (not just top players).",
+      "acceptance": "As a trader, I land on /players and see a sortable table ranked by MARKET CAP. Columns: # / Player / Team / # Editions / Total Minted / Circ % / Market Cap / 30D \u0394% (DEFAULT 30D, NOT 24H \u2014 low-volume moments have no 24h activity for most rows). Sort headers: clickable, persistent across navigation. Total Minted + Circ % populated for \u226580% of visible rows (not just top players).",
       "data_source": "topshot.mv_player_market_cap (already exists per handover) JOIN topshot.players",
       "implementation_hint": "Read mv_player_market_cap, JOIN players for names/teams; TanStack table sortable; default sort: market_cap DESC",
       "judge_journey": "loop/judge/journeys/players-marketcap.spec.ts",
-      "comparable_primary": "OTM Players view with MARKET CAP column + 24h Δ%",
+      "comparable_primary": "OTM Players view with MARKET CAP column + 24h \u0394%",
       "comparable_cross_domain": [
         "TradingView screener (sortable rankings)",
         "PWCC 500 / Card Ladder CL50"
@@ -198,7 +198,7 @@
           "shape": "Duplicate menu bars appearing on /moments per Roham 2026-05-17 14:40Z. Likely a header component nested inside a layout that already renders the same header. Builder needs to grep for the menu/toolbar component and ensure single mount point."
         }
       ],
-      "acceptance": "As a trader, I click EXPORT on the /moments grid and a CSV downloads with the rows currently visible under my filters. The CSV opens cleanly in Excel/Numbers/Sheets. There is EXACTLY ONE menu bar / toolbar visible on the page — no duplicated EXPORT buttons or duplicated filter controls.",
+      "acceptance": "As a trader, I click EXPORT on the /moments grid and a CSV downloads with the rows currently visible under my filters. The CSV opens cleanly in Excel/Numbers/Sheets. There is EXACTLY ONE menu bar / toolbar visible on the page \u2014 no duplicated EXPORT buttons or duplicated filter controls.",
       "data_source": "Same query as moments-grid, server action streaming CSV",
       "implementation_hint": "Server action returning text/csv; respect the current filter state from URL; cap at 10K rows with a clear UI message if exceeded",
       "judge_journey": "loop/judge/journeys/moments-csv-export.spec.ts",
@@ -243,12 +243,12 @@
         {
           "at": "2026-05-17T14:51:56.116342Z",
           "report": "inline: Roham visual review 2026-05-17 14:40Z",
-          "shape": "CONFIRMED BROKEN: /u/roham shows BAG SIZE 3000 + $15.5M listed + 485 players in header, but the BAG table below is EMPTY (zero rows). Header KPIs and Composition sidebar work; the central table population is broken. Likely a flow_address resolution mismatch or a SELECT clause issue in the bag query. Judge accepted because the header populated and the table headers exist — passed without asserting row count > 0."
+          "shape": "CONFIRMED BROKEN: /u/roham shows BAG SIZE 3000 + $15.5M listed + 485 players in header, but the BAG table below is EMPTY (zero rows). Header KPIs and Composition sidebar work; the central table population is broken. Likely a flow_address resolution mismatch or a SELECT clause issue in the bag query. Judge accepted because the header populated and the table headers exist \u2014 passed without asserting row count > 0."
         }
       ],
-      "acceptance": "As a trader, I visit /u/roham (or any /u/<known-username>) and see the BAG TABLE POPULATED with one row per moment owned (≥100 rows for active collectors). At minimum: play, edition, serial, tier, last sale, current listing price, acquired-at. The header KPIs (BAG SIZE, EST. LISTED VALUE, P&L, DISTINCT PLAYERS) MUST match the table row count (BAG SIZE = row count).",
+      "acceptance": "As a trader, I visit /u/roham (or any /u/<known-username>) and see the BAG TABLE POPULATED with one row per moment owned (\u2265100 rows for active collectors). At minimum: play, edition, serial, tier, last sale, current listing price, acquired-at. The header KPIs (BAG SIZE, EST. LISTED VALUE, P&L, DISTINCT PLAYERS) MUST match the table row count (BAG SIZE = row count).",
       "data_source": "topshot.moments WHERE owner_flow_address = (SELECT flow_address FROM users WHERE username = $u)",
-      "implementation_hint": "Handover Section 2E says this is broken — root cause likely a flow_address resolution or schema mismatch. Read PortfolioBagTable.tsx + debug the query.",
+      "implementation_hint": "Handover Section 2E says this is broken \u2014 root cause likely a flow_address resolution or schema mismatch. Read PortfolioBagTable.tsx + debug the query.",
       "judge_journey": "loop/judge/journeys/collector-bag.spec.ts",
       "comparable_primary": "OTM Collector portfolio (BAG table)",
       "comparable_cross_domain": [
@@ -289,7 +289,7 @@
         {
           "at": "2026-05-17T14:51:56.116342Z",
           "report": "inline: Roham visual review 2026-05-17 14:40Z",
-          "shape": "CONFIRMED BROKEN: Judge picked 'Rookie Debut - Series 2023-24' which has NO data in mv_set_completion_distribution. Page shows 'No completion data — Backfill may still be running' and 'No editions resolved'. Honest absence was accepted as PASS, but Roham wants the histogram to ship — meaning either the MV needs backfill OR the journey needs to pick a set that HAS MV data."
+          "shape": "CONFIRMED BROKEN: Judge picked 'Rookie Debut - Series 2023-24' which has NO data in mv_set_completion_distribution. Page shows 'No completion data \u2014 Backfill may still be running' and 'No editions resolved'. Honest absence was accepted as PASS, but Roham wants the histogram to ship \u2014 meaning either the MV needs backfill OR the journey needs to pick a set that HAS MV data."
         }
       ],
       "acceptance": "As a trader, I open a set detail page for a POPULATED set (one with mv_set_completion_distribution rows) and see a bar chart of users-at-each-completion-level. The chart MUST have at least 3 visible bars. The journey selects from sets with actual MV data; if none exist, the loop fails-fast pending MV backfill (not honest-empty-PASS).",
@@ -325,10 +325,10 @@
         {
           "at": "2026-05-17T14:51:56.116342Z",
           "report": "inline: Roham visual review 2026-05-17 14:40Z",
-          "shape": "Histogram failed visually — judge accepted empty SVG as PASS. Need data-bearing flowId + assertion that bars have non-zero height."
+          "shape": "Histogram failed visually \u2014 judge accepted empty SVG as PASS. Need data-bearing flowId + assertion that bars have non-zero height."
         }
       ],
-      "acceptance": "As a trader, on a moment detail page for a flowId with ≥10 recent sales, I see a histogram BELOW the price chart bucketing recent sales by price band ($X, $Y, …) over the active window. The bars MUST render with visible heights (not empty SVG). Default window: 30D.",
+      "acceptance": "As a trader, on a moment detail page for a flowId with \u226510 recent sales, I see a histogram BELOW the price chart bucketing recent sales by price band ($X, $Y, \u2026) over the active window. The bars MUST render with visible heights (not empty SVG). Default window: 30D.",
       "data_source": "topshot.transactions GROUP BY price_bucket",
       "implementation_hint": "Recharts BarChart; bucket size auto-derived from price range",
       "judge_journey": "loop/judge/journeys/moment-detail-histogram.spec.ts",
@@ -467,10 +467,10 @@
         {
           "at": "2026-05-17T14:51:56.116342Z",
           "report": "inline: Roham visual review 2026-05-17 14:40Z",
-          "shape": "Roham's full scope per 2026-05-17 14:40Z: original price ✓, # packs ✓, but MISSING from current ship: lowest-ask per contained edition, # listed per edition, and the 'hits remaining' estimate. Re-open with widened scope."
+          "shape": "Roham's full scope per 2026-05-17 14:40Z: original price \u2713, # packs \u2713, but MISSING from current ship: lowest-ask per contained edition, # listed per edition, and the 'hits remaining' estimate. Re-open with widened scope."
         }
       ],
-      "acceptance": "As a trader, I open a pack detail page (e.g. /packs/2026-nba-playoffs-standard) and see: (a) original USD price, (b) total packs minted, (c) NUMBER OPENED, (d) NUMBER UNOPENED (sealed), (e) % opened, (f) PACK CONTENTS table showing each edition with: player, play, tier, minted-per-edition, MOMENTS-IN-PACK count, LOWEST ASK currently on marketplace for each contained edition, NUMBER LISTED on marketplace per edition. Plus a 'Hits inside' badge per edition flagging Rare/Legendary/Ultimate parallels with the count remaining unopened (estimated as total_minted_in_pack × % unopened).",
+      "acceptance": "As a trader, I open a pack detail page (e.g. /packs/2026-nba-playoffs-standard) and see: (a) original USD price, (b) total packs minted, (c) NUMBER OPENED, (d) NUMBER UNOPENED (sealed), (e) % opened, (f) PACK CONTENTS table showing each edition with: player, play, tier, minted-per-edition, MOMENTS-IN-PACK count, LOWEST ASK currently on marketplace for each contained edition, NUMBER LISTED on marketplace per edition. Plus a 'Hits inside' badge per edition flagging Rare/Legendary/Ultimate parallels with the count remaining unopened (estimated as total_minted_in_pack \u00d7 % unopened).",
       "data_source": "topshot.packs JOIN topshot.drops",
       "implementation_hint": "topshot.packs table exists per handover; UI is missing",
       "judge_journey": "loop/judge/journeys/packs-tracker.spec.ts",
@@ -502,11 +502,11 @@
       "fail_reasons": [
         {
           "at": "2026-05-17T15:03:28.443132Z",
-          "report": "inline: Roham 2026-05-17 15:10Z hit /player → 404 because no slug routing and no /player → /players redirect",
+          "report": "inline: Roham 2026-05-17 15:10Z hit /player \u2192 404 because no slug routing and no /player \u2192 /players redirect",
           "shape": "The page IS shipped well (editions matrix rendered with $ values across all tier columns for Stephen Curry). But /player/<slug> and bare /player both 404. Users instinctively type /player/lebron-james not /player/2544. Add slug routing + /player redirect."
         }
       ],
-      "acceptance": "As a trader, I can reach a player page via: (a) numeric NBA player ID /player/2544 (works); (b) name slug /player/lebron-james (must work — case-insensitive, hyphen-or-space-tolerant); (c) bare /player (must 302-redirect to /players directory, not 404). Once on the player page for a player with ≥10 editions, I see the editions matrix populated (≥80% of visible cells have values, not just dashes), career volume table with non-zero rows, and player photo. The seed player for the journey is Stephen Curry (NBA ID 201939) which is confirmed populated.",
+      "acceptance": "As a trader, I can reach a player page via: (a) numeric NBA player ID /player/2544 (works); (b) name slug /player/lebron-james (must work \u2014 case-insensitive, hyphen-or-space-tolerant); (c) bare /player (must 302-redirect to /players directory, not 404). Once on the player page for a player with \u226510 editions, I see the editions matrix populated (\u226580% of visible cells have values, not just dashes), career volume table with non-zero rows, and player photo. The seed player for the journey is Stephen Curry (NBA ID 201939) which is confirmed populated.",
       "data_source": "topshot.editions WHERE player_id = $id + mv_player_*",
       "implementation_hint": "Handover Section 2D says bare header; needs matrix + rank + volume table",
       "judge_journey": "loop/judge/journeys/player-detail.spec.ts",
@@ -533,7 +533,7 @@
     },
     {
       "id": "sniper-alerts",
-      "title": "Sniper alerts — listings below comparable-serial floor",
+      "title": "Sniper alerts \u2014 listings below comparable-serial floor",
       "routes": [
         "/sniper"
       ],
@@ -544,9 +544,9 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I see a continuously-refreshing list of moments listed >2σ below the comparable-serial floor, with $ delta and time-on-market visible, click-to-buy linkout to nbatopshot.com.",
+      "acceptance": "As a trader, I see a continuously-refreshing list of moments listed >2\u03c3 below the comparable-serial floor, with $ delta and time-on-market visible, click-to-buy linkout to nbatopshot.com.",
       "data_source": "topshot.moments WHERE listing_price_usd < (floor for comparable serial band)",
-      "implementation_hint": "OTM Sniper was THE most-loved feature per research/00-foundation-v2.md §7; ship transparent rules engine, not opaque model",
+      "implementation_hint": "OTM Sniper was THE most-loved feature per research/00-foundation-v2.md \u00a77; ship transparent rules engine, not opaque model",
       "judge_journey": "loop/judge/journeys/sniper-alerts.spec.ts",
       "comparable_primary": "OTM Sniper (the most-loved feature in the dead-tool canon)",
       "comparable_cross_domain": [
@@ -593,9 +593,9 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I land on /feed and see a ticking, auto-updating stream of recent transactions (≥$100), with player thumbnail, price, buyer, seller, edition, all clickable.",
+      "acceptance": "As a trader, I land on /feed and see a ticking, auto-updating stream of recent transactions (\u2265$100), with player thumbnail, price, buyer, seller, edition, all clickable.",
       "data_source": "topshot.transactions ORDER BY completed_at DESC, Supabase Realtime subscription",
-      "implementation_hint": "Handover says /feed is 'minimal' — needs auto-refresh + filtering",
+      "implementation_hint": "Handover says /feed is 'minimal' \u2014 needs auto-refresh + filtering",
       "judge_journey": "loop/judge/journeys/real-time-feed.spec.ts",
       "comparable_primary": "Nansen smart-money feeds + OTM Sales Feed",
       "comparable_cross_domain": [
@@ -619,7 +619,7 @@
       "fail_reasons": [],
       "acceptance": "As a trader, I land on /on-this-day and see today-in-Top-Shot-history: notable plays from this calendar date, their current floors, and momentum.",
       "data_source": "topshot.plays JOIN topshot.editions WHERE date_of_play matches today",
-      "implementation_hint": "Editorial layer — pure data, no model required",
+      "implementation_hint": "Editorial layer \u2014 pure data, no model required",
       "judge_journey": "loop/judge/journeys/on-this-day.spec.ts",
       "comparable_primary": "OTM 5-Days-of-Locking dashboard / GitHub contribution-graph variant",
       "comparable_cross_domain": [
@@ -667,7 +667,7 @@
       "fail_reasons": [],
       "acceptance": "As a trader, on every moment detail page I see the IPFS CID for the video + image with a verify-on-chain link to FlowScan.",
       "data_source": "topshot.moments.image_urls / video_urls + on-chain CID lookup",
-      "implementation_hint": "Per handover: 'IPFS CID provenance shipped' on-chain — surface it client-side",
+      "implementation_hint": "Per handover: 'IPFS CID provenance shipped' on-chain \u2014 surface it client-side",
       "judge_journey": "loop/judge/journeys/ipfs-provenance.spec.ts",
       "comparable_primary": "OpenSea blockchain-details strip + Etherscan verified-contract badge",
       "comparable_cross_domain": [
@@ -704,7 +704,7 @@
           "roham",
           "TBD_second_username"
         ],
-        "notes": "First username confirmed by Roham. Second username pending. Until provided, journey may pick a second active collector with ≥100 moments from Supabase."
+        "notes": "First username confirmed by Roham. Second username pending. Until provided, journey may pick a second active collector with \u2265100 moments from Supabase."
       }
     },
     {
@@ -721,7 +721,7 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I open /packs/scanner and see a ranked list of currently-purchasable pack drops, sorted by Expected Value of remaining unopened packs. EV = SUM over each contained edition: (probability of hit per pack × current market value of that edition). I see for each pack: total sealed remaining, EV per pack, current pack purchase price (or marketplace price for resold sealed packs), and EV/price ratio. The list highlights packs where EV/price > 1.0 (positive EV buys).",
+      "acceptance": "As a trader, I open /packs/scanner and see a ranked list of currently-purchasable pack drops, sorted by Expected Value of remaining unopened packs. EV = SUM over each contained edition: (probability of hit per pack \u00d7 current market value of that edition). I see for each pack: total sealed remaining, EV per pack, current pack purchase price (or marketplace price for resold sealed packs), and EV/price ratio. The list highlights packs where EV/price > 1.0 (positive EV buys).",
       "data_source": "topshot.packs JOIN topshot.pack_contents JOIN current marketplace floor per edition; opened_count / sealed_count from pack metadata; conditional probability from pack composition",
       "implementation_hint": "Per Roham: 'the most important thing people want to see on a pack page: which packs have the best hits still hidden in them that I can go out and buy.' This is the centerpiece pack-page feature. May need an MV that joins pack_contents to current edition floors. Reuse the packs-tracker page shape with EV calculation overlay.",
       "judge_journey": "loop/judge/journeys/packs-best-hits-scanner.spec.ts",
@@ -776,8 +776,8 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, on every page that has a time-window selector (1D/7D/30D/90D/1Y/ALL or similar), the DEFAULT selected window on landing is 30D — not 24H. The URL contains ?h=30d or equivalent. The data populates meaningfully for the 30D window (since 24H is too sparse for low-volume moments).",
-      "data_source": "n/a — UI default change across every time-tab component",
+      "acceptance": "As a trader, on every page that has a time-window selector (1D/7D/30D/90D/1Y/ALL or similar), the DEFAULT selected window on landing is 30D \u2014 not 24H. The URL contains ?h=30d or equivalent. The data populates meaningfully for the 30D window (since 24H is too sparse for low-volume moments).",
+      "data_source": "n/a \u2014 UI default change across every time-tab component",
       "implementation_hint": "Per Roham 2026-05-17 14:40Z: '24 hours is not a short enough window or not a long enough window. That's no problem. Let's just default to showing 30-day windows.' Find every TimeTabs component / window state init and change the default. Likely lives in components/primitives or a shared hook.",
       "judge_journey": "loop/judge/journeys/default-window-30d-meta.spec.ts",
       "comparable_primary": "TradingView default chart window (1D for active stocks; longer for sparse)",
@@ -798,11 +798,11 @@
       "beyond_otm": true,
       "passes": false,
       "passes_at": null,
-      "blocked": false,
+      "blocked": true,
       "fail_reasons": [],
-      "acceptance": "As a trader, I land on /parallels?player=201939 (Curry) and see one row per (set × tier × subedition_id) — circulation, listings count, low_ask (or NEW DROP tag if zero listings), high_offer. Switch player via the picker (Curry / LeBron / Podziemski / SGA / Cooper Flagg / Wembanyama / Luka / Angel Reese). Initial scaffold authored 2026-05-17 by Dexter; loop deepens to: add tier+parallel filter rail (Pillar 4), sortable column headers, EXPORT, avg_sale_30d column (computable via moments→transactions join through moment_id), URL-encoded filter state via nuqs.",
+      "acceptance": "As a trader, I land on /parallels?player=201939 (Curry) and see one row per (set \u00d7 tier \u00d7 subedition_id) \u2014 circulation, listings count, low_ask (or NEW DROP tag if zero listings), high_offer. Switch player via the picker (Curry / LeBron / Podziemski / SGA / Cooper Flagg / Wembanyama / Luka / Angel Reese). Initial scaffold authored 2026-05-17 by Dexter; loop deepens to: add tier+parallel filter rail (Pillar 4), sortable column headers, EXPORT, avg_sale_30d column (computable via moments\u2192transactions join through moment_id), URL-encoded filter state via nuqs.",
       "data_source": "topshot.moments grouped by subedition_id; topshot.market_caps (edition-level highest_offer_price); topshot.editions for tier+set; topshot.sets for set name+series",
-      "implementation_hint": "Scaffold already pushed at app/parallels/page.tsx. Builder deepens: filter rail (left), sortable headers, EXPORT button, avg_sale per subedition (additional moments→transactions join).",
+      "implementation_hint": "Scaffold already pushed at app/parallels/page.tsx. Builder deepens: filter rail (left), sortable headers, EXPORT button, avg_sale per subedition (additional moments\u2192transactions join).",
       "judge_journey": "loop/judge/journeys/parallels-route-v1.spec.ts",
       "comparable_primary": "Tensor parallel-aware collection page",
       "comparable_cross_domain": [
@@ -813,11 +813,12 @@
       "seed_entities": {
         "player_id": "201939",
         "note": "Curry default; picker exposes 8 known-good players"
-      }
+      },
+      "blocked_reason": "topshot.editions.parallel_id backfill in progress. Migration 0012 added topshot.parallel_types (23 named parallels seeded) + topshot.editions.parallel_id column. Fill script /tmp/backfill-edition-parallels.mjs running on kaaos-daemon, populating parallel_id for ~12K editions via Top Shot GraphQL. Per Roham 2026-05-17 18:00Z: variants A/B/C/D block until parallel_id is populated. Unblock when SELECT COUNT(*) FROM topshot.editions WHERE parallel_id IS NULL drops below 500 (residual gap = editions with no moments to sample from, needs alternate path)."
     },
     {
       "id": "player-detail-variant-a-three-axis-matrix",
-      "title": "Player page Variant A — three-axis matrix (rows=set, cols=tier×parallel)",
+      "title": "Player page Variant A \u2014 three-axis matrix (rows=set, cols=tier\u00d7parallel)",
       "routes": [
         "/player/[id]/v/a"
       ],
@@ -826,25 +827,26 @@
       "beyond_otm": true,
       "passes": false,
       "passes_at": null,
-      "blocked": false,
+      "blocked": true,
       "fail_reasons": [],
-      "acceptance": "As a trader, /player/201939/v/a shows the editions matrix with columns = (tier × parallel) — so Common-Base, Common-Crystal, Common-Anthology, Rare-Base, etc. become separate columns. Horizontal scrolling acceptable. Each cell shows low_ask + listings_count. Empty cells with NEW-DROP visual treatment per Pillar 5 empty-row fix. Per Roham 2026-05-17 17:10Z — one of 4 variants to ship side-by-side for design comparison.",
+      "acceptance": "As a trader, /player/201939/v/a shows the editions matrix with columns = (tier \u00d7 parallel) \u2014 so Common-Base, Common-Crystal, Common-Anthology, Rare-Base, etc. become separate columns. Horizontal scrolling acceptable. Each cell shows low_ask + listings_count. Empty cells with NEW-DROP visual treatment per Pillar 5 empty-row fix. Per Roham 2026-05-17 17:10Z \u2014 one of 4 variants to ship side-by-side for design comparison.",
       "data_source": "topshot.moments (grouped by subedition_id) + topshot.editions + topshot.sets",
       "implementation_hint": "New route. Builder: reuse getPlayerDetail + extend with per-subedition aggregation (pattern: see app/parallels/page.tsx). Pivot rows by set, columns by (tier_name + subedition_id label).",
       "judge_journey": "loop/judge/journeys/player-detail-variant-a-three-axis-matrix.spec.ts",
-      "comparable_primary": "StockX size × condition grid",
+      "comparable_primary": "StockX size \u00d7 condition grid",
       "comparable_cross_domain": [
         "Basketball-Reference per-season per-stat grid",
-        "Discogs format×region matrix"
+        "Discogs format\u00d7region matrix"
       ],
       "data_viz_kind": "matrix-three-axis",
       "seed_entities": {
         "player_id": "201939"
-      }
+      },
+      "blocked_reason": "topshot.editions.parallel_id backfill in progress. Migration 0012 added topshot.parallel_types (23 named parallels seeded) + topshot.editions.parallel_id column. Fill script /tmp/backfill-edition-parallels.mjs running on kaaos-daemon, populating parallel_id for ~12K editions via Top Shot GraphQL. Per Roham 2026-05-17 18:00Z: variants A/B/C/D block until parallel_id is populated. Unblock when SELECT COUNT(*) FROM topshot.editions WHERE parallel_id IS NULL drops below 500 (residual gap = editions with no moments to sample from, needs alternate path)."
     },
     {
       "id": "player-detail-variant-b-drill-down",
-      "title": "Player page Variant B — drill-down (current matrix + click-cell-to-expand-parallels)",
+      "title": "Player page Variant B \u2014 drill-down (current matrix + click-cell-to-expand-parallels)",
       "routes": [
         "/player/[id]/v/b"
       ],
@@ -853,11 +855,11 @@
       "beyond_otm": true,
       "passes": false,
       "passes_at": null,
-      "blocked": false,
+      "blocked": true,
       "fail_reasons": [],
-      "acceptance": "As a trader, /player/201939/v/b shows the current (set × tier) matrix shape. Cells with multiple subeditions (parallels) get a ▼ caret + ×N badge. Clicking the caret expands an inline row below showing per-subedition rows with circulation, listings, low_ask, high_offer. URL captures expanded state (?expand=base-set-8:common). One of 4 variants to ship side-by-side.",
+      "acceptance": "As a trader, /player/201939/v/b shows the current (set \u00d7 tier) matrix shape. Cells with multiple subeditions (parallels) get a \u25bc caret + \u00d7N badge. Clicking the caret expands an inline row below showing per-subedition rows with circulation, listings, low_ask, high_offer. URL captures expanded state (?expand=base-set-8:common). One of 4 variants to ship side-by-side.",
       "data_source": "topshot.moments + topshot.editions + topshot.market_caps + topshot.sets",
-      "implementation_hint": "Extend the existing MatrixRow in app/player/[id]/page.tsx — or copy to v/b/page.tsx — to add inline-expand state. Use Client component for the expand toggle.",
+      "implementation_hint": "Extend the existing MatrixRow in app/player/[id]/page.tsx \u2014 or copy to v/b/page.tsx \u2014 to add inline-expand state. Use Client component for the expand toggle.",
       "judge_journey": "loop/judge/journeys/player-detail-variant-b-drill-down.spec.ts",
       "comparable_primary": "Basketball-Reference expandable career-stats sections",
       "comparable_cross_domain": [
@@ -867,11 +869,12 @@
       "data_viz_kind": "matrix-with-inline-expand",
       "seed_entities": {
         "player_id": "201939"
-      }
+      },
+      "blocked_reason": "topshot.editions.parallel_id backfill in progress. Migration 0012 added topshot.parallel_types (23 named parallels seeded) + topshot.editions.parallel_id column. Fill script /tmp/backfill-edition-parallels.mjs running on kaaos-daemon, populating parallel_id for ~12K editions via Top Shot GraphQL. Per Roham 2026-05-17 18:00Z: variants A/B/C/D block until parallel_id is populated. Unblock when SELECT COUNT(*) FROM topshot.editions WHERE parallel_id IS NULL drops below 500 (residual gap = editions with no moments to sample from, needs alternate path)."
     },
     {
       "id": "player-detail-variant-c-linked-exhaustive",
-      "title": "Player page Variant C — current matrix + prominent link to /parallels?player=X",
+      "title": "Player page Variant C \u2014 current matrix + prominent link to /parallels?player=X",
       "routes": [
         "/player/[id]/v/c"
       ],
@@ -880,25 +883,26 @@
       "beyond_otm": true,
       "passes": false,
       "passes_at": null,
-      "blocked": false,
+      "blocked": true,
       "fail_reasons": [],
-      "acceptance": "As a trader, /player/201939/v/c shows the current matrix unchanged in shape, with a prominent banner at the top: \"Browse all N parallels →\" linking to /parallels?player=201939. Tile-style CTA visible above the matrix. One of 4 variants — the lowest-cost variant; pairs with /parallels for analyst-mode browse.",
+      "acceptance": "As a trader, /player/201939/v/c shows the current matrix unchanged in shape, with a prominent banner at the top: \"Browse all N parallels \u2192\" linking to /parallels?player=201939. Tile-style CTA visible above the matrix. One of 4 variants \u2014 the lowest-cost variant; pairs with /parallels for analyst-mode browse.",
       "data_source": "topshot.editions + topshot.market_caps (matrix unchanged); plus subedition count from moments for the banner",
       "implementation_hint": "Smallest delta. Reuse app/player/[id]/page.tsx structure; add a banner component at top with a count query + link.",
       "judge_journey": "loop/judge/journeys/player-detail-variant-c-linked-exhaustive.spec.ts",
       "comparable_primary": "Linear product-update banner pattern",
       "comparable_cross_domain": [
-        "GitHub PR-page \"X commits in this PR →\" tile",
-        "Notion page-property \"X linked items →\""
+        "GitHub PR-page \"X commits in this PR \u2192\" tile",
+        "Notion page-property \"X linked items \u2192\""
       ],
       "data_viz_kind": "matrix-plus-link-banner",
       "seed_entities": {
         "player_id": "201939"
-      }
+      },
+      "blocked_reason": "topshot.editions.parallel_id backfill in progress. Migration 0012 added topshot.parallel_types (23 named parallels seeded) + topshot.editions.parallel_id column. Fill script /tmp/backfill-edition-parallels.mjs running on kaaos-daemon, populating parallel_id for ~12K editions via Top Shot GraphQL. Per Roham 2026-05-17 18:00Z: variants A/B/C/D block until parallel_id is populated. Unblock when SELECT COUNT(*) FROM topshot.editions WHERE parallel_id IS NULL drops below 500 (residual gap = editions with no moments to sample from, needs alternate path)."
     },
     {
       "id": "player-detail-variant-d-composite-cell",
-      "title": "Player page Variant D (recommended) — composite cell with parallel sparkline",
+      "title": "Player page Variant D (recommended) \u2014 composite cell with parallel sparkline",
       "routes": [
         "/player/[id]/v/d"
       ],
@@ -907,9 +911,9 @@
       "beyond_otm": true,
       "passes": false,
       "passes_at": null,
-      "blocked": false,
+      "blocked": true,
       "fail_reasons": [],
-      "acceptance": "As a trader, /player/201939/v/d shows the current (set × tier) matrix, with each cell rendering THREE elements: (1) aggregate low_ask (big), (2) aggregate market cap (small, dim), (3) parallel-sparkline — N dots horizontally, one per parallel/subedition, filled if has-listings, hollow if no-listings. Hovering a dot shows the parallel's circulation + low_ask. The cell becomes the most info-dense option without exploding column count. Recommended default per design sprint 01.",
+      "acceptance": "As a trader, /player/201939/v/d shows the current (set \u00d7 tier) matrix, with each cell rendering THREE elements: (1) aggregate low_ask (big), (2) aggregate market cap (small, dim), (3) parallel-sparkline \u2014 N dots horizontally, one per parallel/subedition, filled if has-listings, hollow if no-listings. Hovering a dot shows the parallel's circulation + low_ask. The cell becomes the most info-dense option without exploding column count. Recommended default per design sprint 01.",
       "data_source": "topshot.moments + topshot.editions + topshot.market_caps",
       "implementation_hint": "Compose a CellWithParallelSparkline primitive: aggregate floor/mcap + small horizontal sparkline of subedition dots. Hover state surfaces per-parallel breakdown. Most engineering-intensive of the 4 variants.",
       "judge_journey": "loop/judge/journeys/player-detail-variant-d-composite-cell.spec.ts",
@@ -921,7 +925,8 @@
       "data_viz_kind": "matrix-composite-cell-with-sparkline",
       "seed_entities": {
         "player_id": "201939"
-      }
+      },
+      "blocked_reason": "topshot.editions.parallel_id backfill in progress. Migration 0012 added topshot.parallel_types (23 named parallels seeded) + topshot.editions.parallel_id column. Fill script /tmp/backfill-edition-parallels.mjs running on kaaos-daemon, populating parallel_id for ~12K editions via Top Shot GraphQL. Per Roham 2026-05-17 18:00Z: variants A/B/C/D block until parallel_id is populated. Unblock when SELECT COUNT(*) FROM topshot.editions WHERE parallel_id IS NULL drops below 500 (residual gap = editions with no moments to sample from, needs alternate path)."
     },
     {
       "id": "empty-rows-positive-framing",
@@ -942,11 +947,11 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "On any matrix or table cell where the underlying data has CIRCULATION > 0 but ZERO ACTIVE LISTINGS, render a positive visual indicator (\"🆕 NEW DROP\" tag, green accent, or \"be first to list\" CTA) — NOT a dash or blank. The cell is repositioned as opportunity, not gap. Per Roham 2026-05-17 17:10Z: \"make it visually positive don't hide, emphasize the exciting part if it exists.\" Initial NEW DROP tag in /parallels/page.tsx; loop propagates to all listed routes.",
+      "acceptance": "On any matrix or table cell where the underlying data has CIRCULATION > 0 but ZERO ACTIVE LISTINGS, render a positive visual indicator (\"\ud83c\udd95 NEW DROP\" tag, green accent, or \"be first to list\" CTA) \u2014 NOT a dash or blank. The cell is repositioned as opportunity, not gap. Per Roham 2026-05-17 17:10Z: \"make it visually positive don't hide, emphasize the exciting part if it exists.\" Initial NEW DROP tag in /parallels/page.tsx; loop propagates to all listed routes.",
       "data_source": "derived: circulation > 0 AND listings_count === 0",
-      "implementation_hint": "Build a primitive component <NewDropTag /> in components/primitives/, reuse across all 6 routes. Color: green accent. Optional CTA: \"List one →\" linking to nbatopshot.com listing flow (with copy nuance — they're Dapper-internal users on this surface).",
+      "implementation_hint": "Build a primitive component <NewDropTag /> in components/primitives/, reuse across all 6 routes. Color: green accent. Optional CTA: \"List one \u2192\" linking to nbatopshot.com listing flow (with copy nuance \u2014 they're Dapper-internal users on this surface).",
       "judge_journey": "loop/judge/journeys/empty-rows-positive-framing.spec.ts",
-      "comparable_primary": "Stripe Atlas \"set up X →\" empty-state cards",
+      "comparable_primary": "Stripe Atlas \"set up X \u2192\" empty-state cards",
       "comparable_cross_domain": [
         "GitHub repo first-time-experience banners",
         "Linear inbox \"Inbox zero\" celebration"
@@ -962,20 +967,23 @@
       "beyond_otm": true,
       "passes": false,
       "passes_at": null,
-      "blocked": false,
+      "blocked": true,
       "fail_reasons": [],
       "acceptance": "topshot.market_caps gets a new subedition_id column (or a sibling table topshot.subedition_market_caps). ETL populates it daily with per-(date, edition_id, subedition_id) snapshots: num_moments_in_circulation, lowest_ask_price, highest_offer_price, market_cap. The portal queries the subedition-level table directly instead of aggregating client-side. Backfill 90 days of history.",
       "data_source": "BQ source: extend the asset_nba_market_caps ETL to group by subedition_id. Or compute client-side from topshot.moments + a per-day cron.",
-      "implementation_hint": "Two-stage: (a) propose schema in supabase/migrations/ — additive column or sibling table; (b) update etl/ to populate; (c) update mv_player_market_cap to optionally roll up from subedition grain. The /parallels route already does client-side per-subedition aggregation; ETL-side is the performant version.",
+      "implementation_hint": "Two-stage: (a) propose schema in supabase/migrations/ \u2014 additive column or sibling table; (b) update etl/ to populate; (c) update mv_player_market_cap to optionally roll up from subedition grain. The /parallels route already does client-side per-subedition aggregation; ETL-side is the performant version.",
       "judge_journey": "loop/judge/journeys/subedition-keyed-market-cap-etl.spec.ts",
       "comparable_primary": "Standard ETL extension pattern",
       "comparable_cross_domain": [],
-      "data_viz_kind": "data-model-change"
+      "data_viz_kind": "data-model-change",
+      "blocked_reason": "Renamed/reframed per data audit 2026-05-17. moments.subedition_id is a different dimension than editions.parallelID; parallel-aware metrics use the latter (now backfilling via migration 0012). subedition_id semantics still unclear; investigation deferred until parallels redesign ships."
     }
   ],
   "v3_pillars_applied_at": "2026-05-17T03:30:00Z",
   "v3_pillars_doc": "research/00-product-pillars-v3.md",
-  "judge_quality_review_2026_05_17": "Honest-empty-state was passing as PASS on viz features where data rendering was the substance. Re-opened with explicit non-zero-bars / non-zero-rows assertions and data-bearing entity selection. Default time window 24H → 30D across every time-tab page.",
+  "judge_quality_review_2026_05_17": "Honest-empty-state was passing as PASS on viz features where data rendering was the substance. Re-opened with explicit non-zero-bars / non-zero-rows assertions and data-bearing entity selection. Default time window 24H \u2192 30D across every time-tab page.",
   "design_sprint_01_applied_at": "2026-05-17T16:18:59.861070Z",
-  "design_sprint_01_doc": "research/design-sprints/01-parallel-aware-market-metrics.md"
+  "design_sprint_01_doc": "research/design-sprints/01-parallel-aware-market-metrics.md",
+  "parallel_types_migration_at": "2026-05-17T17:10:12.752818Z",
+  "parallel_types_migration": "supabase/migrations/0012_topshot_parallel_types.sql"
 }
