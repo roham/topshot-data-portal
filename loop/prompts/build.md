@@ -49,6 +49,30 @@ At `loop/judge/journeys/{FEATURE_ID}.spec.ts`. Mirror `moments-grid.spec.ts` exa
 - Landing TTI assertion: page renders < 30_000 ms on cold deploy
 - The journey MUST assert on rendered data (row counts, element text, URL changes after interaction) — not just element existence
 
+**LOAD-BEARING: data-rendering assertions per `research/wiki/gotchas/judge-journeys-must-assert-data-rendered.md` (read it).** When `features.json[{FEATURE_ID}].data_viz_kind` is anything OTHER than `"export-only"` or `"metadata-strip-plus-link"`, the journey MUST:
+
+1. **Resolve a data-bearing entity at runtime via a Supabase query in beforeAll** — do NOT hard-code a flowId / set_id / username. Example:
+   ```ts
+   import { createClient } from "@supabase/supabase-js";
+   const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
+   // For moment pages: pick a moment_id with ≥5 SUCCEEDED transactions
+   const { data } = await sb.from("transactions").select("moment_id").eq("status","SUCCEEDED").limit(50);
+   // Aggregate client-side or use a view; pick the moment_id with the highest count
+   ```
+   For set pages: pick a set_id with ≥1 row in `mv_set_completion_distribution`. For collector pages: pick a username with ≥100 owned moments (`select count from moments where owner_flow_address = $u`). For player pages: pick a player with ≥10 editions.
+
+2. **Assert on rendered DOM substance** — not just element existence:
+   - For charts: `expect(svg.locator("path, line, circle").count()).toBeGreaterThan(2)` AND for each visible data series, at least one element has a non-zero bounding-box dimension.
+   - For tables: `expect(tableBody.locator("tr").count()).toBeGreaterThan(M)` where M is the minimum row count for the entity. For collector-bag: M >= BAG_SIZE * 0.5 (at least half the header-reported size must be visible rows).
+   - For histograms: `expect(barElements.count()).toBeGreaterThanOrEqual(3)` AND `expect((await barElements.first().boundingBox())!.height).toBeGreaterThan(0)`.
+   - For headers/KPIs: numeric assertions — `expect(parseFloat(text)).toBeGreaterThan(0)` not just text-present.
+
+3. **NEVER accept "honest empty state" as PASS** on a viz/data-table feature when the entity-with-data exists in production. The journey FAILS (writes failed.md), the next Researcher must either pick a different entity (preferred) or flag the underlying MV/table as `blocked: true` with `blocked_reason`.
+
+4. **Time-window defaults are 30D** across every time-tab control (Roham 2026-05-17 14:40Z). Journey assertions on landing should check the 30D tab is the active default — NOT 24H. URL should contain `?h=30d` or equivalent on initial load.
+
+5. **For features that include time-tab interactions:** after clicking 7D, assert the chart DOM changed (e.g., screenshot diff via element-count delta, OR the chart's data-point count is now different than the 30D default). Honest empty state on the 7D click is FAIL — pick an entity with data in that window.
+
 ### 4. Build
 ```bash
 npm run build

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md §3-4 and research/00-product-pillars-v3.md.",
-  "version": "1.1.0",
+  "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md \u00a73-4 and research/00-product-pillars-v3.md. v1.2.0: re-opened 8 features after Roham's 14:40Z visual review found honest-empty-state was passing where data-rendering was needed.",
+  "version": "1.2.0",
   "authored_at": "2026-05-16T20:50:00Z",
   "authored_by": "dexter",
   "reference": {
@@ -59,18 +59,23 @@
       ],
       "priority": 2,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T07:56:57.424Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
       "fail_reasons": [
         {
           "at": "2026-05-17T07:45:08.868Z",
           "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/moment-detail-chart-2026-05-17T07-45-08-868Z.md"
+        },
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "Judge passed against flowId 47863705 which has 0 sales for that specific serial \u2192 chart was honestly empty \u2192 judge accepted empty state. Need to pick a flowId with \u22655 sales in the underlying moment (not serial-specific) to demonstrate the chart actually redraws."
         }
       ],
-      "acceptance": "As a trader, I open any moment's detail page, click between time-window tabs (1D, 7D, 1M, 3M, YTD, ALL), and the chart line redraws with the corresponding sales over that window. Tab state survives a page refresh.",
+      "acceptance": "As a trader, I open a moment detail page for a flowId WITH AT LEAST 5 RECORDED SALES, click between time-window tabs (1D, 7D, 1M, 3M, YTD, ALL), and the chart line actually redraws with sale dots. The 1Y window shows multiple dots; the 1D window shows the most recent sale(s) or honest empty for old moments. Tab state survives a page refresh. The default time window on landing is 30D (not 24H \u2014 most low-volume moments have no 24h activity).",
       "data_source": "topshot.transactions WHERE moment_id = $id AND completed_at >= $window_start",
-      "implementation_hint": "Existing MomentPriceHistory component — handover says tabs decorative; check if URL updates only or actually refetches; client-side state with prefetched data per window",
+      "implementation_hint": "Existing MomentPriceHistory component \u2014 handover says tabs decorative; check if URL updates only or actually refetches; client-side state with prefetched data per window",
       "judge_journey": "loop/judge/journeys/moment-detail-chart.spec.ts",
       "comparable_primary": "OTM moment detail price chart (1D/7D/1M/3M/YTD/ALL tabs)",
       "comparable_cross_domain": [
@@ -94,8 +99,8 @@
       ],
       "priority": 3,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T08:32:54.879Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
       "fail_reasons": [
         {
@@ -105,9 +110,14 @@
         {
           "at": "2026-05-17T08:30:39.417Z",
           "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/moment-detail-circulation-2026-05-17T08-30-39-417Z.md"
+        },
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "Need to verify the circulation breakdown actually shows non-zero buckets \u2014 honest empty state is NOT an acceptable PASS here. Judge must pick a flowId from an actively-traded edition."
         }
       ],
-      "acceptance": "As a trader, I see for this edition: absolute count + % of total for each of Owned, Listings, Owned-locked, In a Pack, Locker Room, Burned. Numbers sum to total circulation.",
+      "acceptance": "As a trader, I see for this edition: absolute count + % of total for each of Owned, Listings, Owned-locked, In a Pack, Locker Room, Burned. Numbers sum to total circulation. The numbers MUST be non-zero for at least Owned and Listings on a flowId with active marketplace presence. Default time window: 30D for any time-keyed metric on this page.",
       "data_source": "topshot.moments aggregated by edition_id, status flags",
       "implementation_hint": "Aggregate query over topshot.moments grouped by moment_status; handle moment_status='LISTED' empty by deriving from listing_price_usd IS NOT NULL",
       "judge_journey": "loop/judge/journeys/moment-detail-circulation.spec.ts",
@@ -133,15 +143,21 @@
       ],
       "priority": 4,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T09:03:44.300Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
-      "fail_reasons": [],
-      "acceptance": "As a trader, I land on /players and see a sortable table of players ranked by MARKET CAP (sum of floor × circulation across all of their editions), with columns: # / Player / Team / # Editions / Total Minted / Circ % / Market Cap / 24h Δ%.",
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "Default window 24H caused most rows to show '\u2014' for the delta column per Roham. Reshipping with 30D default. Also: Total Minted and Circ % only populating for some players \u2014 Researcher needs to investigate the JOIN."
+        }
+      ],
+      "acceptance": "As a trader, I land on /players and see a sortable table ranked by MARKET CAP. Columns: # / Player / Team / # Editions / Total Minted / Circ % / Market Cap / 30D \u0394% (DEFAULT 30D, NOT 24H \u2014 low-volume moments have no 24h activity for most rows). Sort headers: clickable, persistent across navigation. Total Minted + Circ % populated for \u226580% of visible rows (not just top players).",
       "data_source": "topshot.mv_player_market_cap (already exists per handover) JOIN topshot.players",
       "implementation_hint": "Read mv_player_market_cap, JOIN players for names/teams; TanStack table sortable; default sort: market_cap DESC",
       "judge_journey": "loop/judge/journeys/players-marketcap.spec.ts",
-      "comparable_primary": "OTM Players view with MARKET CAP column + 24h Δ%",
+      "comparable_primary": "OTM Players view with MARKET CAP column + 24h \u0394%",
       "comparable_cross_domain": [
         "TradingView screener (sortable rankings)",
         "PWCC 500 / Card Ladder CL50"
@@ -163,11 +179,17 @@
       ],
       "priority": 5,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T09:30:22.238Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
-      "fail_reasons": [],
-      "acceptance": "As a trader, I click EXPORT on the Moments grid and a CSV downloads with the rows currently visible under my filters. The CSV opens cleanly in Excel/Numbers/Sheets with no quoting errors.",
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "Duplicate menu bars appearing on /moments per Roham 2026-05-17 14:40Z. Likely a header component nested inside a layout that already renders the same header. Builder needs to grep for the menu/toolbar component and ensure single mount point."
+        }
+      ],
+      "acceptance": "As a trader, I click EXPORT on the /moments grid and a CSV downloads with the rows currently visible under my filters. The CSV opens cleanly in Excel/Numbers/Sheets. There is EXACTLY ONE menu bar / toolbar visible on the page \u2014 no duplicated EXPORT buttons or duplicated filter controls.",
       "data_source": "Same query as moments-grid, server action streaming CSV",
       "implementation_hint": "Server action returning text/csv; respect the current filter state from URL; cap at 10K rows with a clear UI message if exceeded",
       "judge_journey": "loop/judge/journeys/moments-csv-export.spec.ts",
@@ -193,8 +215,8 @@
       ],
       "priority": 6,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T10:03:44.595Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
       "fail_reasons": [
         {
@@ -208,11 +230,16 @@
         {
           "at": "2026-05-17T09:59:03.996Z",
           "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/collector-bag-2026-05-17T09-59-03-996Z.md"
+        },
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "CONFIRMED BROKEN: /u/roham shows BAG SIZE 3000 + $15.5M listed + 485 players in header, but the BAG table below is EMPTY (zero rows). Header KPIs and Composition sidebar work; the central table population is broken. Likely a flow_address resolution mismatch or a SELECT clause issue in the bag query. Judge accepted because the header populated and the table headers exist \u2014 passed without asserting row count > 0."
         }
       ],
-      "acceptance": "As a trader, I visit /u/<some-known-username> and see the actual list of moments they own — at minimum: play, edition, serial, tier, last sale, current listing price, acquired-at. The BAG table count matches the header total.",
+      "acceptance": "As a trader, I visit /u/roham (or any /u/<known-username>) and see the BAG TABLE POPULATED with one row per moment owned (\u2265100 rows for active collectors). At minimum: play, edition, serial, tier, last sale, current listing price, acquired-at. The header KPIs (BAG SIZE, EST. LISTED VALUE, P&L, DISTINCT PLAYERS) MUST match the table row count (BAG SIZE = row count).",
       "data_source": "topshot.moments WHERE owner_flow_address = (SELECT flow_address FROM users WHERE username = $u)",
-      "implementation_hint": "Handover Section 2E says this is broken — root cause likely a flow_address resolution or schema mismatch. Read PortfolioBagTable.tsx + debug the query.",
+      "implementation_hint": "Handover Section 2E says this is broken \u2014 root cause likely a flow_address resolution or schema mismatch. Read PortfolioBagTable.tsx + debug the query.",
       "judge_journey": "loop/judge/journeys/collector-bag.spec.ts",
       "comparable_primary": "OTM Collector portfolio (BAG table)",
       "comparable_cross_domain": [
@@ -236,16 +263,21 @@
       ],
       "priority": 7,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T10:28:08.263Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
       "fail_reasons": [
         {
           "at": "2026-05-17T10:23:29.371Z",
           "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/set-completion-histogram-2026-05-17T10-23-29-371Z.md"
+        },
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "CONFIRMED BROKEN: Judge picked 'Rookie Debut - Series 2023-24' which has NO data in mv_set_completion_distribution. Page shows 'No completion data \u2014 Backfill may still be running' and 'No editions resolved'. Honest absence was accepted as PASS, but Roham wants the histogram to ship \u2014 meaning either the MV needs backfill OR the journey needs to pick a set that HAS MV data."
         }
       ],
-      "acceptance": "As a trader, I open a set detail page and see a bar chart of users-at-each-completion-level (e.g., 2,149 users at 56/56, 96 users at 55/56, …). The data source is mv_set_completion_distribution.",
+      "acceptance": "As a trader, I open a set detail page for a POPULATED set (one with mv_set_completion_distribution rows) and see a bar chart of users-at-each-completion-level. The chart MUST have at least 3 visible bars. The journey selects from sets with actual MV data; if none exist, the loop fails-fast pending MV backfill (not honest-empty-PASS).",
       "data_source": "topshot.mv_set_completion_distribution",
       "implementation_hint": "MV exists per handover; need a bar chart component, Recharts BarChart sufficient",
       "judge_journey": "loop/judge/journeys/set-completion-histogram.spec.ts",
@@ -271,11 +303,17 @@
       ],
       "priority": 8,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T11:33:57.365Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
-      "fail_reasons": [],
-      "acceptance": "As a trader, I see below the price chart a histogram bucketing recent sales by price band (e.g., $7, $8, …) over the active window, so I can see the price-cluster distribution.",
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "Histogram failed visually \u2014 judge accepted empty SVG as PASS. Need data-bearing flowId + assertion that bars have non-zero height."
+        }
+      ],
+      "acceptance": "As a trader, on a moment detail page for a flowId with \u226510 recent sales, I see a histogram BELOW the price chart bucketing recent sales by price band ($X, $Y, \u2026) over the active window. The bars MUST render with visible heights (not empty SVG). Default window: 30D.",
       "data_source": "topshot.transactions GROUP BY price_bucket",
       "implementation_hint": "Recharts BarChart; bucket size auto-derived from price range",
       "judge_journey": "loop/judge/journeys/moment-detail-histogram.spec.ts",
@@ -301,11 +339,17 @@
       ],
       "priority": 9,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T11:55:42.356Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
-      "fail_reasons": [],
-      "acceptance": "As a trader, I type a serial number into the 'True Value by serial' input on a moment detail page and see a price estimate for that specific serial (or an honest 'not enough comps' message).",
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "Need to verify serial input + overlay actually produces a price estimate (not empty) on a data-bearing edition."
+        }
+      ],
+      "acceptance": "As a trader, on a moment detail page for an edition with broad sale history, I type a serial number into the 'True Value by serial' input and see a price estimate for that specific serial WITH a confidence band and comp-count footnote. If the model genuinely has no comps for that serial band, an honest 'not enough comps' message appears WITH the band-range it tried.",
       "data_source": "valuation engine over topshot.transactions, segmented by serial bands",
       "implementation_hint": "Use the existing TunedValuationOverlay component; wire serial input; if model coverage gap, show honest absence per voice doctrine",
       "judge_journey": "loop/judge/journeys/moment-detail-serial-overlay.spec.ts",
@@ -401,11 +445,17 @@
       ],
       "priority": 12,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T13:37:17.289Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
-      "fail_reasons": [],
-      "acceptance": "As a trader, I open a pack page and see: dropped-on date, total/sold/unopened counts, % opened, current avg pack value, contents grid showing what moments come from this pack.",
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T14:51:56.116342Z",
+          "report": "inline: Roham visual review 2026-05-17 14:40Z",
+          "shape": "Roham's full scope per 2026-05-17 14:40Z: original price \u2713, # packs \u2713, but MISSING from current ship: lowest-ask per contained edition, # listed per edition, and the 'hits remaining' estimate. Re-open with widened scope."
+        }
+      ],
+      "acceptance": "As a trader, I open a pack detail page (e.g. /packs/2026-nba-playoffs-standard) and see: (a) original USD price, (b) total packs minted, (c) NUMBER OPENED, (d) NUMBER UNOPENED (sealed), (e) % opened, (f) PACK CONTENTS table showing each edition with: player, play, tier, minted-per-edition, MOMENTS-IN-PACK count, LOWEST ASK currently on marketplace for each contained edition, NUMBER LISTED on marketplace per edition. Plus a 'Hits inside' badge per edition flagging Rare/Legendary/Ultimate parallels with the count remaining unopened (estimated as total_minted_in_pack \u00d7 % unopened).",
       "data_source": "topshot.packs JOIN topshot.drops",
       "implementation_hint": "topshot.packs table exists per handover; UI is missing",
       "judge_journey": "loop/judge/journeys/packs-tracker.spec.ts",
@@ -448,7 +498,7 @@
     },
     {
       "id": "sniper-alerts",
-      "title": "Sniper alerts — listings below comparable-serial floor",
+      "title": "Sniper alerts \u2014 listings below comparable-serial floor",
       "routes": [
         "/sniper"
       ],
@@ -459,9 +509,9 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I see a continuously-refreshing list of moments listed >2σ below the comparable-serial floor, with $ delta and time-on-market visible, click-to-buy linkout to nbatopshot.com.",
+      "acceptance": "As a trader, I see a continuously-refreshing list of moments listed >2\u03c3 below the comparable-serial floor, with $ delta and time-on-market visible, click-to-buy linkout to nbatopshot.com.",
       "data_source": "topshot.moments WHERE listing_price_usd < (floor for comparable serial band)",
-      "implementation_hint": "OTM Sniper was THE most-loved feature per research/00-foundation-v2.md §7; ship transparent rules engine, not opaque model",
+      "implementation_hint": "OTM Sniper was THE most-loved feature per research/00-foundation-v2.md \u00a77; ship transparent rules engine, not opaque model",
       "judge_journey": "loop/judge/journeys/sniper-alerts.spec.ts",
       "comparable_primary": "OTM Sniper (the most-loved feature in the dead-tool canon)",
       "comparable_cross_domain": [
@@ -508,9 +558,9 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I land on /feed and see a ticking, auto-updating stream of recent transactions (≥$100), with player thumbnail, price, buyer, seller, edition, all clickable.",
+      "acceptance": "As a trader, I land on /feed and see a ticking, auto-updating stream of recent transactions (\u2265$100), with player thumbnail, price, buyer, seller, edition, all clickable.",
       "data_source": "topshot.transactions ORDER BY completed_at DESC, Supabase Realtime subscription",
-      "implementation_hint": "Handover says /feed is 'minimal' — needs auto-refresh + filtering",
+      "implementation_hint": "Handover says /feed is 'minimal' \u2014 needs auto-refresh + filtering",
       "judge_journey": "loop/judge/journeys/real-time-feed.spec.ts",
       "comparable_primary": "Nansen smart-money feeds + OTM Sales Feed",
       "comparable_cross_domain": [
@@ -534,7 +584,7 @@
       "fail_reasons": [],
       "acceptance": "As a trader, I land on /on-this-day and see today-in-Top-Shot-history: notable plays from this calendar date, their current floors, and momentum.",
       "data_source": "topshot.plays JOIN topshot.editions WHERE date_of_play matches today",
-      "implementation_hint": "Editorial layer — pure data, no model required",
+      "implementation_hint": "Editorial layer \u2014 pure data, no model required",
       "judge_journey": "loop/judge/journeys/on-this-day.spec.ts",
       "comparable_primary": "OTM 5-Days-of-Locking dashboard / GitHub contribution-graph variant",
       "comparable_cross_domain": [
@@ -582,7 +632,7 @@
       "fail_reasons": [],
       "acceptance": "As a trader, on every moment detail page I see the IPFS CID for the video + image with a verify-on-chain link to FlowScan.",
       "data_source": "topshot.moments.image_urls / video_urls + on-chain CID lookup",
-      "implementation_hint": "Per handover: 'IPFS CID provenance shipped' on-chain — surface it client-side",
+      "implementation_hint": "Per handover: 'IPFS CID provenance shipped' on-chain \u2014 surface it client-side",
       "judge_journey": "loop/judge/journeys/ipfs-provenance.spec.ts",
       "comparable_primary": "OpenSea blockchain-details strip + Etherscan verified-contract badge",
       "comparable_cross_domain": [
@@ -614,8 +664,89 @@
         "Polymarket position-overlap analyzer"
       ],
       "data_viz_kind": "side-by-side-table-plus-overlay-chart"
+    },
+    {
+      "id": "packs-best-hits-scanner",
+      "title": "Packs: Best Hits Remaining scanner (which sealed packs have the best unrevealed hits)",
+      "routes": [
+        "/packs/scanner",
+        "/packs"
+      ],
+      "priority": 6,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, I open /packs/scanner and see a ranked list of currently-purchasable pack drops, sorted by Expected Value of remaining unopened packs. EV = SUM over each contained edition: (probability of hit per pack \u00d7 current market value of that edition). I see for each pack: total sealed remaining, EV per pack, current pack purchase price (or marketplace price for resold sealed packs), and EV/price ratio. The list highlights packs where EV/price > 1.0 (positive EV buys).",
+      "data_source": "topshot.packs JOIN topshot.pack_contents JOIN current marketplace floor per edition; opened_count / sealed_count from pack metadata; conditional probability from pack composition",
+      "implementation_hint": "Per Roham: 'the most important thing people want to see on a pack page: which packs have the best hits still hidden in them that I can go out and buy.' This is the centerpiece pack-page feature. May need an MV that joins pack_contents to current edition floors. Reuse the packs-tracker page shape with EV calculation overlay.",
+      "judge_journey": "loop/judge/journeys/packs-best-hits-scanner.spec.ts",
+      "comparable_primary": "OTM Pack tracker (deferred there)",
+      "comparable_cross_domain": [
+        "Topps break tracker EV calculators",
+        "Polymarket EV-of-position display",
+        "Magic: The Gathering booster-box EV trackers"
+      ],
+      "data_viz_kind": "ranked-table-with-EV-bar"
+    },
+    {
+      "id": "home-changelog-strip",
+      "title": "Homepage 'what's new in this build' strip + nav callout for new directories",
+      "routes": [
+        "/"
+      ],
+      "priority": 5,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, when I land on the homepage I see a horizontal strip near the top showing the last 3-5 features that shipped (pulled from progress.md 'Completed' section), with a one-line description and a link to the relevant route. The strip is dismissible (sets a localStorage flag for 24h). The main nav also surfaces the new directories (Sets, Packs, Collectors) if they aren't already in the nav.",
+      "data_source": "progress.md parsed at build-time + features.json for the route mapping",
+      "implementation_hint": "Per Roham: home page isn't surfacing what's new, so traders land on the same Market dashboard and don't notice the new features one click away. Lightweight build-time read of progress.md tail.",
+      "judge_journey": "loop/judge/journeys/home-changelog-strip.spec.ts",
+      "comparable_primary": "Linear's 'what's new' changelog strip + product-update modals",
+      "comparable_cross_domain": [
+        "GitHub release notes strip on repo page",
+        "Notion's 'what's new' banner"
+      ],
+      "data_viz_kind": "horizontal-card-strip"
+    },
+    {
+      "id": "default-window-30d-meta",
+      "title": "META: change default time window from 24H to 30D across every time-tab control",
+      "routes": [
+        "/",
+        "/players",
+        "/moment/[flowId]",
+        "/edition/[id]",
+        "/set/[id]",
+        "/player/[id]",
+        "/team/[id]"
+      ],
+      "priority": 7,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, on every page that has a time-window selector (1D/7D/30D/90D/1Y/ALL or similar), the DEFAULT selected window on landing is 30D \u2014 not 24H. The URL contains ?h=30d or equivalent. The data populates meaningfully for the 30D window (since 24H is too sparse for low-volume moments).",
+      "data_source": "n/a \u2014 UI default change across every time-tab component",
+      "implementation_hint": "Per Roham 2026-05-17 14:40Z: '24 hours is not a short enough window or not a long enough window. That's no problem. Let's just default to showing 30-day windows.' Find every TimeTabs component / window state init and change the default. Likely lives in components/primitives or a shared hook.",
+      "judge_journey": "loop/judge/journeys/default-window-30d-meta.spec.ts",
+      "comparable_primary": "TradingView default chart window (1D for active stocks; longer for sparse)",
+      "comparable_cross_domain": [
+        "Robinhood default 1W view",
+        "Polymarket default 'All' view"
+      ],
+      "data_viz_kind": "ui-default-change"
     }
   ],
   "v3_pillars_applied_at": "2026-05-17T03:30:00Z",
-  "v3_pillars_doc": "research/00-product-pillars-v3.md"
+  "v3_pillars_doc": "research/00-product-pillars-v3.md",
+  "judge_quality_review_2026_05_17": "Honest-empty-state was passing as PASS on viz features where data rendering was the substance. Re-opened with explicit non-zero-bars / non-zero-rows assertions and data-bearing entity selection. Default time window 24H \u2192 30D across every time-tab page."
 }
