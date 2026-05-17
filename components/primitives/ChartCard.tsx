@@ -82,12 +82,18 @@ export function ChartCard({
         <p className="text-[11px] text-[var(--text-dim)] leading-snug flex-1">
           {caption}
         </p>
-        <Link
-          href={href}
-          className="text-[11px] text-[var(--accent)] hover:underline whitespace-nowrap shrink-0"
-        >
-          View details →
-        </Link>
+        {href.startsWith("#") ? (
+          <span className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase whitespace-nowrap shrink-0">
+            Drill-down pending
+          </span>
+        ) : (
+          <Link
+            href={href}
+            className="text-[11px] text-[var(--accent)] hover:underline whitespace-nowrap shrink-0"
+          >
+            View details →
+          </Link>
+        )}
       </div>
 
       {methodology && (
