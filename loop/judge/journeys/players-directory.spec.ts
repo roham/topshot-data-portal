@@ -79,10 +79,11 @@ test("J3 — players directory: filter rail narrows leaderboard by league, activ
 
   // ── Step 1 — click NBA league filter ────────────────────────────────────
   // "show me only NBA players" — the persona's implicit narrowing move.
-  await page
-    .locator('[data-testid="filter-players-league-nba"]')
-    .click();
-  await page.waitForURL(/[?&]league=NBA/, { timeout: 10_000 });
+  // testid is on the <label> (reliably clickable); clicking label toggles radio.
+  const leagueNbaLabel = page.locator('[data-testid="filter-players-league-nba"]');
+  await leagueNbaLabel.waitFor({ state: "visible", timeout: 20_000 });
+  await leagueNbaLabel.click({ timeout: 20_000 });
+  await page.waitForURL(/[?&]league=NBA/, { timeout: 15_000 });
   await page
     .waitForLoadState("networkidle", { timeout: 15_000 })
     .catch(() => {});
@@ -125,10 +126,11 @@ test("J3 — players directory: filter rail narrows leaderboard by league, activ
 
   // ── Step 3 — click "Active" toggle ──────────────────────────────────────
   // "I want to see only players still active in the 2025-26 season."
-  await page
-    .locator('[data-testid="filter-players-active"]')
-    .click();
-  await page.waitForURL(/[?&]active=1/, { timeout: 10_000 });
+  // testid is on <label> — more reliably clickable than the radio <input>.
+  const activeLabel = page.locator('[data-testid="filter-players-active"]');
+  await activeLabel.waitFor({ state: "visible", timeout: 20_000 });
+  await activeLabel.click({ timeout: 20_000 });
+  await page.waitForURL(/[?&]active=1/, { timeout: 15_000 });
   await page
     .waitForLoadState("networkidle", { timeout: 15_000 })
     .catch(() => {});

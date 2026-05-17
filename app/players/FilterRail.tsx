@@ -100,14 +100,18 @@ export function PlayersFilterRail({
       {/* ── League ──────────────────────────────────────────────────────── */}
       <FilterSection label="League">
         <div className="space-y-1.5">
-          <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]">
+          {/* testid on <label> — Playwright clicks labels reliably; input testids
+              are unreliable when the label overlaps the input click target. */}
+          <label
+            className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]"
+            data-testid="filter-players-league-all"
+          >
             <input
               type="radio"
               name="players-league"
               checked={!league}
               onChange={() => onLeague(null)}
               className="accent-[var(--accent)]"
-              data-testid="filter-players-league-all"
             />
             <span>All</span>
           </label>
@@ -116,6 +120,7 @@ export function PlayersFilterRail({
               <label
                 key={lg}
                 className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]"
+                data-testid={`filter-players-league-${lg.toLowerCase()}`}
               >
                 <input
                   type="radio"
@@ -123,7 +128,6 @@ export function PlayersFilterRail({
                   checked={league === lg}
                   onChange={() => onLeague(lg)}
                   className="accent-[var(--accent)]"
-                  data-testid={`filter-players-league-${lg.toLowerCase()}`}
                 />
                 <span>{lg}</span>
               </label>
@@ -135,36 +139,42 @@ export function PlayersFilterRail({
       {/* ── Status (Active / Retired) ────────────────────────────────────── */}
       <FilterSection label="Status">
         <div className="space-y-1.5">
-          <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]">
+          <label
+            className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]"
+            data-testid="filter-players-status-all"
+          >
             <input
               type="radio"
               name="players-status"
               checked={active == null}
               onChange={() => onStatus(null)}
               className="accent-[var(--accent)]"
-              data-testid="filter-players-status-all"
             />
             <span>All</span>
           </label>
-          <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]">
+          <label
+            className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]"
+            data-testid="filter-players-active"
+          >
             <input
               type="radio"
               name="players-status"
               checked={active === "1"}
               onChange={() => onStatus("1")}
               className="accent-[var(--accent)]"
-              data-testid="filter-players-active"
             />
             <span>Active</span>
           </label>
-          <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]">
+          <label
+            className="flex items-center gap-2 cursor-pointer hover:text-[var(--text)]"
+            data-testid="filter-players-retired"
+          >
             <input
               type="radio"
               name="players-status"
               checked={active === "0"}
               onChange={() => onStatus("0")}
               className="accent-[var(--accent)]"
-              data-testid="filter-players-retired"
             />
             <span>Retired</span>
           </label>
