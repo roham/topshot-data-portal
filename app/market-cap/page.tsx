@@ -9,6 +9,7 @@
 
 import type { Metadata } from "next";
 import { getMarketCapLanding, type PlayerMcapRow } from "@/lib/supabase/queries/market-cap-landing";
+import { getPlayerMovers, parseMoverWindow } from "@/lib/supabase/queries/player-movers";
 import { ChartCard } from "@/components/primitives/ChartCard";
 import { TopPlayersChart } from "@/components/charts/market-cap/TopPlayersChart";
 import { ByTierChart } from "@/components/charts/market-cap/ByTierChart";
@@ -16,9 +17,10 @@ import { ByParallelChart } from "@/components/charts/market-cap/ByParallelChart"
 import { TopSetsChart } from "@/components/charts/market-cap/TopSetsChart";
 import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
 import { TotalOverTimeChart } from "@/components/charts/market-cap/TotalOverTimeChart";
-import { MoversChart } from "@/components/charts/market-cap/MoversChart";
+import { MoversCardGrid } from "@/components/charts/market-cap/MoversCardGrid";
 import { ConcentrationChart } from "@/components/charts/market-cap/ConcentrationChart";
 import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
+import { MoverWindowToggle } from "@/components/market-cap/MoverWindowToggle";
 import { parseMcapFormula } from "@/lib/market-cap/mcap-formula";
 
 export const metadata: Metadata = {
@@ -40,11 +42,15 @@ function fmtUSD(n: number): string {
 export default async function MarketCapPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mcap?: string }>;
+  searchParams: Promise<{ mcap?: string; mw?: string }>;
 }) {
   const sp = await searchParams;
   const formula = parseMcapFormula(sp.mcap);
-  const data = await getMarketCapLanding();
+  const moverWindow = parseMoverWindow(sp.mw);
+  const [data, movers] = await Promise.all([
+    getMarketCapLanding(),
+    getPlayerMovers(moverWindow),
+  ]);
 
   // Choose mcap source per formula. Re-rank top players for avg-sale view.
   const topPlayersRanked: PlayerMcapRow[] =
@@ -248,24 +254,32 @@ export default async function MarketCapPage({
             <ConcentrationChart rows={concentrationRows} />
           </ChartCard>
 
-          {/* Row 5 — full-width: movers (gainers + losers on one canvas) */}
-          <ChartCard
-            title="Mcap movers"
-            subtitle="biggest gainers + losers across the available window"
-            asOf={data.asOfDate ?? undefined}
-            wide
-            testId="chart-movers"
-            href="#movers-drill"
-            caption={
-              data.gainers.length > 0
-                ? `Top gainer: ${data.gainers[0].player_name} at ${data.gainers[0].pct_change > 0 ? "+" : ""}${data.gainers[0].pct_change.toFixed(1)}% (now ${fmtUSD(data.gainers[0].latest_mcap)}). Window is short — 4 days of mcap snapshots.`
-                : "Mcap-change window thin (≥2 daily snapshots required). Time-series populates as ETL accrues."
-            }
-            methodology="Per-player delta between earliest and latest date in 30d window. Filter: latest_mcap > $1K to suppress noise. Color: canonical direction palette (green-up / red-down)."
-          >
-            <MoversChart gainers={data.gainers} losers={data.losers} />
-          </ChartCard>
         </div>
+      )}
+
+      {/* Row 5 — full-width: meme-coin-style movers section.
+          Per Roham 2026-05-17 20:45Z: "top movers section highlighting
+          biggest changes over last 15/30/90 days. Color coded the way
+          a meme coin tracking site would show." */}
+      {data.totalMcap > 0 && (
+        <section id="movers" className="mt-6">
+          <div className="mb-3 flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-[16px] font-semibold tracking-tight text-[var(--text)]">
+                Top movers
+              </h2>
+              <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
+                avg sale price · {moverWindow}d recent vs prior · ≥5 tx both windows · {movers.gainers.length + movers.losers.length} players
+              </p>
+            </div>
+            <MoverWindowToggle />
+          </div>
+          <MoversCardGrid
+            gainers={movers.gainers}
+            losers={movers.losers}
+            window_days={moverWindow}
+          />
+        </section>
       )}
 
       {/* Methodology footer — small, signature-move comparable note */}
