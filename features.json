@@ -133,8 +133,8 @@
       ],
       "priority": 4,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T09:03:44.300Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, I land on /players and see a sortable table of players ranked by MARKET CAP (sum of floor × circulation across all of their editions), with columns: # / Player / Team / # Editions / Total Minted / Circ % / Market Cap / 24h Δ%.",
@@ -146,7 +146,14 @@
         "TradingView screener (sortable rankings)",
         "PWCC 500 / Card Ladder CL50"
       ],
-      "data_viz_kind": "table-with-sparkline"
+      "data_viz_kind": "table-with-sparkline",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T09:03:44.300Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/players-marketcap/2026-05-17T09-03-35-975Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "moments-csv-export",
