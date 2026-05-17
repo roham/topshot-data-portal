@@ -1,9 +1,15 @@
-# Top Shot Data Portal — Doctrine v1 (STRAWMAN)
+# Top Shot Data Portal — Doctrine v1.1 (post-Roham redline 2026-05-17 19:00Z)
 
-**Date:** 2026-05-17
-**Status:** DRAFT. Drafted by Dexter from Roham's verbatim statements across the 2026-05-17 session + `research/00-foundation-v2.md` + `research/00-product-pillars-v3.md`. Awaits Roham's redline. Once Roham signs off, this is **load-bearing**: every Researcher reads it; every Builder honors it; every Judge tests against it.
+**Date:** 2026-05-17 19:00Z
+**Status:** DRAFT v1.1 — incorporates Roham's three Socratic answers from 19:00Z. Still awaits a final read before lock. Once locked, this is **load-bearing**: every Researcher reads it; every Builder honors it; every Judge tests against it.
 
 The shape is borrowed from the lore-vault GDD V2 *Eight Reframings (Opus, 2026-04-27)* that worked. Lore-vault shipped one coherent page in one PR because doctrine was tight enough that the agent had only execution choices left, not interpretation choices. Same intent here.
+
+**v1.1 changes from v1:**
+- ICP named: **Michael Levy (MBL)**. (Data-availability caveat in §3 footnote.)
+- P2 (Density) inverted to **Graphs first, density on drill**.
+- P9 (Scope) narrowed to **start with market cap visualizations only; expand from there**.
+- §0 adds **Polymarket** and **Card Ladder Pro** as the canonical graph-first comparables.
 
 ---
 
@@ -11,18 +17,33 @@ The shape is borrowed from the lore-vault GDD V2 *Eight Reframings (Opus, 2026-0
 
 Each named here is a product whose **specific signature moves** the portal must port. Not "inspired-by." Load-bearing. Per-feature comparable mapping lives in `features.json` and `research/00-foundation-v2.md` §9.
 
+### §0.1 — Graph-first landings (the load-bearing pattern)
+
+Three products land their visitors on **a grid/wall of charts**, not on a table:
+
+| Comparable | The signature move | Why we port it |
+|---|---|---|
+| **Polymarket** | Cards-grid of bet markets, each card with a probability time-series chart prominently. Click a card → market detail with deeper chart + order book. Tables are second-click. | Audience match: people checking "what's moving" want to SEE the move, not sort a table. Mirrors how OTM landed when alive. |
+| **OTM (deceased) — homepage** | Top gainers/losers cards each with a sparkline. Index charts. Featured market summary cards. The information IS chart-first. | Same audience we're building for; we are the OTM that lives. The dead one knew. |
+| **Card Ladder Pro** | CL50/CL100 index chart at top of home. Below: top movers as cards with sparklines. Category-index charts. Tables in second-click views. | $200/yr collector tool that survived because the chart-first landing was the right shape for the collector mindset. |
+
+**These three are the foundational pattern.** Tables and density still exist, but they're **second-click** drill-downs from a graph-first landing. Per Roham 2026-05-17 19:00Z: *"the first level should be graphs, almost like Polymarket graphs (that's what OTM was). You just load it, and it's just a bunch of graphs."*
+
+### §0.2 — Second-click reference comparables
+
+Once a user drills in from a graph, the data layer comes from these:
+
 | Comparable | What we port | What we don't |
 |---|---|---|
-| **OTM (deceased)** | Audience-fit. Centerpiece grid + filter rail + EXPORT. Sniper interaction. Player Market Cap view. Time-tab grammar on moment-detail. Circulation breakdown block. | True Value black-box model (their fatal mistake). Marketing-speak "Discover" copy. |
-| **Bloomberg Terminal** | Information density (80–120 data points per panel). Function-code grammar in the search bar. Keyboard-first navigation. Tabular numeric monospace. Sub-200ms transitions. | Subscription pricing model. Color theme. |
+| **OTM (deceased) — detail surfaces** | Audience-fit. Centerpiece /moments grid + filter rail + EXPORT. Sniper interaction. Player Market Cap view. Time-tab grammar on moment-detail. Circulation breakdown block. | True Value black-box model (their fatal mistake). Marketing-speak "Discover" copy. |
+| **Bloomberg Terminal** | Density on drill-down screens (80–120 data points per panel). Function-code grammar in the search bar. Keyboard-first navigation. Tabular numeric monospace. Sub-200ms transitions. | Bloomberg-density on the LANDING (per §0.1 inversion). |
 | **TradingView** | Chart engine for time-series. Watchlists as first-class objects. `/` palette to focus filter. Multi-time-window selector. Alert rules attached to symbols. | Indicator marketplace. Pine Script. |
-| **Card Ladder Pro** | Portfolio dashboard density. CL50-style indices. Daily mover email digest cadence. Per-collector portfolio history. | The general-collector segment. |
 | **PSA Set Registry** | Set completion as game mechanic. Pop-by-grade equivalent (we use circulation-by-tier-and-parallel). Per-set leaderboard. | Encapsulation/grading vocabulary. |
 | **StockX** | Size-as-market-segmenter — applied to our parallels. Each (set × tier × parallel) is its own market with its own ladder. Sold-history transparency. | The drop/hype/release-calendar framing. |
 | **Tensor (Solana)** | Depth chart (cumulative listings + bids by price). Rarity-vs-price scatter recast as serial-vs-price within an edition. Row-density treatment with sparklines. | Solana-specific terminology. |
 | **OTM Sniper (deceased)** | The continuous scan-for-mispricing surface — most-loved feature in the dead-tool canon. We ship a TRANSPARENT, EDITABLE rules engine version. | Opaque model. |
 
-A feature may cite more than one comparable; cross-domain references (NYT Upshot for annotated charts, FlightRadar24 for real-time strip, etc.) live in the foundation doc §7 and feed Pillar 3 of `00-product-pillars-v3.md`. The eight above are the **canonical anchors**.
+A feature may cite more than one comparable; cross-domain references (NYT Upshot for annotated charts, FlightRadar24 for real-time strip, etc.) live in the foundation doc §7 and feed Pillar 3 of `00-product-pillars-v3.md`. The three in §0.1 are the **landing-page canon**; the seven in §0.2 are the **drill-down canon**.
 
 ---
 
@@ -37,12 +58,14 @@ Floor market cap = `lowest_ask × circulation`, summed across editions. The prin
 **Comparable:** TradingView's raw bid/ask display; PSA's published pop without "outlier correction."
 **Rejects:** avg-sale-rebased "market cap"; median-sale as a metric; pre-display wash filtering; AI-smoothed valuations without confidence bands.
 
-### P2. Density is the brand
+### P2. Graphs first, density on drill (INVERTED from v1)
 
-Every pixel earns its place. 80–120 data points per panel on Trader surfaces; magazine density on Analyst surfaces. Whitespace is not a feature. Empty states are dignified honest absences, not "Coming Soon" placeholders.
+The first level of every page is a **wall of relevant graphs** — not a table, not a hero, not marketing copy. The user loads the page and immediately sees the data visualized. Tables, raw rows, and Bloomberg-density panels are **second-click** drill-downs from any graph. The trade-off accepted: we are **WORSE at instant raw-data scanning** (you need one click to reach the spreadsheet view), in exchange for being **immediately legible** the moment a page loads.
 
-**Comparable:** Bloomberg Terminal panel density; Card Ladder Pro tables; FRED report layouts.
-**Rejects:** Vercel-template aesthetic; generous padding; emotive headlines like "Discover" / "Trending Now" / "Explore"; surfaces that read like a product brochure.
+**Verbatim from Roham, 2026-05-17 19:00Z:** *"I think we should hide the density and the sort of tables and stuff behind one click. I think the first level should be graphs, almost like Polymarket graphs (that's what OTM was). You just load it, and it's just a bunch of graphs."*
+
+**Comparable:** Polymarket cards-grid (each card a probability sparkline); OTM landing (gainers/losers cards with sparklines); Card Ladder Pro home (CL50 + mover cards + sparklines).
+**Rejects:** table-first landings (the current `/players` table as a first-class landing IS this anti-pattern); hero-with-marketing-copy at the top; "Get Started" or "Explore" CTAs above the data; Bloomberg-density on the LANDING (Bloomberg-density on the second-click drill-down is right).
 
 ### P3. Every page has a comparable, and the comparable is load-bearing
 
@@ -94,15 +117,28 @@ When circulation > 0 but listings = 0 in a cell, render **"🆕 NEW DROP / be fi
 **Comparable:** Stripe Atlas onboarding empty-states; Linear's first-time-experience banners.
 **Rejects:** silent blank cells; "no data available" labels; collapsing empty rows into a footer that hides them.
 
-### P9. One coherent portal, not 23 features
+### P9. Start with market cap visualizations only. Earn the right to expand.
 
-The trader's full journey end-to-end is the load-bearing test:
-> *"I open the portal. I press `/` to search Wemby. I land on his player page. I see the editions matrix. I click a cell. I land on the edition. I see the depth ladder. I press `?` for shortcuts. I press `g h` for home. I see the live ticker."*
+V6 ships ONE thing first: **a graph-first landing visualizing different forms of market cap** — and nothing else, until that one thing is genuinely excellent. The doctrine is: don't earn breadth before you've earned depth on one canonical surface.
 
-Every shipped feature is in service of that journey, not a standalone shelf item. **Excellence on five features before breadth on twenty-three.** The five are: `/players`, `/moments`, `/moment/[id]`, `/u/[username]`, `/` (home). Variants A/B/C/D, `/parallels`, packs, sniper, etc. — all DOWNSTREAM.
+**Verbatim from Roham, 2026-05-17 19:00Z:** *"In terms of the scope, we should just start with visualizing different forms of market cap and then go from there."*
 
-**Comparable:** lore-vault GDD V2 (one coherent page); Bloomberg's main monitor screen.
-**Rejects:** feature factories; ship-count as success metric; declaring a feature "passed" when the trader's end-to-end journey breaks at a downstream step.
+**The first surface (working name: `/` or `/market-cap`):** a wall of charts, each chart a different cut of "market cap as the data." Click any chart → drill into its underlying table (per P2). Examples of what cuts are possible (Researcher narrows + ranks before authoring):
+- Top players by market cap (time-series chart, top 10 lines)
+- Market cap concentration (Gini / top-N share over time)
+- Market cap by tier (stacked area: Common / Rare / Legendary / Ultimate)
+- Market cap by parallel (stacked area: Base / Diamond / Anthology / ...)
+- 30D market cap movers (bar chart: top % gainers + losers, side-by-side)
+- Market cap vs. floor-price-distribution (scatter)
+- Per-set market cap (bar chart, top 20 sets)
+- Per-team market cap (treemap)
+- Market cap concentration by collector (top wallets' share of total)
+- Series 1 vs Series N market cap (multi-line over time)
+
+Each chart on this surface is its own load-bearing artifact, tested independently for fidelity to its comparable (Polymarket / Card Ladder Pro / NYT Upshot / Glassnode / FRED depending on chart type). When all of these are excellent + clickable into the second-click drill-down, doctrine permits expanding to the next surface.
+
+**Comparable:** Polymarket market-cards-grid; Card Ladder Pro home with CL50 + indices + movers; lore-vault GDD V2 (one coherent surface as the entire artifact).
+**Rejects:** shipping `/players` + `/moments` + `/sets` + 18 other routes in parallel before any ONE of them is excellent; feature factories; ship-count as success metric.
 
 ---
 
@@ -116,18 +152,23 @@ Every shipped feature is in service of that journey, not a standalone shelf item
 
 ---
 
-## §3 — Open questions for Roham (the Socratic 3)
+## §3 — Resolved Socratic answers (2026-05-17 19:00Z)
 
-Before this doctrine ships, three questions I can't answer alone — your call decides them:
+### Q1 — The named ICP: **Michael Levy (MBL)**
 
-### Q1 — The ONE specific person
-Foundation-v2 §1 describes the "Pro Trader" as a market-active collector running a $5K–$800K portfolio. **Can you name a specific real person — by handle, or by name — who is the load-bearing target customer?** Someone whose feed you'd want to imagine reading the portal during the morning halftime check. Not "the pro trader segment" — one human. Without naming them, P6 (verbatim quote as spec) is hard to enforce.
+Roham 2026-05-17 19:00Z: *"The one specific real person that I think you'll have the most data on is Michael Levy (MBL)."*
 
-### Q2 — The trade-off (axiom test)
-P2 says "density is the brand." The Socrates skill asks: **"What are you willing to be WORSE at in order to be best at this thing?"** If density wins, what loses? Candidates I can think of: (a) onboarding clarity for non-pros — we accept being intimidating to casual fans; (b) mobile-tablet fluidity at narrow viewports — we accept best-on-desktop; (c) "delight" animations — we accept feeling like an instrument, not a toy. Which one(s)? Or another I haven't named?
+**Data-availability footnote (Dexter 19:15Z):** verified against `topshot.*` Supabase tables; **MBL's transaction data is NOT currently in our DB.** `transactions.buyer_safe_name` exists in schema but ETL never populates it (every row is NULL). Same shape as the Podziemski Ultimate ETL gap. Until either (a) we get MBL's flow_address from outside the DB and look up his moments via `moments.owner_flow_address`, or (b) extend the BQ→Supabase ETL to populate `buyer_safe_name` / `seller_safe_name`, MBL serves the doctrine as a VERBATIM-VOICE anchor (his public posts on Twitter / Discord become the trader-voice source we quote) but not as an in-portal data subject yet.
 
-### Q3 — The 5 features — confirm or redirect
-P9 names the five-feature focus. **Confirm `/players`, `/moments`, `/moment/[id]`, `/u/[username]`, `/` as the canonical five for V6.** Or — if the right five are different — give me the corrected list. (Reasoning behind my five: they cover the journey from "search a player" → "browse moments" → "drill into a moment" → "check a collector" → "see the market at a glance." `/sets`, `/packs`, `/sniper` are excluded because they're downstream of those five being excellent.)
+This means P6 is enforceable by quoting MBL's public statements as the spec text. The acceptance bar: *"would Michael Levy (a) find this rendered correctly, (b) want to share the URL, (c) recognize it as the surface a pro Top Shot collector deserves?"*
+
+### Q2 — The trade-off: **we are WORSE at instant raw-data scanning**
+
+Roham 2026-05-17 19:00Z: *"I think we should hide the density and the sort of tables and stuff behind one click. I think the first level should be graphs, almost like Polymarket graphs."* See P2.
+
+### Q3 — Scope: **market cap visualizations first, expand from there**
+
+Roham 2026-05-17 19:00Z: *"In terms of the scope, we should just start with visualizing different forms of market cap and then go from there."* See P9.
 
 ---
 
