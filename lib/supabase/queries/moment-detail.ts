@@ -231,3 +231,61 @@ export const getEditionCirculation = unstable_cache(
   ["edition-circulation"],
   { revalidate: 60, tags: ["edition-circulation"] },
 );
+
+// ── Edition sale price distribution (for the price-bucket histogram) ──────
+//
+// Fetches up to 500 completed SUCCEEDED transactions for an edition and returns
+// just the gross_amount_usd values so the client can bucket them into a histogram.
+//
+// Uses PostgREST embedded relation: transactions JOIN moments!inner via moment_id FK.
+// Filter: moments.edition_id = $editionId (DB composite key format —
+//   e.g. "{play_uuid}+{set_uuid}"). Do NOT pass moment.edition?.id (GraphQL format).
+//   Always pass `circulation?.editionId` (already resolved in the page).
+//
+// Time-window filter: optional `since` date derived from the active `historyWindow`
+// using the shared `windowToSince()` helper above.
+
+async function _getMomentEditionPriceDistribution(
+  editionId: string,
+  window: MomentHistoryWindow = "all",
+): Promise<number[]> {
+  if (!editionId) return [];
+  try {
+    const sb = getSupabaseServerAnon();
+    if (!sb) return [];
+
+    const since = windowToSince(window);
+
+    let q = sb
+      .from("transactions")
+      .select("gross_amount_usd, moments!inner(edition_id)")
+      .eq("moments.edition_id", editionId)
+      .eq("transaction_state_id", "SUCCEEDED")
+      .not("gross_amount_usd", "is", null)
+      .order("source_updated_at", { ascending: false })
+      .limit(500);
+
+    if (since) q = q.gte("source_updated_at", since);
+
+    const { data, error } = await q;
+    if (error) {
+      console.error("[supabase] edition-price-distribution read failed", error);
+      return [];
+    }
+
+    // We only care about the price column; the embedded moments row is just for filtering.
+    type Row = { gross_amount_usd: number | null };
+    return ((data as Row[] | null) ?? [])
+      .filter((r): r is Row & { gross_amount_usd: number } => r.gross_amount_usd != null)
+      .map((r) => Number(r.gross_amount_usd));
+  } catch (e) {
+    console.error("[supabase] edition-price-distribution threw", e);
+    return [];
+  }
+}
+
+export const getMomentEditionPriceDistribution = unstable_cache(
+  _getMomentEditionPriceDistribution,
+  ["edition-price-distribution"],
+  { revalidate: 60, tags: ["edition-price-distribution"] },
+);

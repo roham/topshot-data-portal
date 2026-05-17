@@ -18,9 +18,11 @@ import { MomentPriceHistory } from "@/components/MomentPriceHistory";
 import {
   getMomentHistory,
   getEditionCirculation,
+  getMomentEditionPriceDistribution,
   type MomentHistoryWindow,
 } from "@/lib/supabase/queries/moment-detail";
 import { CirculationCard } from "@/components/CirculationCard";
+import { MomentPriceHistogram } from "@/components/MomentPriceHistogram";
 import type { MintedMoment } from "@/lib/topshot/types";
 
 const HISTORY_WINDOWS: readonly MomentHistoryWindow[] = [
@@ -48,6 +50,15 @@ function parseHistoryWindow(
 
 export const revalidate = 60;
 export const dynamic = "force-dynamic";
+
+const HISTORY_WINDOW_LABELS: Record<MomentHistoryWindow, string> = {
+  "1d": "1D",
+  "7d": "7D",
+  "1m": "1M",
+  "3m": "3M",
+  ytd:  "YTD",
+  all:  "all time",
+};
 
 const TIER_SHORT: Record<string, string> = {
   MOMENT_TIER_COMMON: "Common",
@@ -140,6 +151,14 @@ export default async function MomentPage({
   const parallels = parallelsRes.status === "fulfilled" ? parallelsRes.value : [];
   const history = historyRes.status === "fulfilled" ? historyRes.value : [];
   const circulation = circulationRes.status === "fulfilled" ? circulationRes.value : null;
+
+  // Edition-level price distribution for the histogram.
+  // Uses circulation?.editionId (DB composite key) — NOT moment.edition?.id (GraphQL format).
+  // Called after the circulation batch so the resolved editionId is available.
+  const editionId = circulation?.editionId ?? "";
+  const priceDistribution = editionId
+    ? await getMomentEditionPriceDistribution(editionId, historyWindow)
+    : [];
 
   const editionFloor = listed.length ? Math.min(...listed.map((l) => l.lowAsk)) : null;
   const valuation = valueMoment(moment, {
@@ -252,6 +271,19 @@ export default async function MomentPage({
           data={history.map((p) => ({ ts: p.ts, price_usd: p.price_usd }))}
           active={historyWindow}
         />
+      </Card>
+
+      {/* ===== Sale distribution histogram · Supabase ===== */}
+      {/* From research/personas/pro-trader.md §J4: "I see a histogram of recent
+          sale prices." — positioned below the price chart, same width, same time
+          context (OTM signature layout). */}
+      <Card
+        title="Sale distribution"
+        subtitle={`${priceDistribution.length} sales · this edition · ${HISTORY_WINDOW_LABELS[historyWindow]}`}
+        variant="inset"
+        methodology="topshot.transactions filtered by edition_id via moments!inner; SUCCEEDED state only; up to 500 most-recent transactions; buckets auto-derived from price range."
+      >
+        <MomentPriceHistogram prices={priceDistribution} window={historyWindow} />
       </Card>
 
       {/* ===== Circulation breakdown · Supabase ===== */}
