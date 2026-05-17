@@ -152,35 +152,55 @@ test.beforeAll(async () => {
     );
   }
 
-  const bestMomentId = bestEntry[0];
-  const bestTxCount = bestEntry[1];
+  // Step 3: batch-resolve top-50 candidates against topshot.moments.
+  // Some moment_ids in transactions are orphaned (moment was burned/removed from
+  // topshot.moments after the trade). We batch-lookup the top-50 by tx count and
+  // pick the highest-tx one that has a non-null moment_flow_id.
+  const top50Ids = sortedByTx.slice(0, 50).map(([id]) => id);
 
-  // Step 3: look up moment_flow_id for the best moment_id.
-  type MRow = { moment_flow_id: string | null };
-  const { data: momentRowData, error: momentErr } = await sb
+  type MRow = { moment_id: string; moment_flow_id: string | null };
+  const { data: momentBatch, error: batchErr } = await sb
     .from("moments")
-    .select("moment_flow_id")
-    .eq("moment_id", bestMomentId)
-    .maybeSingle();
+    .select("moment_id, moment_flow_id")
+    .in("moment_id", top50Ids)
+    .not("moment_flow_id", "is", null);
 
-  if (momentErr) {
+  if (batchErr) {
     throw new Error(
-      `[judge] moment-detail-chart: moment lookup failed for moment_id=${bestMomentId}: ` +
-        JSON.stringify(momentErr),
-    );
-  }
-  if (!momentRowData) {
-    throw new Error(
-      `[judge] moment-detail-chart: moment_id=${bestMomentId} not found in topshot.moments. ` +
-        "Transaction references a moment that was removed from the table.",
+      `[judge] moment-detail-chart: moment batch lookup failed: ${JSON.stringify(batchErr)}`,
     );
   }
 
-  KNOWN_FLOW_ID = (momentRowData as MRow).moment_flow_id ?? "";
+  // Build a map of moment_id → moment_flow_id for resolved moments.
+  const flowMap = new Map<string, string>();
+  for (const r of (momentBatch ?? []) as MRow[]) {
+    if (r.moment_id && r.moment_flow_id) flowMap.set(r.moment_id, r.moment_flow_id);
+  }
+
+  console.log(
+    `[judge] moment-detail-chart: ${flowMap.size}/${top50Ids.length} top candidates ` +
+      "resolved to valid moment_flow_id in topshot.moments",
+  );
+
+  // Pick the top-tx-count candidate that resolves in topshot.moments.
+  let bestMomentId = "";
+  let bestTxCount = 0;
+  for (const [id, count] of sortedByTx) {
+    const flowId = flowMap.get(id);
+    if (flowId) {
+      bestMomentId = id;
+      bestTxCount = count;
+      KNOWN_FLOW_ID = flowId;
+      break;
+    }
+  }
+
   if (!KNOWN_FLOW_ID) {
     throw new Error(
-      `[judge] moment-detail-chart: moment_flow_id is null for moment_id=${bestMomentId}. ` +
-        "Check topshot.moments.moment_flow_id population.",
+      "[judge] moment-detail-chart: none of the top-50 transaction candidates " +
+        "resolved to a valid moment_flow_id in topshot.moments. " +
+        `top_candidates=${sortedByTx.slice(0, 5).map(([id, c]) => `${id.slice(0, 8)}=${c}`).join(",")}. ` +
+        "Possible cause: all high-tx moments are orphaned (burned/removed).",
     );
   }
 
