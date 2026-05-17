@@ -236,10 +236,15 @@
       ],
       "priority": 7,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T10:28:08.263Z",
       "blocked": false,
-      "fail_reasons": [],
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T10:23:29.371Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/set-completion-histogram-2026-05-17T10-23-29-371Z.md"
+        }
+      ],
       "acceptance": "As a trader, I open a set detail page and see a bar chart of users-at-each-completion-level (e.g., 2,149 users at 56/56, 96 users at 55/56, …). The data source is mv_set_completion_distribution.",
       "data_source": "topshot.mv_set_completion_distribution",
       "implementation_hint": "MV exists per handover; need a bar chart component, Recharts BarChart sufficient",
@@ -249,7 +254,14 @@
         "PSA Set Registry pop distribution",
         "GitHub contribution graph (heatmap variant)"
       ],
-      "data_viz_kind": "histogram-bar"
+      "data_viz_kind": "histogram-bar",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T10:28:08.263Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/set-completion-histogram/2026-05-17T10-27-44-768Z",
+          "portal_url": "https://topshot-data-portal-neyj8opqn-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "moment-detail-histogram",
