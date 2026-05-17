@@ -14,6 +14,7 @@ import { Sparkline } from "@/components/primitives/Sparkline";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { DepthLadder } from "@/components/DepthLadder";
 import { TunedValuationOverlay } from "@/components/TunedValuationOverlay";
+import { SerialValuationInput } from "@/components/SerialValuationInput";
 import { MomentPriceHistory } from "@/components/MomentPriceHistory";
 import {
   getMomentHistory,
@@ -123,11 +124,16 @@ export default async function MomentPage({
   searchParams,
 }: {
   params: Promise<{ flowId: string }>;
-  searchParams?: Promise<{ h?: string }>;
+  searchParams?: Promise<{ h?: string; s?: string }>;
 }) {
   const { flowId } = await params;
   const sp = (await searchParams) ?? {};
   const historyWindow = parseHistoryWindow(sp.h);
+  // Serial overlay: parse `?s=` for server-side pre-population.
+  const initialSerial =
+    sp.s != null && sp.s !== ""
+      ? (() => { const n = parseInt(sp.s, 10); return isFinite(n) && n > 0 ? n : null; })()
+      : null;
   const moment = await getMoment(flowId);
   if (!moment) notFound();
 
@@ -370,6 +376,34 @@ export default async function MomentPage({
         canonicalConfLo={fvLo}
         canonicalConfHi={fvHi}
       />
+
+      {/* ===== 2c. True Value by serial overlay — moment-detail-serial-overlay ===== */}
+      {/* From research/personas/pro-trader.md §Discord voice #2:
+          "I need to dump the Common Wembys with serials > 5K before EOM."
+          OTM signature move: typing a serial number causes the pricing block
+          to update in place, with serial-band premiums applied automatically. */}
+      <Card
+        title="True Value by serial"
+        methodology="valueMoment() applied to typed serial; base from edition floor or recent comps median; serial-band premiums per /rules"
+        variant="inset"
+      >
+        <SerialValuationInput
+          playerName={moment.play?.stats?.playerName ?? "Unknown"}
+          tier={tier}
+          parallelId={parallelId}
+          circulation={moment.edition?.circulationCount ?? 0}
+          lowAsk={moment.lowAsk == null ? null : Number(moment.lowAsk)}
+          lastSale={anchors.lastSale}
+          jersey={
+            moment.play?.stats?.jerseyNumber != null
+              ? Number(moment.play.stats.jerseyNumber)
+              : null
+          }
+          editionFloor={editionFloor}
+          recentSales={recentSales.map((s) => ({ price: s.price }))}
+          initialSerial={initialSerial}
+        />
+      </Card>
 
       {/* ===== 3. Depth ladder ===== */}
       <Card
