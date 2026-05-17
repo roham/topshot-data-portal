@@ -271,8 +271,8 @@
       ],
       "priority": 8,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T11:33:57.365Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, I see below the price chart a histogram bucketing recent sales by price band (e.g., $7, $8, …) over the active window, so I can see the price-cluster distribution.",
@@ -284,7 +284,14 @@
         "Polymarket order ladder distribution",
         "Glassnode price-bucket supply"
       ],
-      "data_viz_kind": "histogram-bar"
+      "data_viz_kind": "histogram-bar",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T11:33:57.365Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/moment-detail-histogram/2026-05-17T11-33-45-494Z",
+          "portal_url": "https://topshot-data-portal-8aczcmrmo-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "moment-detail-serial-overlay",
