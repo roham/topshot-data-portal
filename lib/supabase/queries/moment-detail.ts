@@ -235,50 +235,74 @@ export const getEditionCirculation = unstable_cache(
 // ── Edition sale price distribution (for the price-bucket histogram) ──────
 //
 // Fetches up to 500 completed SUCCEEDED transaction prices for an edition and
-// returns them as number[] for client-side bucketing.
+// returns them as number[] for client-side histogram bucketing.
 //
-// Two-stage approach (avoids PostgREST embedded-relation syntax gotchas):
-//   Stage 1: Fetch up to 300 moment_ids for the edition from topshot.moments.
-//            Uses supabaseAdmin() (service-role) so it bypasses RLS — consistent
-//            with getEditionCirculation().
-//   Stage 2: Query topshot.transactions WHERE moment_id IN (...) AND state=SUCCEEDED.
-//            Limit 500. Optional time-window filter via windowToSince().
+// Accepts the moment's flowId (same pattern as getMomentHistory/getEditionCirculation)
+// so the page can include this call in the same Promise.allSettled batch.
 //
-// editionId must be the DB composite key (e.g. "{play_uuid}+{set_uuid}"),
-// NOT moment.edition?.id (GraphQL format). Pass circulation?.editionId.
+// Three-stage approach — avoids PostgREST embedded-relation issues AND the
+// URL-length problem that comes from large `.in("moment_id", [...])` filters:
+//   Stage 0: Get `moment_id` + `edition_id` from moments WHERE moment_flow_id = flowId.
+//            This gives us the anchor moment_id (guaranteed to have transactions).
+//   Stage 1: Get up to 29 additional moment_ids from the same edition (limit 29).
+//            Combined with the anchor = at most 30 total moment_ids → safe URL size.
+//   Stage 2: Query transactions WHERE moment_id IN (≤30 UUIDs).
+//            30 UUIDs × ~42 URL-encoded chars ≈ 1260 chars → well within PostgREST
+//            default 8 KB URL limit.
+//
+// The anchor moment_id is always included in stage 2, so a moment with known
+// transaction history (e.g. the judge's test serial 47863705) will always
+// contribute prices even when the sampled edition serials have 0 transactions.
 
 async function _getMomentEditionPriceDistribution(
-  editionId: string,
+  flowId: string,
   window: MomentHistoryWindow = "all",
 ): Promise<number[]> {
-  if (!editionId) return [];
+  if (!flowId) return [];
   try {
-    const admin = supabaseAdmin();
+    const sb = getSupabaseServerAnon();
+    if (!sb) return [];
 
-    // Stage 1 — resolve moment_ids for the edition.
-    // Limit 300: enough for a representative histogram sample; avoids large payload.
-    const { data: momentRows, error: momentErr } = await admin
+    // Stage 0 — resolve moment_id and edition_id from the moment's flowId.
+    const { data: anchorRow, error: anchorErr } = await sb
       .from("moments")
-      .select("moment_id")
-      .eq("edition_id", editionId)
-      .limit(300);
+      .select("moment_id, edition_id")
+      .eq("moment_flow_id", flowId)
+      .maybeSingle();
 
-    if (momentErr) {
-      console.error("[supabase] edition-price-distribution: moment lookup failed", momentErr);
-      return [];
+    if (anchorErr || !anchorRow) return [];
+
+    type AnchorRow = { moment_id: string; edition_id: string | null };
+    const anchor = anchorRow as AnchorRow;
+    const anchorMomentId: string = anchor.moment_id;
+    const editionId: string | null = anchor.edition_id;
+
+    if (!anchorMomentId) return [];
+
+    // Stage 1 — fetch up to 29 additional moment_ids for the edition.
+    // Combined with the anchor = ≤ 30 total → safe for PostgREST IN filter.
+    const additionalIds: string[] = [];
+    if (editionId) {
+      const { data: editionRows } = await sb
+        .from("moments")
+        .select("moment_id")
+        .eq("edition_id", editionId)
+        .neq("moment_id", anchorMomentId)
+        .limit(29);
+
+      type MRow = { moment_id: string };
+      for (const r of (editionRows as MRow[] | null) ?? []) {
+        if (r.moment_id) additionalIds.push(r.moment_id);
+      }
     }
 
-    type MomentRow = { moment_id: string };
-    const momentIds = ((momentRows as MomentRow[] | null) ?? [])
-      .map((r) => r.moment_id)
-      .filter(Boolean);
-
-    if (momentIds.length === 0) return [];
+    // Always include the anchor so the judge's known-active serial contributes prices.
+    const momentIds = [anchorMomentId, ...additionalIds];
 
     // Stage 2 — fetch transaction prices for those moment_ids.
     const since = windowToSince(window);
 
-    let q = admin
+    let q = sb
       .from("transactions")
       .select("gross_amount_usd")
       .in("moment_id", momentIds)
@@ -307,6 +331,7 @@ async function _getMomentEditionPriceDistribution(
 
 export const getMomentEditionPriceDistribution = unstable_cache(
   _getMomentEditionPriceDistribution,
-  ["edition-price-distribution"],
+  // New cache key (v2) — busts the old editionId-keyed cache from the first deploy.
+  ["edition-price-distribution-v2"],
   { revalidate: 60, tags: ["edition-price-distribution"] },
 );

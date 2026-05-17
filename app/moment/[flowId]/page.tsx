@@ -139,26 +139,22 @@ export default async function MomentPage({
   // when the moment hasn't traded in the selected window.
   // Note: getEditionCirculation accepts the flowId (NOT moment.edition?.id —
   // that uses a different format than topshot.moments.edition_id).
-  const [listedRes, recentRes, parallelsRes, historyRes, circulationRes] = await Promise.allSettled([
+  const [listedRes, recentRes, parallelsRes, historyRes, circulationRes, priceDistRes] = await Promise.allSettled([
     setUuid && playUuid ? editionListedSerials(setUuid, playUuid, 50) : Promise.resolve([]),
     setUuid && playUuid ? editionRecentSales(setUuid, playUuid, 20) : Promise.resolve([]),
     playUuid ? editionsForPlay(playUuid) : Promise.resolve([]),
     getMomentHistory({ flowId, window: historyWindow }),
     getEditionCirculation(flowId),
+    // Edition-level price distribution for the histogram. Accepts flowId directly
+    // (resolves edition_id internally) — avoids depending on circulation?.editionId.
+    getMomentEditionPriceDistribution(flowId, historyWindow),
   ]);
   const listed = listedRes.status === "fulfilled" ? listedRes.value : [];
   const recentSales = recentRes.status === "fulfilled" ? recentRes.value : [];
   const parallels = parallelsRes.status === "fulfilled" ? parallelsRes.value : [];
   const history = historyRes.status === "fulfilled" ? historyRes.value : [];
   const circulation = circulationRes.status === "fulfilled" ? circulationRes.value : null;
-
-  // Edition-level price distribution for the histogram.
-  // Uses circulation?.editionId (DB composite key) — NOT moment.edition?.id (GraphQL format).
-  // Called after the circulation batch so the resolved editionId is available.
-  const editionId = circulation?.editionId ?? "";
-  const priceDistribution = editionId
-    ? await getMomentEditionPriceDistribution(editionId, historyWindow)
-    : [];
+  const priceDistribution = priceDistRes.status === "fulfilled" ? priceDistRes.value : [];
 
   const editionFloor = listed.length ? Math.min(...listed.map((l) => l.lowAsk)) : null;
   const valuation = valueMoment(moment, {
