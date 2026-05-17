@@ -163,8 +163,8 @@
       ],
       "priority": 5,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T09:30:22.238Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, I click EXPORT on the Moments grid and a CSV downloads with the rows currently visible under my filters. The CSV opens cleanly in Excel/Numbers/Sheets with no quoting errors.",
@@ -176,7 +176,14 @@
         "TradingView CSV export",
         "IBKR transaction CSV"
       ],
-      "data_viz_kind": "export-only"
+      "data_viz_kind": "export-only",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T09:30:22.238Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/moments-csv-export/2026-05-17T09-30-16-629Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "collector-bag",
