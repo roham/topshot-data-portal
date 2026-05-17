@@ -1,0 +1,78 @@
+"use client";
+
+// Click-to-sort column header for /parallels table.
+// Mirrors SetsSortHeader — drives ?sort=<column>&dir=<asc|desc> URL state
+// via nuqs so the server component re-renders with new ordering.
+
+import { useQueryState, parseAsString } from "nuqs";
+import { useTransition } from "react";
+import { cn } from "@/lib/cn";
+
+interface ParallelsSortHeaderProps {
+  label: string;
+  column: string;
+  defaultDir?: "asc" | "desc";
+  align?: "left" | "right";
+  className?: string;
+  "data-testid"?: string;
+}
+
+export function ParallelsSortHeader({
+  label,
+  column,
+  defaultDir = "desc",
+  align = "right",
+  className,
+  "data-testid": testid,
+}: ParallelsSortHeaderProps) {
+  const [, startTransition] = useTransition();
+  const opts = {
+    history: "replace" as const,
+    shallow: false,
+    startTransition,
+  };
+
+  const [sort, setSort] = useQueryState("sort", parseAsString.withOptions(opts));
+  const [dir, setDir] = useQueryState(
+    "dir",
+    parseAsString.withDefault("desc").withOptions(opts),
+  );
+
+  const isActive = sort === column;
+
+  function onClick() {
+    if (!isActive) {
+      setSort(column);
+      setDir(defaultDir);
+    } else if (dir === "desc") {
+      setDir("asc");
+    } else {
+      setDir("desc");
+    }
+  }
+
+  const caret = isActive ? (dir === "asc" ? "↑" : "↓") : "↕";
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 text-[10px] tracking-data-label uppercase hover:text-[var(--text)] transition-colors",
+        isActive ? "text-[var(--text)]" : "text-[var(--text-dim)]",
+        align === "right" ? "justify-end w-full" : "justify-start",
+        className,
+      )}
+      data-testid={testid}
+    >
+      <span>{label}</span>
+      <span
+        className={cn(
+          "text-[9px]",
+          isActive ? "text-[var(--accent)]" : "text-transparent",
+        )}
+      >
+        {caret}
+      </span>
+    </button>
+  );
+}
