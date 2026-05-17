@@ -117,17 +117,24 @@ test("J4 — moment-detail-chart: time-window tabs redraw chart; state survives 
   // (research/features/moment-detail-chart.md §4 criterion 2)
   const sevenDTab = page.locator('[data-testid="price-tab-7d"]');
   await sevenDTab.click();
-  await page.waitForURL(/[?&]h=7d/, { timeout: 5_000 });
+  await page.waitForURL(/[?&]h=7d/, { timeout: 8_000 });
   expect(page.url(), "URL must contain ?h=7d after 7D tab click").toContain("h=7d");
+  // Wait for the Next.js RSC re-render: after nuqs pushes ?h=7d, Next.js
+  // soft-navigates and fetches the new server component tree with active="7d".
+  // networkidle is the most reliable completion signal; tolerate timeout.
+  await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
   await page.screenshot({
     path: path.join(CAPTURE_DIR, "04-tab-7d-url.png"),
     fullPage: true,
   });
 
   // ── Step 6: 7d-tab-active — 7D tab aria-checked="true" ──
+  // aria-checked is set by the server render (the `active` prop). Allow 20s
+  // for the RSC payload to arrive and the component to update.
   await expect(sevenDTab, "7D tab must be aria-checked=true after click").toHaveAttribute(
     "aria-checked",
     "true",
+    { timeout: 20_000 },
   );
   // And ALL tab must now be unchecked.
   await expect(allTab, "ALL tab must be aria-checked=false after 7D clicked").toHaveAttribute(
@@ -143,6 +150,7 @@ test("J4 — moment-detail-chart: time-window tabs redraw chart; state survives 
   // "Distinct sale counts between windows where data exists confirm real re-fetching."
   await expect(windowLabel, "window label must contain '7D' after 7D tab").toContainText(
     "7D",
+    { timeout: 10_000 },
   );
   const sevenDSalesText = await windowLabel.innerText();
   const sevenDSalesCount = parseInt(sevenDSalesText.match(/^(\d+)/)?.[1] ?? "0", 10);

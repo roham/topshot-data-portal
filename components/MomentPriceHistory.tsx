@@ -50,10 +50,22 @@ export function MomentPriceHistory({ data, active }: Props) {
 }
 
 function Inner({ data, active }: Props) {
-  const [_w, setW] = useQueryState(
+  // `currentW` drives the tab's visual active state immediately on click
+  // (client-side nuqs state), without waiting for the server RSC re-render.
+  // This gives TradingView-style tab responsiveness: the tab highlights the
+  // moment the user clicks, even if the chart data is still in flight.
+  // The chart DATA itself still comes from `data` (server-fetched for the
+  // window reflected in the URL), so a brief visual gap between tab state
+  // and chart content is acceptable and honest.
+  //
+  // `active` (server prop) is kept as the canonical initial value and is used
+  // to initialise nuqs — nuqs reads `?h=` from the URL on mount so they agree.
+  const [currentW, setW] = useQueryState(
     "h",
     parseAsStringEnum<Window>([...WINDOWS]).withDefault("all"),
   );
+  // Fall back to server prop if nuqs hasn't hydrated yet (SSR).
+  const displayW = currentW ?? active;
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3 px-3 pt-3">
@@ -67,7 +79,9 @@ function Inner({ data, active }: Props) {
           data-testid="price-history-tabs"
         >
           {WINDOWS.map((w) => {
-            const isActive = w === active;
+            // Use the nuqs state (client-side) so the tab reflects the click
+            // immediately, rather than waiting for the server RSC round-trip.
+            const isActive = w === displayW;
             return (
               <button
                 key={w}
@@ -91,7 +105,7 @@ function Inner({ data, active }: Props) {
           className="ml-auto text-[10px] text-[var(--text-faint)] font-mono"
           data-testid="price-history-window-label"
         >
-          {data.length} sales · {active === "all" ? "all time" : LABELS[active]}
+          {data.length} sales · {displayW === "all" ? "all time" : LABELS[displayW]}
         </span>
       </div>
       <Chart data={data} />

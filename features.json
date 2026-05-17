@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md \u00a73-4 and research/00-product-pillars-v3.md.",
+  "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md §3-4 and research/00-product-pillars-v3.md.",
   "version": "1.1.0",
   "authored_at": "2026-05-16T20:50:00Z",
   "authored_by": "dexter",
@@ -62,10 +62,15 @@
       "passes": false,
       "passes_at": null,
       "blocked": false,
-      "fail_reasons": [],
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T07:45:08.868Z",
+          "report": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/reports/moment-detail-chart-2026-05-17T07-45-08-868Z.md"
+        }
+      ],
       "acceptance": "As a trader, I open any moment's detail page, click between time-window tabs (1D, 7D, 1M, 3M, YTD, ALL), and the chart line redraws with the corresponding sales over that window. Tab state survives a page refresh.",
       "data_source": "topshot.transactions WHERE moment_id = $id AND completed_at >= $window_start",
-      "implementation_hint": "Existing MomentPriceHistory component \u2014 handover says tabs decorative; check if URL updates only or actually refetches; client-side state with prefetched data per window",
+      "implementation_hint": "Existing MomentPriceHistory component — handover says tabs decorative; check if URL updates only or actually refetches; client-side state with prefetched data per window",
       "judge_journey": "loop/judge/journeys/moment-detail-chart.spec.ts",
       "comparable_primary": "OTM moment detail price chart (1D/7D/1M/3M/YTD/ALL tabs)",
       "comparable_cross_domain": [
@@ -109,11 +114,11 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I land on /players and see a sortable table of players ranked by MARKET CAP (sum of floor \u00d7 circulation across all of their editions), with columns: # / Player / Team / # Editions / Total Minted / Circ % / Market Cap / 24h \u0394%.",
+      "acceptance": "As a trader, I land on /players and see a sortable table of players ranked by MARKET CAP (sum of floor × circulation across all of their editions), with columns: # / Player / Team / # Editions / Total Minted / Circ % / Market Cap / 24h Δ%.",
       "data_source": "topshot.mv_player_market_cap (already exists per handover) JOIN topshot.players",
       "implementation_hint": "Read mv_player_market_cap, JOIN players for names/teams; TanStack table sortable; default sort: market_cap DESC",
       "judge_journey": "loop/judge/journeys/players-marketcap.spec.ts",
-      "comparable_primary": "OTM Players view with MARKET CAP column + 24h \u0394%",
+      "comparable_primary": "OTM Players view with MARKET CAP column + 24h Δ%",
       "comparable_cross_domain": [
         "TradingView screener (sortable rankings)",
         "PWCC 500 / Card Ladder CL50"
@@ -155,9 +160,9 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I visit /u/<some-known-username> and see the actual list of moments they own \u2014 at minimum: play, edition, serial, tier, last sale, current listing price, acquired-at. The BAG table count matches the header total.",
+      "acceptance": "As a trader, I visit /u/<some-known-username> and see the actual list of moments they own — at minimum: play, edition, serial, tier, last sale, current listing price, acquired-at. The BAG table count matches the header total.",
       "data_source": "topshot.moments WHERE owner_flow_address = (SELECT flow_address FROM users WHERE username = $u)",
-      "implementation_hint": "Handover Section 2E says this is broken \u2014 root cause likely a flow_address resolution or schema mismatch. Read PortfolioBagTable.tsx + debug the query.",
+      "implementation_hint": "Handover Section 2E says this is broken — root cause likely a flow_address resolution or schema mismatch. Read PortfolioBagTable.tsx + debug the query.",
       "judge_journey": "loop/judge/journeys/collector-bag.spec.ts",
       "comparable_primary": "OTM Collector portfolio (BAG table)",
       "comparable_cross_domain": [
@@ -178,7 +183,7 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I open a set detail page and see a bar chart of users-at-each-completion-level (e.g., 2,149 users at 56/56, 96 users at 55/56, \u2026). The data source is mv_set_completion_distribution.",
+      "acceptance": "As a trader, I open a set detail page and see a bar chart of users-at-each-completion-level (e.g., 2,149 users at 56/56, 96 users at 55/56, …). The data source is mv_set_completion_distribution.",
       "data_source": "topshot.mv_set_completion_distribution",
       "implementation_hint": "MV exists per handover; need a bar chart component, Recharts BarChart sufficient",
       "judge_journey": "loop/judge/journeys/set-completion-histogram.spec.ts",
@@ -201,7 +206,7 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I see below the price chart a histogram bucketing recent sales by price band (e.g., $7, $8, \u2026) over the active window, so I can see the price-cluster distribution.",
+      "acceptance": "As a trader, I see below the price chart a histogram bucketing recent sales by price band (e.g., $7, $8, …) over the active window, so I can see the price-cluster distribution.",
       "data_source": "topshot.transactions GROUP BY price_bucket",
       "implementation_hint": "Recharts BarChart; bucket size auto-derived from price range",
       "judge_journey": "loop/judge/journeys/moment-detail-histogram.spec.ts",
@@ -330,7 +335,7 @@
     },
     {
       "id": "sniper-alerts",
-      "title": "Sniper alerts \u2014 listings below comparable-serial floor",
+      "title": "Sniper alerts — listings below comparable-serial floor",
       "routes": [
         "/sniper"
       ],
@@ -341,9 +346,9 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I see a continuously-refreshing list of moments listed >2\u03c3 below the comparable-serial floor, with $ delta and time-on-market visible, click-to-buy linkout to nbatopshot.com.",
+      "acceptance": "As a trader, I see a continuously-refreshing list of moments listed >2σ below the comparable-serial floor, with $ delta and time-on-market visible, click-to-buy linkout to nbatopshot.com.",
       "data_source": "topshot.moments WHERE listing_price_usd < (floor for comparable serial band)",
-      "implementation_hint": "OTM Sniper was THE most-loved feature per research/00-foundation-v2.md \u00a77; ship transparent rules engine, not opaque model",
+      "implementation_hint": "OTM Sniper was THE most-loved feature per research/00-foundation-v2.md §7; ship transparent rules engine, not opaque model",
       "judge_journey": "loop/judge/journeys/sniper-alerts.spec.ts",
       "comparable_primary": "OTM Sniper (the most-loved feature in the dead-tool canon)",
       "comparable_cross_domain": [
@@ -390,9 +395,9 @@
       "passes_at": null,
       "blocked": false,
       "fail_reasons": [],
-      "acceptance": "As a trader, I land on /feed and see a ticking, auto-updating stream of recent transactions (\u2265$100), with player thumbnail, price, buyer, seller, edition, all clickable.",
+      "acceptance": "As a trader, I land on /feed and see a ticking, auto-updating stream of recent transactions (≥$100), with player thumbnail, price, buyer, seller, edition, all clickable.",
       "data_source": "topshot.transactions ORDER BY completed_at DESC, Supabase Realtime subscription",
-      "implementation_hint": "Handover says /feed is 'minimal' \u2014 needs auto-refresh + filtering",
+      "implementation_hint": "Handover says /feed is 'minimal' — needs auto-refresh + filtering",
       "judge_journey": "loop/judge/journeys/real-time-feed.spec.ts",
       "comparable_primary": "Nansen smart-money feeds + OTM Sales Feed",
       "comparable_cross_domain": [
@@ -416,7 +421,7 @@
       "fail_reasons": [],
       "acceptance": "As a trader, I land on /on-this-day and see today-in-Top-Shot-history: notable plays from this calendar date, their current floors, and momentum.",
       "data_source": "topshot.plays JOIN topshot.editions WHERE date_of_play matches today",
-      "implementation_hint": "Editorial layer \u2014 pure data, no model required",
+      "implementation_hint": "Editorial layer — pure data, no model required",
       "judge_journey": "loop/judge/journeys/on-this-day.spec.ts",
       "comparable_primary": "OTM 5-Days-of-Locking dashboard / GitHub contribution-graph variant",
       "comparable_cross_domain": [
@@ -464,7 +469,7 @@
       "fail_reasons": [],
       "acceptance": "As a trader, on every moment detail page I see the IPFS CID for the video + image with a verify-on-chain link to FlowScan.",
       "data_source": "topshot.moments.image_urls / video_urls + on-chain CID lookup",
-      "implementation_hint": "Per handover: 'IPFS CID provenance shipped' on-chain \u2014 surface it client-side",
+      "implementation_hint": "Per handover: 'IPFS CID provenance shipped' on-chain — surface it client-side",
       "judge_journey": "loop/judge/journeys/ipfs-provenance.spec.ts",
       "comparable_primary": "OpenSea blockchain-details strip + Etherscan verified-contract badge",
       "comparable_cross_domain": [
