@@ -36,6 +36,7 @@ function toBagRows(items: MintedMoment[]): BagRow[] {
     parallelID: m.edition?.parallelID ?? 0,
     lowAskUsd: m.lowAsk != null ? Number(m.lowAsk) : null,
     lastPurchaseUsd: m.lastPurchasePrice != null ? Number(m.lastPurchasePrice) : null,
+    acquiredAt: m.acquiredAt ?? null,
     forSale: !!m.forSale,
   }));
 }
@@ -110,7 +111,7 @@ export default async function PortfolioPage({
       {/* KPI strip */}
       <Card variant="inset">
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
-          <div className="p-3">
+          <div className="p-3" data-testid="bag-size-kpi">
             <KPI label="Bag size" value={totalCount} format="int" size="lg" />
           </div>
           <div className="p-3">

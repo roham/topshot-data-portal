@@ -25,6 +25,7 @@ export interface BagRow {
   parallelID: number;
   lowAskUsd: number | null;
   lastPurchaseUsd: number | null;
+  acquiredAt: string | null;
   forSale: boolean;
 }
 
@@ -44,7 +45,11 @@ export function PortfolioBagTable({ rows }: PortfolioBagTableProps) {
         header: "Player",
         accessorKey: "playerName",
         cell: (info) => (
-          <Link href={`/moment/${info.row.original.flowId}`} className="text-[var(--text)] hover:text-[var(--accent)]">
+          <Link
+            href={`/moment/${info.row.original.flowId}`}
+            className="text-[var(--text)] hover:text-[var(--accent)]"
+            data-testid="bag-row-link"
+          >
             {info.row.original.playerName}
           </Link>
         ),
@@ -97,6 +102,19 @@ export function PortfolioBagTable({ rows }: PortfolioBagTableProps) {
         size: 90,
       },
       {
+        id: "acquiredAt",
+        header: () => <span data-testid="bag-col-acquired">Acquired</span>,
+        accessorKey: "acquiredAt",
+        cell: (info) => {
+          const v = info.row.original.acquiredAt;
+          if (!v) return <span className="text-[var(--text-faint)]" data-testid="bag-cell-acquired">—</span>;
+          const d = new Date(v);
+          const fmt = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+          return <span className="tnum text-[11px]" data-testid="bag-cell-acquired">{fmt}</span>;
+        },
+        size: 100,
+      },
+      {
         id: "pnl",
         header: "P&L",
         accessorFn: (r) => (r.lowAskUsd != null && r.lastPurchaseUsd != null ? r.lowAskUsd - r.lastPurchaseUsd : null),
@@ -147,7 +165,7 @@ export function PortfolioBagTable({ rows }: PortfolioBagTableProps) {
   const paddingBottom = virtualRows.length ? totalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0) : 0;
 
   return (
-    <div className="overflow-hidden">
+    <div className="overflow-hidden" data-testid="bag-table" data-count={sortedRows.length}>
       <div className="overflow-x-auto">
         <table className="w-full text-[11px]">
           <thead className="bg-[var(--surface-2)] sticky top-0 z-10">
@@ -178,6 +196,7 @@ export function PortfolioBagTable({ rows }: PortfolioBagTableProps) {
                 return (
                   <tr
                     key={row.id}
+                    data-testid="bag-row"
                     className="border-b border-[var(--border-subtle)] hover:bg-[var(--surface-2)] transition-colors"
                     style={{ height: 28 }}
                   >

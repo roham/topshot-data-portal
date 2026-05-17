@@ -626,7 +626,7 @@ export async function fetchBagPage(
   return {
     totalCount: ss.totalCount ?? null,
     rightCursor: ss.pagination?.rightCursor ?? "",
-    items: ss.data.data,
+    items: ss.data?.data ?? [],
   };
 }
 
