@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md \u00a73-4 and research/00-product-pillars-v3.md. v1.2.0: re-opened 8 features after Roham's 14:40Z visual review found honest-empty-state was passing where data-rendering was needed.",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "authored_at": "2026-05-16T20:50:00Z",
   "authored_by": "dexter",
   "reference": {
@@ -487,11 +487,17 @@
       ],
       "priority": 13,
       "otm_parity": true,
-      "passes": true,
-      "passes_at": "2026-05-17T14:57:13.556Z",
+      "passes": false,
+      "passes_at": null,
       "blocked": false,
-      "fail_reasons": [],
-      "acceptance": "As a trader, I open a player's page and see an editions matrix: rows by set, columns by tier (C/R/L/F), with floor + market cap per cell; plus market cap rank; plus career volume table with 24h/7d/30d/1y/ALL.",
+      "fail_reasons": [
+        {
+          "at": "2026-05-17T15:03:28.443132Z",
+          "report": "inline: Roham 2026-05-17 15:10Z hit /player \u2192 404 because no slug routing and no /player \u2192 /players redirect",
+          "shape": "The page IS shipped well (editions matrix rendered with $ values across all tier columns for Stephen Curry). But /player/<slug> and bare /player both 404. Users instinctively type /player/lebron-james not /player/2544. Add slug routing + /player redirect."
+        }
+      ],
+      "acceptance": "As a trader, I can reach a player page via: (a) numeric NBA player ID /player/2544 (works); (b) name slug /player/lebron-james (must work \u2014 case-insensitive, hyphen-or-space-tolerant); (c) bare /player (must 302-redirect to /players directory, not 404). Once on the player page for a player with \u226510 editions, I see the editions matrix populated (\u226580% of visible cells have values, not just dashes), career volume table with non-zero rows, and player photo. The seed player for the journey is Stephen Curry (NBA ID 201939) which is confirmed populated.",
       "data_source": "topshot.editions WHERE player_id = $id + mv_player_*",
       "implementation_hint": "Handover Section 2D says bare header; needs matrix + rank + volume table",
       "judge_journey": "loop/judge/journeys/player-detail.spec.ts",
@@ -507,7 +513,14 @@
           "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/player-detail/2026-05-17T14-57-08-094Z",
           "portal_url": "https://topshot-data-portal.vercel.app"
         }
-      ]
+      ],
+      "seed_entities": {
+        "player_id": "201939",
+        "player_name": "Stephen Curry",
+        "min_editions": 10,
+        "test_slug": "stephen-curry",
+        "test_redirect_from": "/player"
+      }
     },
     {
       "id": "sniper-alerts",
