@@ -107,12 +107,11 @@ async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
         .select("*")
         .eq("player_id", playerId)
         .maybeSingle(),
+      // Flat select — no embedded relation (PGRST200 on sets join).
+      // Sets data fetched separately after edition resolution.
       sb
         .from("editions")
-        .select(
-          `edition_id, edition_name, tier_name, set_id, mint_count,
-           sets(set_name, series_number)`,
-        )
+        .select(`edition_id, edition_name, tier_name, set_id, mint_count`)
         .eq("player_id", playerId),
     ]);
 
@@ -128,17 +127,20 @@ async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
       if (!rankErr && aboveCount != null) marketCapRank = aboveCount + 1;
     }
 
+    // Editions are fetched FLAT — no PostgREST embedded relation.
+    // The FK between editions and sets is not in the PostgREST schema cache
+    // (PGRST200 error on `sets(set_name, series_number)`), so we fetch editions
+    // flat and join sets separately via a second .in("set_id", ...) query.
     type EditionQueryRow = {
       edition_id: string;
       edition_name: string | null;
       tier_name: string | null;
       set_id: string | null;
       mint_count: number | null;
-      sets: { set_name: string | null; series_number: number | null } | null;
     };
 
-    const EDITIONS_SELECT = `edition_id, edition_name, tier_name, set_id, mint_count,
-         sets(set_name, series_number)`;
+    // Flat select — no embedded relation.
+    const EDITIONS_SELECT = `edition_id, edition_name, tier_name, set_id, mint_count`;
 
     let editionRows: EditionQueryRow[] =
       (editionsRes.data as EditionQueryRow[] | null) ?? [];
@@ -146,7 +148,7 @@ async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
     // ── Fallback chain: editions.player_id uses a different format than ───
     // players.player_id in the BQ seed (observed in prod: all top-200 market-cap
     // players return 0 editions via player_id eq query).
-    // mirrors moments-grid.ts player_name resolution pattern.
+    // Mirrors moments-grid.ts player_name resolution pattern.
     if (editionRows.length === 0) {
       // Attempt 1 — exact match on mv_player_market_cap.player_name
       // (derived from same BQ seed as editions.player_name, should match exactly)
@@ -219,13 +221,46 @@ async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
       );
     }
 
+    // ── Stage extra-a: batch-fetch sets data for unique set_ids ───────────
+    // PostgREST embedded relation `sets(...)` fails (PGRST200 — no FK in schema
+    // cache), so we fetch sets separately and join in JS.
+    const uniqueSetIds = [
+      ...new Set(
+        editionRows.map((e) => e.set_id).filter((id): id is string => id != null),
+      ),
+    ];
+    const setsMap: Record<
+      string,
+      { set_name: string | null; series_number: number | null }
+    > = {};
+    if (uniqueSetIds.length > 0) {
+      const { data: setsData, error: setsErr } = await sb
+        .from("sets")
+        .select("set_id, set_name, series_number")
+        .in("set_id", uniqueSetIds);
+      if (setsErr) {
+        console.error("[player-detail] sets batch fetch failed", setsErr);
+      } else if (setsData) {
+        for (const s of setsData as Array<{
+          set_id: string;
+          set_name: string | null;
+          series_number: number | null;
+        }>) {
+          setsMap[s.set_id] = {
+            set_name: s.set_name,
+            series_number: s.series_number,
+          };
+        }
+      }
+    }
+
     const editions = editionRows.map((e) => ({
       edition_id: e.edition_id,
       edition_name: e.edition_name,
       tier_name: e.tier_name,
       set_id: e.set_id,
-      set_name: e.sets?.set_name ?? null,
-      series_number: e.sets?.series_number ?? null,
+      set_name: e.set_id ? (setsMap[e.set_id]?.set_name ?? null) : null,
+      series_number: e.set_id ? (setsMap[e.set_id]?.series_number ?? null) : null,
       mint_count: e.mint_count,
     }));
 
