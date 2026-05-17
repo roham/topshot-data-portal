@@ -7,6 +7,7 @@ import { KPI } from "@/components/primitives/KPI";
 import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import { SetCompletionHistogram } from "@/components/SetCompletionHistogram";
 
 export const revalidate = 60;
 
@@ -248,48 +249,24 @@ export default async function SetPage({
           )}
         </Card>
 
-        {/* Completion rail */}
-        <Card
-          title="Completion · owners"
-          subtitle={
-            totalEditionsInSet != null
-              ? `${totalOwners.toLocaleString()} owners across ${totalEditionsInSet} editions`
-              : `${totalOwners.toLocaleString()} owners`
-          }
-          variant="inset"
-          methodology="topshot.mv_set_completion_distribution — buckets owners by fraction of the set's editions they hold (MINTED+LOCKED+UNLOCKED)."
-        >
-          {orderedCompletion.length === 0 ? (
-            <EmptyState
-              title="No completion data"
-              body="MV mv_set_completion_distribution returned no rows for this set. Backfill may still be running."
-            />
-          ) : (
-            <div className="p-3 space-y-2">
-              {orderedCompletion.map((b) => {
-                const pct = totalOwners
-                  ? (Number(b.owner_count) * 100) / totalOwners
-                  : 0;
-                return (
-                  <div key={b.bucket} className="space-y-1">
-                    <div className="flex items-baseline justify-between text-[11px]">
-                      <span className="text-[var(--text-dim)]">{b.bucket}</span>
-                      <span className="tnum font-semibold">
-                        {Number(b.owner_count).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-[var(--surface-2)] rounded-sm overflow-hidden">
-                      <div
-                        className="h-full bg-[var(--accent)]"
-                        style={{ width: `${Math.max(2, pct).toFixed(1)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
+        {/* Completion histogram — Recharts BarChart (histogram-bar Pillar 1 viz kind).
+            OTM signature move: each completion level as its own bar with exact owner
+            count, ordered highest-completion-first so rarity is scannable at a glance.
+            Cross-domain: PSA Set Registry pop-report (each grade = discrete bar). */}
+        <div data-testid="completion-section">
+          <Card
+            title="Completion · owners"
+            subtitle={
+              totalEditionsInSet != null
+                ? `${totalOwners.toLocaleString()} owners across ${totalEditionsInSet} editions`
+                : `${totalOwners.toLocaleString()} owners`
+            }
+            variant="inset"
+            methodology="topshot.mv_set_completion_distribution — buckets owners by fraction of the set's editions they hold (MINTED+LOCKED+UNLOCKED)."
+          >
+            <SetCompletionHistogram data={orderedCompletion} />
+          </Card>
+        </div>
       </div>
 
       {/* Recent transactions */}
