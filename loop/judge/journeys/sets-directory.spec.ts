@@ -247,6 +247,8 @@ test(
     });
 
     // Set detail page must not 404 and must have substantive content.
+    // Note: NOT checking for "404" as a substring — set UUIDs can contain "404"
+    // (e.g., "891987bc-a5c0-404e-…"). Check for Next.js 404 error phrasing.
     const statusText = await page.locator("body").innerText();
     expect(
       statusText.length,
@@ -254,8 +256,12 @@ test(
     ).toBeGreaterThan(200);
     expect(
       statusText.toLowerCase(),
-      "set detail page must not show 404",
-    ).not.toContain("404");
+      "set detail page must not render a 'not found' error",
+    ).not.toContain("this page could not be found");
+    expect(
+      statusText.toLowerCase(),
+      "set detail page must not render a 'page not found' error",
+    ).not.toContain("page not found");
 
     // ── Step 8 — empty state renders when filters match no sets ──────────
     // Navigate to a URL that should produce an empty result.
