@@ -331,8 +331,8 @@
       ],
       "priority": 10,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-17T12:43:36.484Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, beyond the market cap leaderboard, I can filter the player directory by league (NBA/WNBA), team (multi-select), active vs retired, with persistent left-rail filters.",
@@ -344,7 +344,14 @@
         "ESPN player browser",
         "Basketball-Reference player index"
       ],
-      "data_viz_kind": "table-with-filter-rail"
+      "data_viz_kind": "table-with-filter-rail",
+      "judge_evidence": [
+        {
+          "at": "2026-05-17T12:43:36.484Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/players-directory/2026-05-17T12-43-21-021Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "sets-directory",
