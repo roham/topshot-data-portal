@@ -36,6 +36,31 @@ For a given player, the metric cube has these levels (from finest to coarsest):
 
 The Pillar-5-#6 rule says parallels are first-class. That means **the parallel level is the canonical aggregation unit** — everything coarser (tier, set, player) is a *sum / display rollup* of parallel-level numbers, never a direct aggregate over moments.
 
+## Data-model finding (2026-05-17 17:15Z)
+
+`topshot.editions` does NOT have a `parallel_id` / `parallel_name` column. `edition_id` is keyed at `(set × play)` only — collapsing across parallels.
+
+**But `topshot.moments.subedition_id` IS the parallel column.** Parallels are captured at the moment grain. To roll up per-parallel data:
+
+```sql
+-- per-parallel (subedition) aggregation pattern
+SELECT
+  m.set_id,
+  m.subedition_id,
+  e.tier_name,
+  COUNT(*) AS circulation,                  -- # moments in this parallel
+  MIN(m.listing_price_usd) AS low_ask,      -- lowest current listing
+  COUNT(m.listing_price_usd) AS listings    -- # actively listed
+FROM topshot.moments m
+JOIN topshot.editions e ON e.edition_id = m.edition_id
+WHERE m.set_id = $set AND e.player_id = $player AND m.subedition_id IS NOT NULL
+GROUP BY m.set_id, m.subedition_id, e.tier_name;
+```
+
+`highest_offer_price` from `market_caps` is keyed at `edition_id`, NOT subedition. So offer data may aggregate across parallels — needs ETL extension to surface per-subedition open offers. **Provisional approach:** display edition-level offer with a "spans N parallels" caveat until subedition-keyed offer ETL lands. avg_sale per subedition is computable from transactions → moments → subedition_id join.
+
+This is a real ETL/data-model item, not just a UI item. Surfaced as a separate feature for the loop.
+
 ## The data-shape question
 
 For each `(player_id, set_id, tier_id, parallel_id)` cell, the portal needs to compute:
@@ -168,16 +193,14 @@ When this design lands as a feature in `features.json`, the acceptance text shou
 4. Cold-market cells visually distinct (faded, with a "no recent activity" tag) — not the same DOM as data-bearing cells (per `research/wiki/gotchas/judge-journeys-must-assert-data-rendered.md`)
 5. Per-cell breakdown drill-down works on click; URL updates to capture the open state (`?expand=set:base-set-8/tier:common`)
 
-## Open questions for Roham's redline
+## Open questions — ALL RESOLVED 2026-05-17 17:10Z
 
-**Resolved 2026-05-17 16:50Z:**
-- ~~Market cap formula change~~ → KEEP floor-based. Faithfully show low_ask × circulation. Vanity 1-of-1 asks are market signal, not bug.
+1. ~~Highest offer data audit~~ → **AVAILABLE.** `topshot.market_caps.highest_offer_price` exists; 55.2% coverage on latest snapshot (5,074 of 9,194 editions have a non-zero open offer). 317,841 all-time SUCCEEDED OFFER transactions, 36,053 in last 30d. Ships as a first-class metric.
 
-**Still open:**
+2. ~~Empty Series 8 rows treatment~~ → **POSITIVE VISUAL FRAMING.** Don't hide; emphasize the opportunity. Treatment: cell renders with a "🆕 NEW DROP" tag (or similar visual delight — green accent, upward arrow, "be first to list" CTA). The empty cell is repositioned as "fresh market — your listing sets the floor." Per Roham 2026-05-17 17:10Z: *"make it visually positive don't hide, emphasize the exciting part if it exists."*
 
-1. **Highest offer** — is offer/bid data in the Supabase tables, or is it API-ceiling-blocked? Auditable in 60s. If absent: ship two-of-three (low_ask + avg_sale) with "highest_offer pending data" annotation.
-2. **Series 8 brand-new sets with zero listings** — currently empty rows that look like bugs. Treatment options: (a) collapse to a footer strip "*N sets with no current listings*"; (b) keep visible with a "Listings pending" tag in each cell; (c) keep as-is (silent blank cells). Pick one.
-3. **Default player-page UI** — Option D (composite cell with parallel sparkline + drill-down) confirmed, or do you want a different shape?
-4. **Cross-player parallel browse** (`/parallels?parallel_id=X`) — v1 alongside the player page, or v2?
+3. ~~Default player-page UI option~~ → **BUILD ALL FOUR (A/B/C/D), SHOW SIDE BY SIDE.** Per Roham 2026-05-17 17:10Z: *"i dont know, make all variations and show me."* Implementation: `/player/<id>` is current view; `/player/<id>/variant-a`, `/variant-b`, `/variant-c`, `/variant-d` are the four design options. A top-of-page picker lets the user toggle. Once Roham picks, the chosen variant becomes the canonical `/player/<id>` and the others retire.
 
-Once these resolve, encode to features.json with concrete acceptance and the loop ships them.
+4. ~~/parallels cross-player route~~ → **SHIP V1 NOW.** Per Roham 2026-05-17 17:10Z: *"i dont know, show me."* Implementation: `/parallels` with the flat per-parallel table; filter rail (tier / parallel type / set / has-listings / has-offers). URL state via nuqs.
+
+All four resolutions encoded as features in features.json. Loop ships them; first scaffolds authored directly so principal can click within minutes.

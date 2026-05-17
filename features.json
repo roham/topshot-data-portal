@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "comment": "OTM-parity + beyond-OTM feature matrix. Only the judge flips `passes`. See LOOP-CHARTER.md \u00a73-4 and research/00-product-pillars-v3.md. v1.2.0: re-opened 8 features after Roham's 14:40Z visual review found honest-empty-state was passing where data-rendering was needed.",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "authored_at": "2026-05-16T20:50:00Z",
   "authored_by": "dexter",
   "reference": {
@@ -777,9 +777,196 @@
         "Polymarket default 'All' view"
       ],
       "data_viz_kind": "ui-default-change"
+    },
+    {
+      "id": "parallels-route-v1",
+      "title": "/parallels exhaustive per-subedition browse with player picker",
+      "routes": [
+        "/parallels"
+      ],
+      "priority": 3,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, I land on /parallels?player=201939 (Curry) and see one row per (set \u00d7 tier \u00d7 subedition_id) \u2014 circulation, listings count, low_ask (or NEW DROP tag if zero listings), high_offer. Switch player via the picker (Curry / LeBron / Podziemski / SGA / Cooper Flagg / Wembanyama / Luka / Angel Reese). Initial scaffold authored 2026-05-17 by Dexter; loop deepens to: add tier+parallel filter rail (Pillar 4), sortable column headers, EXPORT, avg_sale_30d column (computable via moments\u2192transactions join through moment_id), URL-encoded filter state via nuqs.",
+      "data_source": "topshot.moments grouped by subedition_id; topshot.market_caps (edition-level highest_offer_price); topshot.editions for tier+set; topshot.sets for set name+series",
+      "implementation_hint": "Scaffold already pushed at app/parallels/page.tsx. Builder deepens: filter rail (left), sortable headers, EXPORT button, avg_sale per subedition (additional moments\u2192transactions join).",
+      "judge_journey": "loop/judge/journeys/parallels-route-v1.spec.ts",
+      "comparable_primary": "Tensor parallel-aware collection page",
+      "comparable_cross_domain": [
+        "PSA Set Registry per-grade pop table",
+        "StockX size-keyed exhaustive ladder"
+      ],
+      "data_viz_kind": "table-with-filter-rail",
+      "seed_entities": {
+        "player_id": "201939",
+        "note": "Curry default; picker exposes 8 known-good players"
+      }
+    },
+    {
+      "id": "player-detail-variant-a-three-axis-matrix",
+      "title": "Player page Variant A \u2014 three-axis matrix (rows=set, cols=tier\u00d7parallel)",
+      "routes": [
+        "/player/[id]/v/a"
+      ],
+      "priority": 4,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, /player/201939/v/a shows the editions matrix with columns = (tier \u00d7 parallel) \u2014 so Common-Base, Common-Crystal, Common-Anthology, Rare-Base, etc. become separate columns. Horizontal scrolling acceptable. Each cell shows low_ask + listings_count. Empty cells with NEW-DROP visual treatment per Pillar 5 empty-row fix. Per Roham 2026-05-17 17:10Z \u2014 one of 4 variants to ship side-by-side for design comparison.",
+      "data_source": "topshot.moments (grouped by subedition_id) + topshot.editions + topshot.sets",
+      "implementation_hint": "New route. Builder: reuse getPlayerDetail + extend with per-subedition aggregation (pattern: see app/parallels/page.tsx). Pivot rows by set, columns by (tier_name + subedition_id label).",
+      "judge_journey": "loop/judge/journeys/player-detail-variant-a-three-axis-matrix.spec.ts",
+      "comparable_primary": "StockX size \u00d7 condition grid",
+      "comparable_cross_domain": [
+        "Basketball-Reference per-season per-stat grid",
+        "Discogs format\u00d7region matrix"
+      ],
+      "data_viz_kind": "matrix-three-axis",
+      "seed_entities": {
+        "player_id": "201939"
+      }
+    },
+    {
+      "id": "player-detail-variant-b-drill-down",
+      "title": "Player page Variant B \u2014 drill-down (current matrix + click-cell-to-expand-parallels)",
+      "routes": [
+        "/player/[id]/v/b"
+      ],
+      "priority": 4,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, /player/201939/v/b shows the current (set \u00d7 tier) matrix shape. Cells with multiple subeditions (parallels) get a \u25bc caret + \u00d7N badge. Clicking the caret expands an inline row below showing per-subedition rows with circulation, listings, low_ask, high_offer. URL captures expanded state (?expand=base-set-8:common). One of 4 variants to ship side-by-side.",
+      "data_source": "topshot.moments + topshot.editions + topshot.market_caps + topshot.sets",
+      "implementation_hint": "Extend the existing MatrixRow in app/player/[id]/page.tsx \u2014 or copy to v/b/page.tsx \u2014 to add inline-expand state. Use Client component for the expand toggle.",
+      "judge_journey": "loop/judge/journeys/player-detail-variant-b-drill-down.spec.ts",
+      "comparable_primary": "Basketball-Reference expandable career-stats sections",
+      "comparable_cross_domain": [
+        "GitHub commit-row expand",
+        "IBKR Mosaic order-row expand"
+      ],
+      "data_viz_kind": "matrix-with-inline-expand",
+      "seed_entities": {
+        "player_id": "201939"
+      }
+    },
+    {
+      "id": "player-detail-variant-c-linked-exhaustive",
+      "title": "Player page Variant C \u2014 current matrix + prominent link to /parallels?player=X",
+      "routes": [
+        "/player/[id]/v/c"
+      ],
+      "priority": 4,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, /player/201939/v/c shows the current matrix unchanged in shape, with a prominent banner at the top: \"Browse all N parallels \u2192\" linking to /parallels?player=201939. Tile-style CTA visible above the matrix. One of 4 variants \u2014 the lowest-cost variant; pairs with /parallels for analyst-mode browse.",
+      "data_source": "topshot.editions + topshot.market_caps (matrix unchanged); plus subedition count from moments for the banner",
+      "implementation_hint": "Smallest delta. Reuse app/player/[id]/page.tsx structure; add a banner component at top with a count query + link.",
+      "judge_journey": "loop/judge/journeys/player-detail-variant-c-linked-exhaustive.spec.ts",
+      "comparable_primary": "Linear product-update banner pattern",
+      "comparable_cross_domain": [
+        "GitHub PR-page \"X commits in this PR \u2192\" tile",
+        "Notion page-property \"X linked items \u2192\""
+      ],
+      "data_viz_kind": "matrix-plus-link-banner",
+      "seed_entities": {
+        "player_id": "201939"
+      }
+    },
+    {
+      "id": "player-detail-variant-d-composite-cell",
+      "title": "Player page Variant D (recommended) \u2014 composite cell with parallel sparkline",
+      "routes": [
+        "/player/[id]/v/d"
+      ],
+      "priority": 4,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "As a trader, /player/201939/v/d shows the current (set \u00d7 tier) matrix, with each cell rendering THREE elements: (1) aggregate low_ask (big), (2) aggregate market cap (small, dim), (3) parallel-sparkline \u2014 N dots horizontally, one per parallel/subedition, filled if has-listings, hollow if no-listings. Hovering a dot shows the parallel's circulation + low_ask. The cell becomes the most info-dense option without exploding column count. Recommended default per design sprint 01.",
+      "data_source": "topshot.moments + topshot.editions + topshot.market_caps",
+      "implementation_hint": "Compose a CellWithParallelSparkline primitive: aggregate floor/mcap + small horizontal sparkline of subedition dots. Hover state surfaces per-parallel breakdown. Most engineering-intensive of the 4 variants.",
+      "judge_journey": "loop/judge/journeys/player-detail-variant-d-composite-cell.spec.ts",
+      "comparable_primary": "Bloomberg watchlist row with inline sparkline",
+      "comparable_cross_domain": [
+        "Magic Eden Pro listing-row sparkline",
+        "Tensor row-density treatment"
+      ],
+      "data_viz_kind": "matrix-composite-cell-with-sparkline",
+      "seed_entities": {
+        "player_id": "201939"
+      }
+    },
+    {
+      "id": "empty-rows-positive-framing",
+      "title": "Empty matrix rows: visually positive \"NEW DROP / be first to list\" framing",
+      "routes": [
+        "/player/[id]",
+        "/player/[id]/v/a",
+        "/player/[id]/v/b",
+        "/player/[id]/v/c",
+        "/player/[id]/v/d",
+        "/parallels",
+        "/set/[id]"
+      ],
+      "priority": 3,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "On any matrix or table cell where the underlying data has CIRCULATION > 0 but ZERO ACTIVE LISTINGS, render a positive visual indicator (\"\ud83c\udd95 NEW DROP\" tag, green accent, or \"be first to list\" CTA) \u2014 NOT a dash or blank. The cell is repositioned as opportunity, not gap. Per Roham 2026-05-17 17:10Z: \"make it visually positive don't hide, emphasize the exciting part if it exists.\" Initial NEW DROP tag in /parallels/page.tsx; loop propagates to all listed routes.",
+      "data_source": "derived: circulation > 0 AND listings_count === 0",
+      "implementation_hint": "Build a primitive component <NewDropTag /> in components/primitives/, reuse across all 6 routes. Color: green accent. Optional CTA: \"List one \u2192\" linking to nbatopshot.com listing flow (with copy nuance \u2014 they're Dapper-internal users on this surface).",
+      "judge_journey": "loop/judge/journeys/empty-rows-positive-framing.spec.ts",
+      "comparable_primary": "Stripe Atlas \"set up X \u2192\" empty-state cards",
+      "comparable_cross_domain": [
+        "GitHub repo first-time-experience banners",
+        "Linear inbox \"Inbox zero\" celebration"
+      ],
+      "data_viz_kind": "empty-state-positive-framing"
+    },
+    {
+      "id": "subedition-keyed-market-cap-etl",
+      "title": "Subedition-keyed market_caps ETL extension (per-parallel low_ask + high_offer + circulation)",
+      "routes": [],
+      "priority": 4,
+      "otm_parity": false,
+      "beyond_otm": true,
+      "passes": false,
+      "passes_at": null,
+      "blocked": false,
+      "fail_reasons": [],
+      "acceptance": "topshot.market_caps gets a new subedition_id column (or a sibling table topshot.subedition_market_caps). ETL populates it daily with per-(date, edition_id, subedition_id) snapshots: num_moments_in_circulation, lowest_ask_price, highest_offer_price, market_cap. The portal queries the subedition-level table directly instead of aggregating client-side. Backfill 90 days of history.",
+      "data_source": "BQ source: extend the asset_nba_market_caps ETL to group by subedition_id. Or compute client-side from topshot.moments + a per-day cron.",
+      "implementation_hint": "Two-stage: (a) propose schema in supabase/migrations/ \u2014 additive column or sibling table; (b) update etl/ to populate; (c) update mv_player_market_cap to optionally roll up from subedition grain. The /parallels route already does client-side per-subedition aggregation; ETL-side is the performant version.",
+      "judge_journey": "loop/judge/journeys/subedition-keyed-market-cap-etl.spec.ts",
+      "comparable_primary": "Standard ETL extension pattern",
+      "comparable_cross_domain": [],
+      "data_viz_kind": "data-model-change"
     }
   ],
   "v3_pillars_applied_at": "2026-05-17T03:30:00Z",
   "v3_pillars_doc": "research/00-product-pillars-v3.md",
-  "judge_quality_review_2026_05_17": "Honest-empty-state was passing as PASS on viz features where data rendering was the substance. Re-opened with explicit non-zero-bars / non-zero-rows assertions and data-bearing entity selection. Default time window 24H \u2192 30D across every time-tab page."
+  "judge_quality_review_2026_05_17": "Honest-empty-state was passing as PASS on viz features where data rendering was the substance. Re-opened with explicit non-zero-bars / non-zero-rows assertions and data-bearing entity selection. Default time window 24H \u2192 30D across every time-tab page.",
+  "design_sprint_01_applied_at": "2026-05-17T16:18:59.861070Z",
+  "design_sprint_01_doc": "research/design-sprints/01-parallel-aware-market-metrics.md"
 }
