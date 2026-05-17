@@ -57,10 +57,21 @@ function Inner({ data, active }: Props) {
   // Without shallow:false, nuqs only updates the URL bar and the server never
   // sees the new param — the chart stays frozen on the initial server render.
   // Options are chained via .withOptions() on the parser (nuqs v2 API).
-  const [_w, setW] = useQueryState(
+  const [currentWindow, setW] = useQueryState(
     "h",
     parseAsStringEnum<Window>([...WINDOWS]).withDefault("all").withOptions({ shallow: false }),
   );
+
+  // Use currentWindow (immediate nuqs URL state) for the tab visual state.
+  // Do NOT use `active` (server prop) here — `active` only updates after the
+  // full server re-render completes, which takes seconds on cold Vercel
+  // functions. Using currentWindow makes the tab highlight immediately
+  // responsive to clicks, while `active` + `data` update together in the
+  // background once the server finishes re-fetching.
+  //
+  // On initial load: currentWindow = "all" (from URL default) = active → same.
+  // After clicking 7D: currentWindow = "7d" immediately (nuqs optimistic state).
+  // After server re-render: active = "7d", data is new 7D data → chart updates.
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3 px-3 pt-3">
@@ -73,7 +84,7 @@ function Inner({ data, active }: Props) {
           aria-label="History window"
         >
           {WINDOWS.map((w) => {
-            const isActive = w === active;
+            const isActive = w === currentWindow;
             return (
               <button
                 key={w}
