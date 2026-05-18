@@ -25,8 +25,12 @@ import {
   getPlayersMarketCap,
   type PlayerMarketCapRow,
 } from "@/lib/supabase/queries/players-marketcap";
-import { getMarketCapLanding } from "@/lib/supabase/queries/market-cap-landing";
+import {
+  getMarketCapLanding,
+  type PlayerMcapRow,
+} from "@/lib/supabase/queries/market-cap-landing";
 import { getPlayerMovers, parseMoverWindow } from "@/lib/supabase/queries/player-movers";
+import { parseMcapFormula } from "@/lib/market-cap/mcap-formula";
 import { Num } from "@/components/primitives/Num";
 import { Sparkline } from "@/components/primitives/Sparkline";
 import { EmptyState } from "@/components/primitives/EmptyState";
@@ -34,6 +38,7 @@ import { ChartCard } from "@/components/primitives/ChartCard";
 import { TopPlayersChart } from "@/components/charts/market-cap/TopPlayersChart";
 import { MoversCardGrid } from "@/components/charts/market-cap/MoversCardGrid";
 import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
+import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
 import { MoverWindowToggle } from "@/components/market-cap/MoverWindowToggle";
 import { PlayersSortHeader } from "./PlayersSortHeader";
 import { PlayersFilterRail } from "./FilterRail";
@@ -174,6 +179,7 @@ export default async function PlayersPage({
   const selectedTeams = teamRaw ? teamRaw.split(",").filter(Boolean) : [];
   const activeParam = parseStringParam(sp.active); // "1" = active, "0" = retired, undefined = all
   const moverWindow = parseMoverWindow(parseStringParam(sp.mw));
+  const formula = parseMcapFormula(parseStringParam(sp.mcap));
 
   // ── Fetch (cached 5 min). Three queries in parallel: existing table data +
   // /market-cap landing chart data + player movers for top strip. ───────────
@@ -182,6 +188,14 @@ export default async function PlayersPage({
     getMarketCapLanding(),
     getPlayerMovers(moverWindow),
   ]);
+
+  // Re-rank top players for avg-sale formula (clones /market-cap §56-61 pattern)
+  const topPlayersRanked: PlayerMcapRow[] =
+    formula === "avg_sale"
+      ? [...mcapLanding.topPlayers]
+          .sort((a, b) => b.avg_sale_market_cap_usd - a.avg_sale_market_cap_usd)
+          .slice(0, 10)
+      : mcapLanding.topPlayers.slice(0, 10);
 
   // ── Derive available leagues (normalized: "LEAGUE_NBA" → "NBA") ──────────
   const availableLeagues = [
@@ -264,20 +278,21 @@ export default async function PlayersPage({
       <section className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-3" aria-label="Players overview charts">
         <div className="lg:col-span-2">
           <ChartCard
-            title="Top players by market cap"
-            subtitle="floor × circulation · top 10"
-            caption="Floor mcap per player aggregated across editions. Click table below for full leaderboard."
+            title={`Top players · ${formula === "avg_sale" ? "avg sale (30d)" : "floor"} mcap`}
+            subtitle={formula === "avg_sale" ? "avg sale × circulation · top 10" : "floor × circulation · top 10"}
+            caption="Per-player mcap aggregated across editions. Toggle between floor and avg-sale at the top. Click table for full leaderboard."
             href="#players-leaderboard"
             testId="chart-top-players"
             methodology="Comparable: Card Ladder Pro CL50 index. Doctrine §0.1 + §P1."
+            headerRight={<McapFormulaToggle />}
           >
-            <TopPlayersChart rows={mcapLanding.topPlayers.slice(0, 10)} formula="floor" />
+            <TopPlayersChart rows={topPlayersRanked} formula={formula} />
           </ChartCard>
         </div>
         <ChartCard
-          title="Market cap by team"
+          title="Market cap by team · floor"
           subtitle="treemap · all NBA + WNBA"
-          caption="Per-team sum of player-level mcap. Hover for team totals."
+          caption="Per-team sum of player-level floor mcap. Hover for team totals. (Team-level avg-sale aggregate pending.)"
           href="#players-leaderboard"
           testId="chart-by-team"
           methodology="Comparable: StockX size-as-market-segmenter. Doctrine §P5."
