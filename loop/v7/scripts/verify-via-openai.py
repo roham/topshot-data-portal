@@ -385,16 +385,24 @@ def main():
         response = client.chat.completions.create(
             model=args.model,
             messages=messages,
-            temperature=0.1,
-            max_tokens=2000,
+            max_completion_tokens=16000,
             response_format={"type": "json_object"},
         )
 
         content = response.choices[0].message.content
         result = json.loads(content)
+        def _safe_usage(u):
+            if u is None:
+                return None
+            return {
+                "completion_tokens": getattr(u, "completion_tokens", None),
+                "prompt_tokens": getattr(u, "prompt_tokens", None),
+                "total_tokens": getattr(u, "total_tokens", None),
+            }
+
         result["_meta"] = {
             "model_used": response.model,
-            "usage": dict(response.usage) if hasattr(response, "usage") else None,
+            "usage": _safe_usage(response.usage) if hasattr(response, "usage") else None,
         }
 
     except Exception as e:
