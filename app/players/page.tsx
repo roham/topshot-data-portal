@@ -264,49 +264,40 @@ export default async function PlayersPage({
             </>
           )}
           <span className="text-[var(--text-faint)]">
-            · market cap = sum of floor × circulation across all editions ·
-            source:{" "}
-            <code className="font-mono">topshot.mv_player_market_cap</code>
+            · market cap = sum of floor × circulation across all editions
           </span>
         </div>
       </header>
 
-      {/* ── Graph-first strip (doctrine §0.1 + §P2). Above the table per
-          Card Ladder Pro pattern + Polymarket cards-grid. Reuses chart
-          components from /market-cap so the visual vocabulary is consistent
-          across landings. ───────────────────────────────────────────────── */}
       <section className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-3" aria-label="Players overview charts">
         <div className="lg:col-span-2">
           <ChartCard
-            title={`Top players · ${formula === "avg_sale" ? "avg sale (30d)" : "floor"} mcap`}
-            subtitle={formula === "avg_sale" ? "avg sale × circulation · top 10" : "floor × circulation · top 10"}
-            caption="Per-player mcap aggregated across editions. Toggle between floor and avg-sale at the top. Click table for full leaderboard."
+            title={`Top players · ${formula === "avg_sale" ? "avg sale" : "floor"} mcap`}
+            subtitle="Top 10"
+            caption="Player ranked by total market cap across all editions."
             href="#players-leaderboard"
             testId="chart-top-players"
-            methodology="Comparable: Card Ladder Pro CL50 index. Doctrine §0.1 + §P1."
             headerRight={<McapFormulaToggle />}
           >
             <TopPlayersChart rows={topPlayersRanked} formula={formula} />
           </ChartCard>
         </div>
         <ChartCard
-          title="Market cap by team · floor"
-          subtitle="treemap · all NBA + WNBA"
-          caption="Per-team sum of player-level floor mcap. Hover for team totals. (Team-level avg-sale aggregate pending.)"
+          title="By team"
+          subtitle="Aggregate market cap"
+          caption="Total floor mcap of all players on each franchise."
           href="#players-leaderboard"
           testId="chart-by-team"
-          methodology="Comparable: StockX size-as-market-segmenter. Doctrine §P5."
         >
           <ByTeamTreemap rows={mcapLanding.byTeam} />
         </ChartCard>
         <div className="lg:col-span-3">
           <ChartCard
             title={`Top movers · ${moverWindow}D`}
-            subtitle="player-level mcap Δ · meme-coin intensity scaling"
-            caption="Biggest gainers + losers ranked by % change. Bright = bigger move."
+            subtitle="Biggest gainers and losers"
+            caption="Players sorted by % change in market cap over the selected window."
             href="#players-leaderboard"
             testId="chart-movers"
-            methodology="Default 30D per doctrine §P7. Toggle window above."
             headerRight={<MoverWindowToggle />}
           >
             <MoversCardGrid
@@ -341,7 +332,7 @@ export default async function PlayersPage({
                 body={
                   anyFilterActive
                     ? "Try removing a filter — or clear all to return to the full leaderboard."
-                    : "The mv_player_market_cap materialized view has not yet been populated. The ETL cron refreshes it every 24 hours."
+                    : "Player market cap data is being refreshed. Check back in a few hours."
                 }
                 action={
                   anyFilterActive ? (
@@ -363,13 +354,9 @@ export default async function PlayersPage({
 
       <footer className="mt-6 text-[10px] text-[var(--text-faint)] font-mono leading-relaxed">
         <p>
-          Market cap = SUM(floor_price × moments_in_circulation) across all
-          editions for each player, sourced from{" "}
-          <code>topshot.mv_player_market_cap</code>. 24h Δ% derived from{" "}
-          <code>topshot.market_caps</code> daily snapshots. Circ % ={" "}
-          circulation ÷ total minted. Sparkline: 7-day market cap trend.
-          Active filter: played since {ACTIVE_CUTOFF} per{" "}
-          <code>topshot.players.date_of_last_play</code>.
+          Market cap = floor price × moments in circulation, summed across all editions per player.
+          24h Δ% derived from daily snapshots. Circ % = circulation ÷ total minted.
+          Sparkline shows the 7-day market cap trend. Active filter: played since {ACTIVE_CUTOFF}.
         </p>
       </footer>
     </div>

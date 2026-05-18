@@ -77,8 +77,7 @@ export default async function CollectorsPage({
         </h1>
         <p className="mt-1 text-[11px] text-[var(--text-faint)] font-mono">
           <span className="text-[var(--text)] tnum">{fmtNum(total)}</span> named collectors ·
-          showing top <span className="text-[var(--text)] tnum">{rows.length}</span> ·
-          source: <code>topshot.collectors</code> (mirrored from Top Shot GraphQL)
+          showing top <span className="text-[var(--text)] tnum">{rows.length}</span>
         </p>
       </header>
 
@@ -132,21 +131,12 @@ export default async function CollectorsPage({
 
       <footer className="mt-6 text-[10px] text-[var(--text-faint)] font-mono leading-relaxed">
         <p>
-          <strong className="text-[var(--text-dim)]">Methodology.</strong> Data mirrored from Top Shot GraphQL{" "}
-          <code>searchMintedMoments → ownerV2.User</code> via the fandom-v3 pipeline.
-          "Moments (sample)" is the collector's holdings count when observed in the
-          fandom-v3 fetch — currently sampled across the top-30 NBA players, so true
-          total holdings across ALL Top Shot players are equal to or greater than this
-          number. A full ownership backfill is in progress; the column will become
-          definitive when every player has been sampled. Click any username to open
-          their bag at <code>/u/[username]</code>.
-        </p>
-        <p className="mt-2">
-          <strong className="text-[var(--text-dim)]">Per doctrine §P1 + §3 footnote:</strong>{" "}
-          ownership data is mirrored at fill time, not queried at request time. Custodial
-          accounts (<code>type=user</code>) have Top Shot usernames; non-custodial
-          (<code>type=nc</code>) accounts hold via Flow wallet only and are filtered from
-          this leaderboard (named-collectors-only).
+          <strong className="text-[var(--text-dim)]">Methodology.</strong>{" "}
+          Ranked by sampled holdings across the top 30 NBA players. True total holdings
+          across all Top Shot players are equal to or greater than the number shown. A
+          full backfill is in progress; the column will become definitive once every
+          player has been sampled. Non-custodial wallets are filtered out (named
+          collectors only). Click any username to open their bag.
         </p>
       </footer>
     </div>
