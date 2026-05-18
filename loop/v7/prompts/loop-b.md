@@ -25,14 +25,51 @@ If this fails: HALT. Cross-vendor review is non-negotiable per CHARTER §8.
 
 **Read these files in order before iteration 1:**
 
+### Round 1 — contracts + rubric + cookbook
+
 1. `/Users/ro/dapper/topshot-data-portal/loop/v7/CHARTER.md` — the contract
 2. `/Users/ro/dapper/topshot-data-portal/research/doctrine.md` — load-bearing principles (§0 comparables, §1 P1–P9, §4 rejected anti-patterns)
-3. `/Users/ro/dapper/topshot-data-portal/research/quality-rubrics/loop-b-rubric.md` — 8-axis scoring (B1 vision-diff is load-bearing)
-4. `/Users/ro/dapper/topshot-data-portal/research/patterns/market-cap-pattern.md` — the cookbook to clone
+3. `/Users/ro/dapper/topshot-data-portal/research/quality-rubrics/loop-b-rubric.md` — 8-axis scoring (B1 vision-diff load-bearing)
+4. `/Users/ro/dapper/topshot-data-portal/research/patterns/market-cap-pattern.md` — cookbook §1-§17 (file structure, page shape, ChartCard, data layer, URL state, chart cuts, palette, components, verification, anti-patterns, empty-state §11, sparkline-canvas §12, pagination §13, dense rows §14, tab nav §15, KPI grid §16, methodology footer §17)
 5. `/Users/ro/dapper/topshot-data-portal/research/personas/pro-trader.md` — vocabulary + J1-J5 journeys + what offends
 6. `/Users/ro/dapper/topshot-data-portal/research/comp-diff-otm.md` — per-feature OTM gap enumeration
 7. `/Users/ro/dapper/topshot-data-portal/loop/v7/state/handoff.json` — confirm Loop A signal fired
-8. `/Users/ro/dapper/topshot-data-portal/app/market-cap/page.tsx` + sibling files — the reference build to clone
+
+### Round 2 — per-target prep briefs (READ the one for your CURRENT target)
+
+Loop B's first 5 iterations cycle through Phase A then Phase B. The prep briefs SCOPE each target — they are the Researcher's PRIMARY INPUT:
+
+- **Phase A target** — `research/iterations/loop-b-prep-phase-a-marketcap-deepening.md` — Roham Q2 = A first; THE first Loop B iter (8 sub-iters: capture Polymarket → 5 new chart cards → wire drill-downs → polish)
+- **Phase B target #1** — `research/iterations/loop-b-prep-players.md`
+- **Phase B target #2** — `research/iterations/loop-b-prep-moments.md`
+- **Phase B target #3** — `research/iterations/loop-b-prep-sets.md`
+- **Phase B target #4** — `research/iterations/loop-b-prep-u-username.md` (BLOCKED on Loop A §P0.1 + §P0.2 — read it but don't kick off until handoff signals data ready)
+
+The Researcher translates the prep brief into a per-iter research note (`loop-b-<N>-research.md`).
+
+### Round 3 — comparable signature-move catalogs (read per page's primary comparable)
+
+Per-page vision-judge fidelity scoring requires the VERBATIM signature moves. 13 catalogs at `research/wiki/comparable/<name>-signature-moves.md`:
+
+- `otm-signature-moves.md` — /moments + drill-downs
+- `card-ladder-pro-signature-moves.md` — /players + /sets (doctrine §0.1+§0.2 anchor)
+- `tradingview-signature-moves.md` — time-window patterns + 6-card-row landing
+- `dapper-market-signature-moves.md` — /moment/[id] (Dapper's own canon)
+- `evaluate-market-signature-moves.md` — /u/[username] (description-only; dead EM ref)
+- `livetoken-signature-moves.md` — /u/[username] portfolio (description-only)
+- `polymarket-signature-moves.md` — /market-cap landing (CAPTURE PENDING per Phase A iter 0)
+- `bloomberg-terminal-signature-moves.md` — ALL drill-down density
+- `tensor-signature-moves.md` — /moment/[id] depth chart + serial-vs-price scatter
+- `stockx-signature-moves.md` — parallel-as-market-segmenter (§P5)
+- `psa-set-registry-signature-moves.md` — /set/[id] completion histogram + leaderboard
+- `nfl-all-day-signature-moves.md` — house-style visual hygiene check
+- `otm-sniper-signature-moves.md` — deferred /sniper route reference
+
+### Round 4 — reference build + assets
+
+8. `/Users/ro/dapper/topshot-data-portal/app/market-cap/page.tsx` + sibling files — the reference build (Phase A deepens this)
+9. `/Users/ro/dapper/topshot-data-portal/research/comparables/<comparable>/` — visual captures + deep walks for the per-page comparable
+10. `/Users/ro/dapper/topshot-data-portal/research/audits-baseline/current-state-2026-05-17/` — "before" captures of /players + /sets pre-Loop-B
 
 **Inventory the reference library:**
 - `ls research/otm-screenshots/` — 7 OTM captures (already inventoried)
