@@ -10,7 +10,13 @@
 
 Two independent loops run **sequentially** per Roham's Q3=A:
 
-- **Loop A (Data Quality)** — runs to "complete enough" signal per `research/quality-rubrics/loop-a-rubric.md §8`. Then drops to maintenance cadence.
+- **Loop A (Data Quality) — scope = C per Roham 2026-05-17:** Discovery + Fix + Organize. Means three responsibilities:
+  - **DISCOVERY** — probe every BQ view in `dapperlabs-data.production_sem_open.*`, identify columns we're NOT yet pulling, propose ETL extensions. Source-of-truth coverage EXPANDS over time, not contracts.
+  - **FIX** — close every confirmed gap from `source-of-truth-mapping.md §5` (owner_flow_address, buyer/seller_safe_name, 2-year transaction backfill, etc.).
+  - **ORGANIZE** — design new Supabase tables/MVs/RPCs to organize data for portal needs (sibling editions from Top Shot GraphQL, parallels lookup, daily-grain aggregations like `mv_player_daily_volume`, pack provenance, set completion derivatives).
+
+  Runs to "complete enough" signal per `research/quality-rubrics/loop-a-rubric.md §8`. Then drops to maintenance + ongoing-discovery cadence (one DISCOVERY iter / day to find newly-exposed BQ columns).
+
 - **Loop B (Visualization)** — kicks off when Loop A signals. Two phases: Phase A (/market-cap deepening) then Phase B (clone pattern to /players, /moments, /sets, /u/[username]).
 
 Both loops share:
@@ -68,16 +74,17 @@ Both loops share:
 
 The orchestrator picks ONE track per iteration. Priority order is deterministic — lowest-numbered eligible track wins.
 
-### Loop A tracks (priority order)
+### Loop A tracks (priority order) — scope C: Discovery + Fix + Organize
 
 1. **BUILD-FAILING** — `npm run build` returns non-zero. Fix.
 2. **AUDIT-FAILING** — Last audit run has any P0 probe at FAIL. Re-run + fix.
 3. **CEO-CORRECTIVE** — `/admin/review` has any ✗ vote on a Loop A artifact in last 72h. Address.
-4. **CORRECTIVE** — Any P0 gap from `source-of-truth-mapping.md §5` still open.
-5. **BACKFILL** — Any P1 gap (time range, name coverage).
-6. **DERIVATIVE** — Any P2/P3 gap (sibling parallels, daily-grain MV, etc.).
-7. **VERIFY** — Audit clean, no votes pending, no gaps. Re-run audit to regress-check.
-8. **META** — Same fail-shape 3 consecutive iterations OR no CEO vote 72h.
+4. **CORRECTIVE (FIX)** — Any P0 gap from `source-of-truth-mapping.md §5` still open.
+5. **BACKFILL (FIX)** — Any P1 gap (time range, name coverage).
+6. **DERIVATIVE (ORGANIZE)** — Any P2/P3 gap (sibling parallels, daily-grain MV, edition-parallel lookup, etc.).
+7. **DISCOVERY** — Probe BQ schema for new columns we're not yet pulling. Per scope C, this runs continuously: 1 iter / day during active loop; 1 iter / week during maintenance.
+8. **VERIFY** — Audit clean, no votes pending, no gaps. Re-run audit to regress-check.
+9. **META** — Same fail-shape 3 consecutive iterations OR no CEO vote 72h.
 
 ### Loop B tracks (priority order)
 
@@ -189,11 +196,21 @@ The lore-vault loop succeeded partly because paralle daemons had non-overlapping
 
 ---
 
-## §8 — Cross-vendor review (gpt-5.5) script contract
+## §8 — /verification-before-completion (gpt-5.5, no fallback) — LOAD-BEARING GATE
 
-Every iteration ends with cross-vendor review BEFORE the commit step.
+**This is the ONE step every iteration MUST pass before commit.** Named explicitly: `/verification-before-completion`. Implemented via `loop/v7/scripts/verify-via-openai.py`. Model: **gpt-5.5 ONLY — NO FALLBACK** (per Roham 2026-05-17). If gpt-5.5 is unavailable, the verdict is FAIL.
+
+The structural rationale (per V4 meta-analysis): single in-loop evaluator with a known blind spot is the V4 failure mode. /verification-before-completion is the EXTERNAL judge that breaks the convergence. It is not optional. It is not a polish step. It is the gate.
 
 **Script:** `loop/v7/scripts/verify-via-openai.py`
+**Model:** `gpt-5.5` (no fallback)
+**OpenAI API key source:** GSM secret `topshot-loop-openai-api-key` in project `dl-ai-pantheon`. Orchestrator pulls at boot:
+```bash
+export OPENAI_API_KEY=$(gcloud secrets versions access latest \
+  --secret=topshot-loop-openai-api-key --project=dl-ai-pantheon)
+```
+Service account `941997949640-compute@developer.gserviceaccount.com` AND `sinbad-agent@dl-kaaos.iam.gserviceaccount.com` are granted `roles/secretmanager.secretAccessor` per Dexter's 2026-05-17 wiring.
+
 **Inputs:**
 - `--iteration-state <path>` — JSON describing the iteration (track, files changed, axis scores, etc.)
 - `--diff-path <path>` — `git diff` against HEAD

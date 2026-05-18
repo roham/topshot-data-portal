@@ -2,13 +2,14 @@
 
 **Generated:** 2026-05-17 21:30Z (Wave 1 foundations sprint)
 **Status:** Load-bearing for Loop A (Data Quality Loop). Every Loop A agent reads this before proposing any fix.
+**Scope (per Roham 2026-05-17):** Loop A scope = C — Discovery + Fix + Organize. This doc GROWS over time as Loop A's DISCOVERY track finds new columns / tables / GraphQL endpoints we should be pulling. The §5 gap list expands; the §2 per-table mapping expands; the §3 source-of-truth hierarchy expands.
 
 This doc maps each Supabase `topshot.*` table to its source-of-truth in BigQuery `dapperlabs-data.production_sem_open.*` AND the Top Shot GraphQL API, names every column transformation (rename, drop, derive), and **lists every confirmed gap** with its three-line fix.
 
 The V5 failure was schema-from-imagination. This is the structural counter: every Loop A claim about data must reference either:
-1. `research/data-schema/bq-bnp-views.md` (BQ source ground truth)
-2. `research/data-schema/supabase-topshot.md` (Supabase destination ground truth)
-3. `research/probes-v2/*.json` (Top Shot GraphQL empirical discovery — 52 probes)
+1. `research/data-schema/bq-bnp-views.md` (BQ source ground truth — regenerate every DISCOVERY iteration)
+2. `research/data-schema/supabase-topshot.md` (Supabase destination ground truth — regenerate every DISCOVERY iteration)
+3. `research/probes-v2/*.json` (Top Shot GraphQL empirical discovery — 52 probes, growing)
 4. Or a NEW probe committed to the repo (one of the three above).
 
 ---

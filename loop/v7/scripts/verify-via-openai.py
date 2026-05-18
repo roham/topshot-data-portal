@@ -364,7 +364,7 @@ def main():
     parser.add_argument("--comparable-name", default=None)
     parser.add_argument("--signature-move", default=None)
     parser.add_argument("--out-path", required=True)
-    parser.add_argument("--model", default="gpt-5.5", help="OpenAI model to use (gpt-5.5 default; gpt-4o fallback if gpt-5.5 unavailable)")
+    parser.add_argument("--model", default="gpt-5.5", help="OpenAI model to use. NO FALLBACK — gpt-5.5 only per Roham 2026-05-17.")
     args = parser.parse_args()
 
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -381,27 +381,14 @@ def main():
         messages = build_loop_b_prompt(args)
 
     try:
-        # Try the model the user specified; fall back if it fails
-        try:
-            response = client.chat.completions.create(
-                model=args.model,
-                messages=messages,
-                temperature=0.1,
-                max_tokens=2000,
-                response_format={"type": "json_object"},
-            )
-        except Exception as e:
-            if "model" in str(e).lower() or "not found" in str(e).lower():
-                print(f"[verify-via-openai] {args.model} unavailable, falling back to gpt-4o", file=sys.stderr)
-                response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    temperature=0.1,
-                    max_tokens=2000,
-                    response_format={"type": "json_object"},
-                )
-            else:
-                raise
+        # NO FALLBACK — gpt-5.5 only per Roham 2026-05-17. If the model fails, the verdict fails.
+        response = client.chat.completions.create(
+            model=args.model,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=2000,
+            response_format={"type": "json_object"},
+        )
 
         content = response.choices[0].message.content
         result = json.loads(content)
@@ -411,7 +398,7 @@ def main():
         }
 
     except Exception as e:
-        result = {"verdict": "FAIL", "error": f"openai api call failed: {e}"}
+        result = {"verdict": "FAIL", "error": f"openai api call failed (gpt-5.5 only, no fallback): {e}"}
 
     Path(args.out_path).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_path).write_text(json.dumps(result, indent=2))

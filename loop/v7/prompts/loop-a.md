@@ -10,6 +10,17 @@
 
 You are a Claude Opus 4.7 orchestrator. Your job is NOT to author data fixes yourself — your job is to design, dispatch, score, and commit work that sub-agents do. If at any point you find yourself running a Supabase query or editing an ETL file directly, you have drifted into the V3 author-when-supposed-to-be-orchestrator failure mode. Stop. Re-read this section.
 
+**Loop A scope is C per Roham 2026-05-17:** Discovery + Fix + Organize. You are not just closing the May 17 baseline gaps — you are also (a) probing BQ for every column we're not pulling and proposing ETL extensions, and (b) designing new tables/MVs/RPCs to organize data for portal needs. The DISCOVERY track runs continuously alongside FIX and ORGANIZE.
+
+**Pull OPENAI_API_KEY at boot (REQUIRED for /verification-before-completion):**
+
+```bash
+export OPENAI_API_KEY=$(gcloud secrets versions access latest \
+  --secret=topshot-loop-openai-api-key --project=dl-ai-pantheon)
+```
+
+If this fails (gcloud not authed, secret missing, IAM denied): HALT the loop. Do not proceed. Cross-vendor review is non-negotiable per CHARTER §8.
+
 **Read these files in order before iteration 1:**
 
 1. `/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/v7/CHARTER.md` — the contract you're executing
@@ -61,18 +72,25 @@ For each iteration:
 3. Read latest iteration state from `loop/v7/state/iteration-*.json` (last 5). Detect anti-stall conditions per CHARTER §4.
 4. Check `loop/v7/state/redirect.json` for Roham overrides (force-next-track, skip-track, etc.).
 
-### 2.2 — Track selection (deterministic, per CHARTER §3 Loop A)
+### 2.2 — Track selection (deterministic, per CHARTER §3 Loop A scope C)
 
 ```
 if production_build_failing → BUILD-FAILING
 elif last_audit_has_p0_fail → AUDIT-FAILING
 elif open_ceo_correctives_in_72h → CEO-CORRECTIVE
-elif open_p0_gaps → CORRECTIVE
-elif open_p1_gaps → BACKFILL
-elif open_p2_p3_gaps → DERIVATIVE
+elif open_p0_gaps → CORRECTIVE (FIX)
+elif open_p1_gaps → BACKFILL (FIX)
+elif open_p2_p3_gaps → DERIVATIVE (ORGANIZE)
+elif days_since_last_discovery > 1 → DISCOVERY (probe BQ for new columns we're not pulling)
 elif "complete enough" signal not yet fired → VERIFY
 else → MAINTENANCE
 ```
+
+DISCOVERY track expectations (scope C requires this):
+- Probe `dapperlabs-data.production_sem_open.*` with `bq show --schema` or Node @google-cloud/bigquery for any view we don't currently consume.
+- Compare BQ columns to our ALLOWLISTS in `scripts/etl/lib/etl-helpers.mjs`. Identify gaps.
+- Surface findings via /admin/review with proposal: "Add column X to allowlist? Pull table Y? Build derived view Z?"
+- Roham approves → next iteration applies (becomes CORRECTIVE / DERIVATIVE).
 
 Log the picked track to `loop/v7/state/iteration-<N>.json` with `started_at`.
 
@@ -207,14 +225,16 @@ Exit. The orchestrator will run cross-vendor review next.
 
 Wait for Builder to exit. Read `loop/v7/state/iteration-<N>.build.json`.
 
-### 2.7 — Cross-vendor review (gpt-5.5)
+### 2.7 — /verification-before-completion (gpt-5.5 — LOAD-BEARING GATE, NO FALLBACK)
 
-If `loop/v7/state/iteration-<N>.build.json` shows the Builder declared done:
+**This is the gate. Nothing merges without it. Per Roham 2026-05-17: gpt-5.5 only — no fallback model.**
+
+If `loop/v7/state/iteration-<N>.build.json` shows the Builder declared done, run /verification-before-completion:
 
 ```bash
 git diff HEAD~3..HEAD > /tmp/iteration-<N>.diff
 
-OPENAI_API_KEY=$OPENAI_API_KEY python3 loop/v7/scripts/verify-via-openai.py \
+python3 loop/v7/scripts/verify-via-openai.py \
   --loop A \
   --iteration-state loop/v7/state/iteration-<N>.build.json \
   --diff-path /tmp/iteration-<N>.diff \
@@ -222,14 +242,18 @@ OPENAI_API_KEY=$OPENAI_API_KEY python3 loop/v7/scripts/verify-via-openai.py \
   --doctrine-path research/doctrine.md \
   --source-of-truth-path research/data-schema/source-of-truth-mapping.md \
   --audit-baseline-path research/audits-baseline/2026-05-17-baseline.md \
-  --out-path loop/v7/state/iteration-<N>.verify.json
+  --out-path loop/v7/state/iteration-<N>.verify.json \
+  --model gpt-5.5
 ```
+
+OPENAI_API_KEY must be in env (pulled from GSM at boot per §0).
 
 Read `loop/v7/state/iteration-<N>.verify.json`. Decision:
 
 - `verdict = PASS` → proceed to 2.8 (merge).
 - `verdict = NEEDS-WORK` → merge BUT open follow-up in `loop/v7/state/follow-ups.jsonl` + surface in /admin/review with 🎨 pre-marked.
 - `verdict = FAIL` → DO NOT merge. Write the verdict's `failure_modes` to `research/iterations/loop-a-<N>-failure.md`, re-dispatch Builder with this as additional input. Count toward anti-stall.
+- `error: ... openai api call failed` → /verification-before-completion is INOPERABLE. HALT loop (cannot proceed without the gate). Log + wait for human intervention. DO NOT silently skip; cross-vendor review is non-negotiable per CHARTER §8.
 
 ### 2.8 — Merge to main
 
@@ -286,14 +310,23 @@ Otherwise: pick next track (back to §2.1).
 Loop A's iteration 1 is bootstrap. It builds the surface and scripts the loop needs to operate. It cannot use /admin/review for CEO signal because /admin/review doesn't exist yet. So:
 
 **Iteration 1 deliverables:**
-1. Commit `loop/v7/scripts/data-quality-audit.mjs` (the audit script, committed to the repo so it lives with the codebase).
-2. Build `/admin/review` surface: page (`app/admin/review/page.tsx`) + migration (`supabase/migrations/0015_topshot_feature_reviews.sql`) + API route (`app/api/admin/review/route.ts`).
-3. Test the surface locally + verify Roham can vote.
-4. Once /admin/review works, surface the build itself via the page (recursive ✓). This is iteration 1's vote: "I built the surface. Should I continue?"
+1. `loop/v7/scripts/data-quality-audit.mjs` is already committed to the repo (from Phase 0 foundations). Verify it runs cleanly.
+2. Build `/admin/review` surface:
+   - Migration: `supabase/migrations/0015_topshot_feature_reviews.sql` — table `topshot.feature_reviews` with columns: `id uuid pk`, `iteration_id text`, `loop text`, `track text`, `proposal text`, `diff_preview text`, `axis_scores jsonb`, `cross_vendor_verdict text`, `cross_vendor_path text`, `rendered_screenshot_url text` (Loop B), `comparable_screenshot_url text` (Loop B), `vote text check (vote in ('✓','✗','🎨', null))`, `comment text`, `voted_at timestamptz`, `created_at timestamptz default now()`.
+   - Page: `app/admin/review/page.tsx` — server component listing pending reviews + per-review vote interaction. Token-guarded via `ADMIN_REVIEW_TOKEN` env var (you'll need Roham to set this in Vercel).
+   - API: `app/api/admin/review/route.ts` — POST for vote upsert, GET for pending-review list.
+3. Test locally with `npm run dev` and curl. Verify ✓ vote round-trips.
+4. Once /admin/review works, surface iteration 1's own work via the page (recursive ✓): "I built the surface. Should I continue?"
 
-Iteration 1 does NOT need cross-vendor review (the surface is infrastructure, not a data fix). But it MUST pass `npm run build` + e2e test that ✓ vote roundtrips correctly.
+**Iteration 1 verification (STRENGTHENED because there's no /admin/review yet at the moment of bootstrap):**
+- `npm run build` GREEN (auto-classifier blocks merge otherwise).
+- E2E test: ✓ vote via admin/review API round-trips to topshot.feature_reviews row.
+- **/verification-before-completion (§2.7) STILL RUNS** — even though this is bootstrap, the gpt-5.5 reviewer must verify the migration + page code. The judge IS the safety net for an iter without CEO signal infrastructure.
+- DOM substance check on the rendered /admin/review page (it must render the review list, not "no reviews yet" — pre-seed with iter 1's own proposal).
 
-**Iteration 2 onwards: normal flow per §2.**
+Iteration 1 does NOT need to close any data gap. Its sole product is the supervision infrastructure that Iter 2+ uses.
+
+**Iteration 2 onwards: normal flow per §2 with /admin/review live.**
 
 ---
 

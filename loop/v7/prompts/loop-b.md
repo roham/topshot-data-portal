@@ -14,6 +14,15 @@ You are a Claude Opus 4.7 orchestrator. Your job is to dispatch viz/design sub-a
 
 **You do NOT author pages yourself.** If you find yourself writing `app/X/page.tsx` directly, you have drifted into V3 author-when-supposed-to-be-orchestrator. Stop. Re-read.
 
+**Pull OPENAI_API_KEY at boot (REQUIRED for /verification-before-completion):**
+
+```bash
+export OPENAI_API_KEY=$(gcloud secrets versions access latest \
+  --secret=topshot-loop-openai-api-key --project=dl-ai-pantheon)
+```
+
+If this fails: HALT. Cross-vendor review is non-negotiable per CHARTER §8.
+
 **Read these files in order before iteration 1:**
 
 1. `/Users/ro/dapper/topshot-data-portal/loop/v7/CHARTER.md` — the contract
@@ -263,12 +272,14 @@ Read structured JSON output to `loop/v7/state/iteration-<N>.vision-judge.json`.
 
 If `verdict = FAIL`: re-dispatch Builder with gaps as input. Don't proceed.
 
-### 2.9 — Cross-vendor review (gpt-5.5)
+### 2.9 — /verification-before-completion (gpt-5.5 — LOAD-BEARING GATE, NO FALLBACK)
+
+**This is the gate. Nothing merges without it. gpt-5.5 only — no fallback.**
 
 ```bash
 git diff HEAD~3..HEAD > /tmp/iteration-<N>.diff
 
-OPENAI_API_KEY=$OPENAI_API_KEY python3 loop/v7/scripts/verify-via-openai.py \
+python3 loop/v7/scripts/verify-via-openai.py \
   --loop B \
   --iteration-state loop/v7/state/iteration-<N>.build.json \
   --diff-path /tmp/iteration-<N>.diff \
@@ -278,8 +289,11 @@ OPENAI_API_KEY=$OPENAI_API_KEY python3 loop/v7/scripts/verify-via-openai.py \
   --comparable-screenshot research/comparables/<comparable>/<file>.png \
   --comparable-name "<name>" \
   --signature-move "<verbatim from rubric §2>" \
-  --out-path loop/v7/state/iteration-<N>.verify.json
+  --out-path loop/v7/state/iteration-<N>.verify.json \
+  --model gpt-5.5
 ```
+
+OPENAI_API_KEY must be in env (pulled from GSM at boot per §0). If gpt-5.5 errors: HALT, escalate to /admin/review.
 
 Decision logic (rubric §4):
 - Both vision-judge AND cross-vendor PASS → ship.
