@@ -845,8 +845,8 @@
       "priority": 4,
       "otm_parity": false,
       "beyond_otm": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-18T03:44:20.722Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "As a trader, /player/201939/v/a shows the editions matrix with columns = (tier × parallel) — so Common-Base, Common-Crystal, Common-Anthology, Rare-Base, etc. become separate columns. Horizontal scrolling acceptable. Each cell shows low_ask + listings_count. Empty cells with NEW-DROP visual treatment per Pillar 5 empty-row fix. Per Roham 2026-05-17 17:10Z — one of 4 variants to ship side-by-side for design comparison.",
@@ -861,7 +861,14 @@
       "data_viz_kind": "matrix-three-axis",
       "seed_entities": {
         "player_id": "201939"
-      }
+      },
+      "judge_evidence": [
+        {
+          "at": "2026-05-18T03:44:20.722Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/player-detail-variant-a-three-axis-matrix/2026-05-18T03-44-15-108Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        }
+      ]
     },
     {
       "id": "player-detail-variant-b-drill-down",
