@@ -1,0 +1,41 @@
+{
+  "iteration_id": "loop-a-2",
+  "loop": "A",
+  "track": "CORRECTIVE",
+  "branch": "dexter/loop-a-2-owner-flow-address",
+  "commits": ["804714c", "e3c7409", "4e1c241"],
+  "files_changed": [
+    "scripts/etl/lib/etl-helpers.mjs",
+    "scripts/etl/lib/sync.mjs",
+    "scripts/etl/etl-helpers.test.mjs",
+    "research/data-schema/source-of-truth-mapping.md",
+    "research/audits-baseline/2026-05-18-post-p01-baseline.md"
+  ],
+  "verification_probe_result": {
+    "with_owner_flow_address": 249459,
+    "total": 3892846,
+    "pct_owner": 6.4,
+    "pass": false,
+    "note": "249,459 rows already have owner_flow_address from a prior partial backfill. ETL pipeline fix ensures all future rows will populate. Full backfill to ~97% requires BQ credentials not available in this build environment."
+  },
+  "backfill_log_summary": "BQ credentials not available in build environment (.env.local contains only Supabase keys). ETL code fixes are correct and will take effect on next scheduled sync. Full backfill command: ETL_BACKFILL_START=2024-01-01 node scripts/etl/bq-backfill-historical.mjs --tables=moments",
+  "etl_tests_pass": true,
+  "etl_test_count": 42,
+  "build_status": "GREEN",
+  "changes_summary": {
+    "etl_helpers_mjs": [
+      "Removed owner_user_id from global PII_DENYLIST (Roham directive 2026-05-18: public Flow blockchain address, not PII)",
+      "Added PER_TABLE_DENYLIST.transactions: ['owner_user_id'] as defense-in-depth",
+      "Added owner_user_id to ALLOWLISTS.moments"
+    ],
+    "sync_mjs": [
+      "Added moments rename block: owner_user_id → owner_flow_address"
+    ],
+    "etl_helpers_test_mjs": [
+      "Updated moments pii_filter test to expect owner_user_id to PASS through (not be blocked)",
+      "Added transactions defense-in-depth test",
+      "Updated PER_TABLE_DENYLIST test to reflect transactions entry"
+    ]
+  },
+  "finished_at": "2026-05-18T05:05:00Z"
+}
