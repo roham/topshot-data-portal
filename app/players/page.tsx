@@ -25,9 +25,16 @@ import {
   getPlayersMarketCap,
   type PlayerMarketCapRow,
 } from "@/lib/supabase/queries/players-marketcap";
+import { getMarketCapLanding } from "@/lib/supabase/queries/market-cap-landing";
+import { getPlayerMovers, parseMoverWindow } from "@/lib/supabase/queries/player-movers";
 import { Num } from "@/components/primitives/Num";
 import { Sparkline } from "@/components/primitives/Sparkline";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import { ChartCard } from "@/components/primitives/ChartCard";
+import { TopPlayersChart } from "@/components/charts/market-cap/TopPlayersChart";
+import { MoversCardGrid } from "@/components/charts/market-cap/MoversCardGrid";
+import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
+import { MoverWindowToggle } from "@/components/market-cap/MoverWindowToggle";
 import { PlayersSortHeader } from "./PlayersSortHeader";
 import { PlayersFilterRail } from "./FilterRail";
 import { cn } from "@/lib/cn";
@@ -166,9 +173,15 @@ export default async function PlayersPage({
   // nuqs parseAsArrayOf(parseAsString) serializes as comma-separated
   const selectedTeams = teamRaw ? teamRaw.split(",").filter(Boolean) : [];
   const activeParam = parseStringParam(sp.active); // "1" = active, "0" = retired, undefined = all
+  const moverWindow = parseMoverWindow(parseStringParam(sp.mw));
 
-  // ── Fetch (cached 5 min) ──────────────────────────────────────────────────
-  const { rows: allRows, as_of_date } = await getPlayersMarketCap();
+  // ── Fetch (cached 5 min). Three queries in parallel: existing table data +
+  // /market-cap landing chart data + player movers for top strip. ───────────
+  const [{ rows: allRows, as_of_date }, mcapLanding, movers] = await Promise.all([
+    getPlayersMarketCap(),
+    getMarketCapLanding(),
+    getPlayerMovers(moverWindow),
+  ]);
 
   // ── Derive available leagues (normalized: "LEAGUE_NBA" → "NBA") ──────────
   const availableLeagues = [
@@ -243,6 +256,54 @@ export default async function PlayersPage({
           </span>
         </div>
       </header>
+
+      {/* ── Graph-first strip (doctrine §0.1 + §P2). Above the table per
+          Card Ladder Pro pattern + Polymarket cards-grid. Reuses chart
+          components from /market-cap so the visual vocabulary is consistent
+          across landings. ───────────────────────────────────────────────── */}
+      <section className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-3" aria-label="Players overview charts">
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Top players by market cap"
+            subtitle="floor × circulation · top 10"
+            caption="Floor mcap per player aggregated across editions. Click table below for full leaderboard."
+            href="#players-leaderboard"
+            testId="chart-top-players"
+            methodology="Comparable: Card Ladder Pro CL50 index. Doctrine §0.1 + §P1."
+          >
+            <TopPlayersChart rows={mcapLanding.topPlayers.slice(0, 10)} formula="floor" />
+          </ChartCard>
+        </div>
+        <ChartCard
+          title="Market cap by team"
+          subtitle="treemap · all NBA + WNBA"
+          caption="Per-team sum of player-level mcap. Hover for team totals."
+          href="#players-leaderboard"
+          testId="chart-by-team"
+          methodology="Comparable: StockX size-as-market-segmenter. Doctrine §P5."
+        >
+          <ByTeamTreemap rows={mcapLanding.byTeam} />
+        </ChartCard>
+        <div className="lg:col-span-3">
+          <ChartCard
+            title={`Top movers · ${moverWindow}D`}
+            subtitle="player-level mcap Δ · meme-coin intensity scaling"
+            caption="Biggest gainers + losers ranked by % change. Bright = bigger move."
+            href="#players-leaderboard"
+            testId="chart-movers"
+            methodology="Default 30D per doctrine §P7. Toggle window above."
+            headerRight={<MoverWindowToggle />}
+          >
+            <MoversCardGrid
+              gainers={movers.gainers}
+              losers={movers.losers}
+              window_days={movers.window_days}
+            />
+          </ChartCard>
+        </div>
+      </section>
+
+      <div id="players-leaderboard" />
 
       {/* 2-column layout: filter rail (left, 220px sticky) + table (right) */}
       <div className="flex gap-4 items-start">
