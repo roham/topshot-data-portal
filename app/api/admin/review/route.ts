@@ -107,10 +107,24 @@ export async function POST(req: NextRequest) {
     }
 
     if (!existing) {
-      return NextResponse.json(
-        { error: `No feature_review found for iteration_id: ${iteration_id}` },
-        { status: 404 },
-      );
+      // Insert a minimal row on first vote (upsert path for rows not yet seeded)
+      const { data: inserted, error: insertError } = await sb
+        .from("feature_reviews")
+        .insert({
+          iteration_id,
+          loop: "A",
+          track: "BOOTSTRAP",
+          vote,
+          comment: comment ?? null,
+          voted_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 500 });
+      }
+      return NextResponse.json(inserted);
     }
 
     const { data: updated, error: updateError } = await sb

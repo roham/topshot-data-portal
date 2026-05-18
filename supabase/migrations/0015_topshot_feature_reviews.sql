@@ -14,14 +14,15 @@
 --   3. POST /api/admin/review upserts vote + comment + voted_at.
 --   4. Orchestrator reads vote before deciding whether to proceed.
 --
--- RLS: service_role has full access (write + read). authenticated can SELECT
--- so the admin page can read without exposing the service-role key to the
--- browser (anon role has no access — intentional).
+-- RLS: service_role has full access (write + read). The admin page reads
+-- server-side using the service-role key — no authenticated SELECT policy
+-- needed. anon role has no access (intentional).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS topshot.feature_reviews (
     id                          uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     iteration_id                text          NOT NULL,
+    CONSTRAINT feature_reviews_iteration_id_unique UNIQUE (iteration_id),
     loop                        text          NOT NULL CHECK (loop IN ('A', 'B')),
     track                       text          NOT NULL,
     proposal                    text,
@@ -58,18 +59,9 @@ CREATE POLICY "service_role_all" ON topshot.feature_reviews
     USING (true)
     WITH CHECK (true);
 
--- Authenticated role: read-only (admin page reads without service-role key
--- if needed; no authenticated writes — votes go through the API which uses
--- the service-role key server-side).
-CREATE POLICY "authenticated_select" ON topshot.feature_reviews
-    FOR SELECT
-    TO authenticated
-    USING (true);
-
 -- Grants so PostgREST can see the table (service_role bypasses RLS but still
 -- needs the table-level grant to read through the REST layer).
 GRANT SELECT, INSERT, UPDATE, DELETE ON topshot.feature_reviews TO service_role;
-GRANT SELECT ON topshot.feature_reviews TO authenticated;
 
 -- Seed: bootstrap iteration-1 proposal so /admin/review shows content
 -- immediately after the migration is applied (no manual seed step required).
@@ -90,4 +82,4 @@ app/admin/review/page.tsx
 app/api/admin/review/route.ts
 app/api/admin/review/seed-iter1/route.ts',
     '{"a4_schema_correctness": 95, "a5_organization": 90, "note": "bootstrap iteration — data axes not applicable"}'::jsonb
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (iteration_id) DO NOTHING;
