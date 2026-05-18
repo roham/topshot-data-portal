@@ -1,0 +1,122 @@
+{
+  "verdict": "PASS",
+  "axis_scores": {
+    "a1_completeness": 88,
+    "a2_accuracy": 82,
+    "a3_freshness": 90,
+    "a4_schema_correctness": 84,
+    "a5_organization": 78,
+    "a6_pii_safety": 72,
+    "a7_doctrine_compliance": 90
+  },
+  "weighted_overall": 84,
+  "addresses_claimed_gap": true,
+  "addresses_evidence": "This is BOOTSTRAP, so the claimed gap is supervision infrastructure, not P0 data closure. The diff creates the required table in `supabase/migrations/0015_topshot_feature_reviews.sql`: `CREATE TABLE IF NOT EXISTS topshot.feature_reviews (...)`, with `iteration_id text NOT NULL`, `CONSTRAINT feature_reviews_iteration_id_unique UNIQUE (iteration_id)`, `loop text NOT NULL CHECK (loop IN ('A', 'B'))`, `track text NOT NULL`, `axis_scores jsonb`, `cross_vendor_verdict text CHECK (...)`, `vote text CHECK (vote IN ('\u2713', '\u2717', '\ud83c\udfa8', NULL)) DEFAULT NULL`, `comment text`, `voted_at timestamptz`, and `created_at timestamptz NOT NULL DEFAULT now()`. It seeds the bootstrap row with `INSERT INTO topshot.feature_reviews (...) VALUES ('loop-a-1', 'A', 'BOOTSTRAP', ...) ON CONFLICT (iteration_id) DO NOTHING`. The admin page is implemented in `app/admin/review/page.tsx`, including token auth, service-role read, review cards, and vote buttons for `([\"\u2713\", \"\u2717\", \"\ud83c\udfa8\"] as const).map((v) => ...)`. The API is implemented in `app/api/admin/review/route.ts`: GET selects from `feature_reviews` ordered by created_at, and POST validates `iteration_id` plus `vote` and updates/inserts vote/comment/voted_at. Build is reported GREEN and verification says GET returns the row and POST upserts vote.",
+  "hidden_failure_modes": [
+    {
+      "what": "Migration is not reliably self-healing if an earlier partial or pre-fix version of `feature_reviews` already exists.",
+      "severity": "P1",
+      "evidence": "The migration uses `CREATE TABLE IF NOT EXISTS topshot.feature_reviews (...)` with the unique constraint inside the create-table block. If the old table was created before `CONSTRAINT feature_reviews_iteration_id_unique UNIQUE (iteration_id)` was added, re-running this file will not add the missing constraint. `scripts/migrations/apply-0015.mjs` also treats an existing table as success by selecting from `.from(\"feature_reviews\").select(\"id\").limit(1)` rather than verifying columns, constraints, policies, and indexes."
+    },
+    {
+      "what": "No down migration or explicit transaction boundary is provided.",
+      "severity": "P1",
+      "evidence": "Only `supabase/migrations/0015_topshot_feature_reviews.sql` is added. There is no paired rollback file. The apply script sends the SQL blob to `/rest/v1/rpc/exec_sql`; if the SQL executor does not run it atomically, a mid-apply failure could leave table/index/policy/seed state partially applied."
+    },
+    {
+      "what": "The generic POST upsert path can create semantically wrong rows for future non-bootstrap iterations.",
+      "severity": "P1",
+      "evidence": "In `app/api/admin/review/route.ts`, if no row exists for an `iteration_id`, the insert hardcodes `loop: \"A\"` and `track: \"BOOTSTRAP\"`. A future Loop B or non-bootstrap Loop A vote submitted before seeding would create incorrect orchestration metadata."
+    },
+    {
+      "what": "Admin token is accepted in the URL and embedded into the rendered DOM.",
+      "severity": "P1",
+      "evidence": "`app/admin/review/page.tsx` accepts `?token=<value>` and stores it as `tokenForForms = provided`; `VoteForm` renders `data-token={token}` and inline JavaScript sends `Authorization: 'Bearer ' + token`. This can expose the token through browser history, logs, screenshots, DOM inspection, or referrers."
+    },
+    {
+      "what": "The form claims to work without JavaScript but does not actually have a native POST action.",
+      "severity": "P2",
+      "evidence": "The comment says the vote form is a `server-rendered form using the action URL pattern so it works even without JS`, but the `<form>` has no `method` or `action`, vote buttons are `type=\"button\"`, and the actual POST occurs only in inline JavaScript."
+    },
+    {
+      "what": "The API has no rate limiting or lockout on an admin-only endpoint.",
+      "severity": "P2",
+      "evidence": "`checkAuth(req)` performs a direct equality check against `ADMIN_REVIEW_TOKEN`; there is no rate limiting, audit log, or replay protection. This is acceptable for bootstrap/internal use but should not be treated as hardened admin auth."
+    },
+    {
+      "what": "The state file required by the rubric remains incomplete/stale relative to the build summary.",
+      "severity": "P2",
+      "evidence": "`loop/v7/state/iteration-1.json` has `finished_at: null`, empty `files_changed`, empty `commits`, `axis_scores: null`, and `weighted_overall: null`, while `loop/v7/state/iteration-1.build.json` contains the completed state. Future orchestration code may read the wrong state file."
+    }
+  ],
+  "doctrine_violations": [],
+  "in_loop_judge_likely_missed": [
+    {
+      "what": "The bootstrap exception is valid, but the migration still needs to be judged against already-applied database reality, not just the final SQL file.",
+      "why_critical": "`CREATE TABLE IF NOT EXISTS` will not retrofit the new unique constraint or removed policies if a pre-fix version was applied during the failed attempt. The reported verification only proves one row exists and API calls work; it does not prove the live schema matches the corrected migration."
+    },
+    {
+      "what": "POST fallback insert hardcodes `loop: \"A\"` and `track: \"BOOTSTRAP\"`.",
+      "why_critical": "The route is named as a generic `/api/admin/review` endpoint for Loop A and Loop B. If the orchestrator ever posts a vote before a proposal row exists, the review table becomes a false source of truth for track selection and CEO signal."
+    },
+    {
+      "what": "The canonical iteration state file and the build-state file disagree.",
+      "why_critical": "The next loop may read `loop/v7/state/iteration-1.json`, see null scores and empty file/commit lists, and make incorrect orchestration decisions despite `iteration-1.build.json` claiming success."
+    },
+    {
+      "what": "The security fix removed broad authenticated Supabase SELECT, but the page still normalizes URL-token auth and DOM-token exposure.",
+      "why_critical": "This is not a P0 for a bootstrap internal tool, but it is the largest remaining safety gap because CEO comments and proposal details are operationally sensitive."
+    },
+    {
+      "what": "The migration verification does not introspect RLS policies or grants.",
+      "why_critical": "The iteration specifically claims it removed authenticated SELECT. A verification that only checks API behavior through the service role cannot prove anon/authenticated roles are denied."
+    }
+  ],
+  "improvements": [
+    {
+      "axis": "a4",
+      "suggestion": "Add an idempotent repair section after `CREATE TABLE IF NOT EXISTS`: `ALTER TABLE ... ADD CONSTRAINT ...` guarded by a catalog check, and explicitly drop any old `authenticated_select` policy / authenticated grant if present.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a4",
+      "suggestion": "Make `apply-0015.mjs` verify expected columns, check constraints, unique constraint, indexes, RLS enabled status, policies, grants, and seed row uniqueness before declaring success.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a5",
+      "suggestion": "Change POST semantics: either require the proposal row to already exist, or require `loop`, `track`, and proposal metadata in the insert body rather than hardcoding `A`/`BOOTSTRAP`.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a6",
+      "suggestion": "Stop recommending `?token=` for normal use. Prefer a one-time token exchange into an HTTP-only cookie, or at minimum make header-only auth the documented path and avoid rendering the token into DOM attributes.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a5",
+      "suggestion": "Update the canonical `loop/v7/state/iteration-1.json` with finished_at, files_changed, commits, axis_scores, weighted_overall, and final cross-vendor verdict, or remove it in favor of a single canonical state file.",
+      "priority": "P2"
+    },
+    {
+      "axis": "a4",
+      "suggestion": "Add a rollback/down migration or documented manual rollback SQL for dropping the seed, policies, indexes, and table.",
+      "priority": "P2"
+    },
+    {
+      "axis": "a6",
+      "suggestion": "Add a minimal admin audit log for vote changes: previous vote/comment, new vote/comment, timestamp, and request source fingerprint.",
+      "priority": "P2"
+    }
+  ],
+  "would_you_ship_this": true,
+  "one_line_justification": "Yes for BOOTSTRAP only: it creates the required review table, page, and GET/POST API with build green, while remaining issues are P1/P2 hardening and idempotence problems rather than blockers to starting supervised iterations.",
+  "_meta": {
+    "model_used": "gpt-5.5-2026-04-23",
+    "usage": {
+      "completion_tokens": 3190,
+      "prompt_tokens": 31071,
+      "total_tokens": 34261
+    }
+  }
+}
