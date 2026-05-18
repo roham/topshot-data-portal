@@ -1,0 +1,34 @@
+{
+  "iteration_id": "loop-a-1",
+  "loop": "A",
+  "track": "BOOTSTRAP",
+  "branch": "dexter/loop-a-1-bootstrap-v2",
+  "commits": ["cef25ba", "979e3f4", "3617630", "6016c20", "07a503a", "5bee4b3"],
+  "files_changed": [
+    "supabase/migrations/0015_topshot_feature_reviews.sql",
+    "app/admin/review/page.tsx",
+    "app/api/admin/review/route.ts",
+    "app/api/admin/review/seed-iter1/route.ts",
+    "scripts/migrations/apply-0015.mjs",
+    "loop/v7/scripts/verify-via-openai.py",
+    "loop/v7/state/orchestrator-boot.json",
+    "loop/v7/state/cost-ledger.jsonl",
+    "loop/v7/state/iteration-1.json",
+    "loop/v7/state/iteration-1.verify.json",
+    "research/iterations/loop-a-1-failure.md"
+  ],
+  "migration_applied": true,
+  "audit_script_runs_cleanly": true,
+  "build_status": "GREEN",
+  "verification_probe_result": "1 row in topshot.feature_reviews with loop-a-1 bootstrap proposal; vote=null; GET /api/admin/review returns the row; POST /api/admin/review upserts vote",
+  "fixes_applied": [
+    "Added CONSTRAINT feature_reviews_iteration_id_unique UNIQUE (iteration_id) to table definition",
+    "Changed seed INSERT to ON CONFLICT (iteration_id) DO NOTHING (functional conflict target)",
+    "Removed authenticated_select RLS policy (admin page reads server-side with service role)",
+    "Removed GRANT SELECT ON feature_reviews TO authenticated (unnecessary)",
+    "POST route now upserts: inserts minimal row on first vote if iteration_id not found",
+    "verify-via-openai.py: max_completion_tokens=16000, removed temperature, safe usage serialization",
+    "Clean branch without v5 loop contamination (cherry-pick from origin/main, only 3 bootstrap commits + fix commits)"
+  ],
+  "finished_at": "2026-05-18T05:00:00Z"
+}

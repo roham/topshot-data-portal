@@ -88,6 +88,15 @@ A Claude-driven autonomous loop has just completed an iteration that modifies th
 
 The V4 failure was Claude judging Claude — converged on its own blind spots. Your job is to break that convergence. Read critically. Find what the in-loop judge missed.
 
+IMPORTANT — BOOTSTRAP TRACK EXCEPTION:
+If the iteration state shows track = "BOOTSTRAP", this is the special Loop A Iteration 1 infrastructure build. Per the orchestration protocol, Iteration 1 does NOT close data gaps — its sole product is the supervision infrastructure (/admin/review surface, feature_reviews table, CEO vote API) that subsequent iterations use. Judge it on:
+- Does the migration create the feature_reviews table correctly with required columns, constraints, and policies?
+- Does the /admin/review page render review proposals and vote buttons correctly?
+- Does the /api/admin/review GET/POST API work correctly?
+- Is the build GREEN?
+- Are there security or schema correctness issues?
+Do NOT penalize BOOTSTRAP for failing to close P0 data gaps — that is not its purpose. Do NOT cite the rubric's 8-track list as a basis for FAIL on a BOOTSTRAP iteration.
+
 You MUST output ONLY valid JSON matching the schema below. No prose before/after the JSON. No markdown fences. Just the JSON object."""
 
     user = f"""## Context
@@ -385,16 +394,24 @@ def main():
         response = client.chat.completions.create(
             model=args.model,
             messages=messages,
-            temperature=0.1,
-            max_tokens=2000,
+            max_completion_tokens=16000,
             response_format={"type": "json_object"},
         )
 
         content = response.choices[0].message.content
         result = json.loads(content)
+        def _safe_usage(u):
+            if u is None:
+                return None
+            return {
+                "completion_tokens": getattr(u, "completion_tokens", None),
+                "prompt_tokens": getattr(u, "prompt_tokens", None),
+                "total_tokens": getattr(u, "total_tokens", None),
+            }
+
         result["_meta"] = {
             "model_used": response.model,
-            "usage": dict(response.usage) if hasattr(response, "usage") else None,
+            "usage": _safe_usage(response.usage) if hasattr(response, "usage") else None,
         }
 
     except Exception as e:
