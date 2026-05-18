@@ -3,7 +3,7 @@
 // Three-stage PostgREST-native fetch (never exec_sql):
 //   1. mv_player_market_cap — pre-aggregated player market caps (MV)
 //   2. topshot.editions — player_id + edition_id + mint_count for JS-side GROUP BY
-//   3. topshot.market_caps — 7-day daily totals per player for sparklines + 24h Δ%
+//   3. topshot.market_caps — 7-day daily totals per player for sparklines + 30D Δ%
 //
 // Sort index: idx_mv_player_market_cap_total (DESC NULLS LAST). Omit nullsFirst
 // option to let the planner use it without the redundant qualifier that defeats
@@ -25,7 +25,7 @@ export interface PlayerMarketCapRow {
   total_in_circulation: number;        // mv_player_market_cap.total_moments_in_circulation
   circ_pct: number | null;             // (circulation / minted) × 100
   market_cap_usd: number;
-  delta_pct_24h: number | null;        // null when prior-day snapshot absent (honest absence)
+  delta_pct_30d: number | null;        // null when 30-day-prior snapshot absent (honest absence)
   sparkline: number[];                 // 7-day market cap totals, oldest→newest
   as_of_date: string | null;
   // Stage 4 additions — from topshot.players (filter rail)
@@ -85,7 +85,7 @@ async function _getPlayersMarketCap(): Promise<PlayersMarketCapResult> {
       .from("editions")
       .select("player_id, edition_id, mint_count")
       .in("player_id", playerIds)
-      .limit(4000); // matches MAX_EDITION_IDS from moments-grid.ts
+      .limit(20000); // raised from 4000 — high-volume players can have 50+ editions × 200 players
 
     if (edErr) {
       console.error("[players-marketcap] editions read failed", edErr);
@@ -147,7 +147,14 @@ async function _getPlayersMarketCap(): Promise<PlayersMarketCapResult> {
 
     const sparklineDates = distinctDates.slice(0, 7).reverse(); // oldest first
     const latestDate = distinctDates[0] ?? null;
-    const prevDate = distinctDates[1] ?? null;
+
+    // 30-day lookback: find the most-recent snapshot date that is ≤ 30 days before today.
+    // This populates deltas for far more players than the prior "yesterday" approach.
+    // If ETL has fewer than 30 days of history, prevDate will be null → honest absence.
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const prevDate = distinctDates.find((d) => d <= thirtyDaysAgoStr) ?? null;
 
     // ── Stage 4: league + date_of_last_play from topshot.players ─────────
     // Native PostgREST filter — never exec_sql (gotcha: exec-sql-rpc-is-30x-slower).
@@ -210,7 +217,7 @@ async function _getPlayersMarketCap(): Promise<PlayersMarketCapResult> {
         total_in_circulation: circ,
         circ_pct: circPct,
         market_cap_usd: Number(mv.total_market_cap_usd),
-        delta_pct_24h: deltaPct,
+        delta_pct_30d: deltaPct,
         sparkline,
         as_of_date: mv.as_of_date,
         league: leagueByPlayer.get(mv.player_id) ?? null,

@@ -83,10 +83,10 @@ function sortRows(
         cmp = a.market_cap_usd - b.market_cap_usd;
         break;
       case "delta": {
-        if (a.delta_pct_24h == null && b.delta_pct_24h == null) return 0;
-        if (a.delta_pct_24h == null) return 1; // nulls last
-        if (b.delta_pct_24h == null) return -1;
-        cmp = a.delta_pct_24h - b.delta_pct_24h;
+        if (a.delta_pct_30d == null && b.delta_pct_30d == null) return 0;
+        if (a.delta_pct_30d == null) return 1; // nulls last
+        if (b.delta_pct_30d == null) return -1;
+        cmp = a.delta_pct_30d - b.delta_pct_30d;
         break;
       }
       case "editions":
@@ -407,9 +407,9 @@ function PlayerRow({
   rank: number;
 }) {
   const deltaPositive =
-    row.delta_pct_24h != null && row.delta_pct_24h > 0;
+    row.delta_pct_30d != null && row.delta_pct_30d > 0;
   const deltaNegative =
-    row.delta_pct_24h != null && row.delta_pct_24h < 0;
+    row.delta_pct_30d != null && row.delta_pct_30d < 0;
 
   return (
     <tr
@@ -469,7 +469,7 @@ function PlayerRow({
           deltaNegative ? "bg-[var(--down)]/[0.06]" : "",
         )}
       >
-        <Num value={row.delta_pct_24h} format="deltaPct" colorize={true} />
+        <Num value={row.delta_pct_30d} format="deltaPct" colorize={true} />
       </td>
 
       {/* Trend — 7-day sparkline */}
