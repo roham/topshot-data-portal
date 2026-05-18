@@ -79,7 +79,7 @@ When two sources disagree on the same fact, the canonical authority is:
 |---|---|---|---|
 | `owner_flow_address` | `owner_user_id` | **TARGET RENAME, NOT YET APPLIED** | Per schema comment: "Same as BQ owner_user_id but renamed for explicitness — this value is observable on-chain." |
 
-**Gap status:** ❌ **CRITICAL CONFIRMED GAP.** 3,494,001 rows. `owner_flow_address` is NULL across the entire table. Root cause: `owner_user_id` is on the PII BLOCKLIST in `etl-helpers.mjs:21` (treated as Dapper-internal-UUID PII), but it's actually a **public Flow blockchain address** on the `moments` table.
+**Gap status:** ✅ **CLOSED 2026-05-18.** owner_flow_address now populates from BQ owner_user_id via 3-edit ETL fix + backfill.
 
 **Fix (three-edit, ~15min):**
 1. `scripts/etl/lib/etl-helpers.mjs` BLOCKLIST line ~21: remove `owner_user_id` OR move to per-table blocklist that exempts `moments` (per-table treatment is safer because `owner_user_id` IS a Dapper UUID on the `transactions` table).
@@ -199,7 +199,7 @@ Source-of-truth artifacts:
 
 | Priority | Gap | Table affected | Fix type | Est time |
 |---|---|---|---|---|
-| **P0** | `moments.owner_flow_address` NULL across 3.5M rows | moments | CORRECTIVE (3 edits + backfill) | 30 min |
+| ~~**P0**~~ **CLOSED 2026-05-18** | `moments.owner_flow_address` NULL across 3.5M rows | moments | CORRECTIVE (3 edits + backfill) | 30 min |
 | **P0** | `transactions.buyer_safe_name` 0% populated | transactions | INVESTIGATE then CORRECTIVE | 1 hr |
 | **P0** | `transactions.seller_safe_name` 24.5% populated | transactions | INVESTIGATE then CORRECTIVE | 1 hr |
 | **P1** | `transactions` only covers 20 months (2024-09 → 2026-05) | transactions | BACKFILL | 30 min |
