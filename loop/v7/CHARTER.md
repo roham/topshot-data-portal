@@ -304,25 +304,49 @@ This is the orchestrator's persistent state. The orchestrator reads the last N i
 
 ## §12 — Loop kickoff sequence
 
-**Phase 0 — Prep (one-time, ~2 hours, BEFORE Loop A):**
-1. Build `/admin/review` surface (page + migration + API). LOAD-BEARING.
-2. Build cross-vendor review script `loop/v7/scripts/verify-via-openai.py`.
-3. Commit `loop/v7/CHARTER.md` (this file).
-4. Commit `research/quality-rubrics/{loop-a-rubric,loop-b-rubric}.md`.
-5. Commit `research/data-schema/{bq-bnp-views,supabase-topshot,source-of-truth-mapping}.md`.
-6. Commit `research/audits-baseline/2026-05-17-baseline.md`.
-7. Roham authorizes loop kickoff.
+**Phase 0 — Prep (DONE 2026-05-17 → 2026-05-18):**
+1. ✅ Build `/admin/review` surface (page + migration + API) — completed by Loop A iter 1 BOOTSTRAP track (commit `42d1757`).
+2. ✅ Cross-vendor review script `loop/v7/scripts/verify-via-openai.py` (gpt-5.5 only, no fallback).
+3. ✅ `loop/v7/CHARTER.md` (this file).
+4. ✅ `research/quality-rubrics/{loop-a-rubric,loop-b-rubric}.md`.
+5. ✅ `research/data-schema/{bq-bnp-views,supabase-topshot,source-of-truth-mapping}.md`.
+6. ✅ `research/audits-baseline/2026-05-17-baseline.md`.
+7. ✅ `research/patterns/market-cap-pattern.md` cookbook §1-§17.
+8. ✅ Loop B prep briefs: `research/iterations/loop-b-prep-{phase-a-marketcap-deepening,players,moments,sets,u-username}.md`.
+9. ✅ 13 comparable signature-move catalogs in `research/wiki/comparable/*-signature-moves.md` (otm, card-ladder-pro, tradingview, dapper-market, evaluate-market, livetoken, polymarket, bloomberg-terminal, tensor, stockx, psa-set-registry, nfl-all-day, otm-sniper).
+10. ✅ GSM secret `topshot-loop-openai-api-key` bound to compute SA + sinbad-agent.
+11. ✅ Loop A launched on kaaos-daemon as `loop-a-build` tmux session.
 
-**Phase 1 start — Loop A:**
-1. Dispatch Loop A orchestrator prompt to daemon.
-2. Loop A iteration 1: build `loop/v7/scripts/data-quality-audit.mjs` (committed version of the probe) + run baseline. Post first proposal to /admin/review.
-3. Roham votes → loop continues.
+**Phase 1 — Loop A (IN PROGRESS as of 2026-05-18):**
+1. ✅ Loop A iter 1 BOOTSTRAP: built /admin/review surface, merged to main.
+2. 🟡 Loop A iter 2 CORRECTIVE: owner_flow_address fix applied; backfill running (~6h remaining).
+3. ⏳ Loop A iter 3 DISCOVERY/CORRECTIVE: buyer_safe_name / seller_safe_name BQ probe + fix.
+4. ⏳ Loop A iter 4: pairs with iter 3 outcome.
+5. ⏳ Loop A iter 5 BACKFILL: transactions 2024-05-18 → 2024-09-05 (vote required per scoped §2.5).
+6. ⏳ Loop A iter 6 DERIVATIVE: build `mv_player_daily_volume` + compose `mv_player_movers_90d` (vote required).
+7. ⏳ Loop A iter 7 VERIFY: cross-source accuracy probe to unlock A2 axis.
+8. ⏳ Loop A handoff: writes `loop/v7/state/handoff.json` when A1 ≥ 90 AND A2 ≥ 90 AND P0 closed AND 3 audits clean.
 
-**Phase 2 start — Loop B:**
-1. When Loop A signals "complete enough" (handoff.json written): pause Loop A.
-2. Dispatch Loop B orchestrator prompt locally.
-3. Loop B Phase A: deepen /market-cap.
-4. Roham votes → Phase B kicks off.
+**Phase 2 — Loop B (NOT YET STARTED; awaits Phase 1 handoff):**
+
+When Loop A handoff fires, Loop B kicks off. Boot procedure (per `loop/v7/prompts/loop-b.md §0`):
+
+1. Pull OPENAI_API_KEY from GSM.
+2. Read 4 rounds of context — contracts, prep brief for current target, signature-move catalogs, reference assets.
+3. Phase A iter 0: capture Polymarket landing for vision-diff baseline.
+4. Phase A iters 1-8: per `loop-b-prep-phase-a-marketcap-deepening.md §10` — add 5 chart cards, wire drill-downs, polish.
+5. Roham promotes to Phase B via `/promote-to-phase-b` in /admin/review.
+6. Phase B sequential: /players → /moments → /sets → /u/[username] per `loop-b-prep-<page>.md` briefs.
+
+**Status of Loop B kickoff prerequisites:**
+- ✅ /admin/review surface live + token-guarded (token must be set in Vercel env)
+- ✅ verify-via-openai.py + GSM access verified working from VM
+- ✅ All 5 prep briefs committed
+- ✅ All 13 signature-move catalogs committed
+- ✅ Cookbook §1-§17 committed
+- ⏳ Polymarket capture (Phase A iter 0 task)
+- ⏳ ADMIN_REVIEW_TOKEN set on Vercel (manual: Roham via dashboard OR `vercel env add`)
+- ⏳ Loop A handoff signal (waits on Loop A completing iters 2-7)
 
 ---
 
