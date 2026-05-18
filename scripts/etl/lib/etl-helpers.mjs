@@ -19,12 +19,23 @@ export const PII_DENYLIST = [
   "seller_email",
   "buyer_ip",
   "seller_ip",
-  "owner_user_id",
+  // "owner_user_id" removed from global denylist — it is a PUBLIC Flow chain address
+  // on asset_nba_moment. It is NOT present on the transaction view (which uses buyer_id /
+  // seller_id instead). Defense-in-depth: block it on transactions via PER_TABLE_DENYLIST.
+  // Roham directive 2026-05-18: production_sem_open is the PII-stripped publishable BQ dataset;
+  // owner_user_id on asset_nba_moment is the public Flow blockchain address, NOT PII.
   "user_id",
   "email",
   "ip",
   "ip_address",
 ];
+
+// Per-table additional denylist — entries here are blocked ONLY for the named table.
+// owner_user_id is a public Flow chain address on asset_nba_moment (not PII).
+// Listed here as defense-in-depth only, in case the column ever appears on transactions.
+export const PER_TABLE_DENYLIST = {
+  transactions: ["owner_user_id"],
+};
 
 // Per-table allowlist — what survives the filter. Anything not here = dropped.
 // Keep tight; expand intentionally. Schema drift = silent loss is preferred over silent leak.
@@ -115,6 +126,7 @@ export const ALLOWLISTS = {
     "tier_id",
     "tier_name",
     "rarity",
+    "owner_user_id",   // public Flow chain address; renamed to owner_flow_address in sync.mjs
     "created_at",
     "updated_at",
   ],
@@ -310,7 +322,10 @@ export function pii_filter(bq_row, table_name) {
     throw new Error(`pii_filter: no allowlist for table "${table_name}"`);
   }
   const allowedSet = new Set(allowed);
-  const denySet = new Set(PII_DENYLIST);
+  const denySet = new Set([
+    ...PII_DENYLIST,
+    ...(PER_TABLE_DENYLIST[table_name] ?? []),
+  ]);
   const out = {};
   for (const [k, v] of Object.entries(bq_row)) {
     if (denySet.has(k)) continue; // hard deny — always strip

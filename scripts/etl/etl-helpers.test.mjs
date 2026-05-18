@@ -10,10 +10,14 @@ import {
   retryWithBackoff,
   ALLOWLISTS,
   PII_DENYLIST,
+  PER_TABLE_DENYLIST,
   filterByColumns,
   partitionRange,
   loadSupabaseColumns,
 } from "./lib/etl-helpers.mjs";
+// NOTE (loop-a-2 build 2026-05-18): PER_TABLE_DENYLIST now contains transactions: ["owner_user_id"]
+// as defense-in-depth. owner_user_id is a public Flow blockchain address on asset_nba_moment
+// (per Roham directive 2026-05-18) and is allowed through on moments, blocked on transactions.
 
 describe("pii_filter — transactions", () => {
   const row = {
@@ -89,12 +93,17 @@ describe("pii_filter — transactions", () => {
 });
 
 describe("pii_filter — moments", () => {
-  it("drops owner_user_id when it's a Dapper user uuid (not a flow address)", () => {
+  // Roham directive 2026-05-18: production_sem_open is the PII-stripped publishable BQ
+  // dataset. owner_user_id on asset_nba_moment is a public Flow blockchain address, NOT PII.
+  // The previous investigation note claiming OAuth2 identifiers was based on a misclassification.
+  // owner_user_id is now allowed through pii_filter for moments, then renamed to
+  // owner_flow_address in sync.mjs before upserting to Supabase.
+  it("passes owner_user_id through — public Flow chain address, not PII (Roham directive 2026-05-18)", () => {
     const row = {
       moment_id: "mom-1",
       edition_id: "ed-1",
       serial_number: 42,
-      owner_user_id: "internal-uuid-xyz",
+      owner_user_id: "0xabc123def456",
       top_shot_score: 0.9,
       moment_status: "ACTIVE",
       released_at: "2026-01-01T00:00:00Z",
@@ -104,9 +113,23 @@ describe("pii_filter — moments", () => {
       row_updated_at: "2026-05-15T12:00:00Z",
     };
     const out = pii_filter(row, "moments");
-    expect(out.owner_user_id).toBeUndefined();
+    expect(out.owner_user_id).toBe("0xabc123def456");
     expect(out.moment_id).toBe("mom-1");
     expect(out.serial_number).toBe(42);
+  });
+
+  it("strips owner_user_id on transactions — per-table defense-in-depth", () => {
+    // owner_user_id does not appear in the BQ transaction view, but if it ever does,
+    // PER_TABLE_DENYLIST.transactions blocks it as a defense-in-depth measure.
+    const txRow = {
+      id: "tx-1",
+      gross_amount_usd: 50,
+      owner_user_id: "should-be-stripped",
+      row_updated_at: "2026-01-01T00:00:00Z",
+    };
+    const out = pii_filter(txRow, "transactions");
+    expect(out.owner_user_id).toBeUndefined();
+    expect(out.id).toBe("tx-1");
   });
 });
 
@@ -117,6 +140,12 @@ describe("pii_filter — denylist guard", () => {
         expect(PII_DENYLIST.includes(f), `${table}.${f} is in allowlist AND denylist`).toBe(false);
       }
     }
+  });
+
+  it("PER_TABLE_DENYLIST.transactions contains owner_user_id (defense-in-depth)", () => {
+    // owner_user_id is a public Flow blockchain address on moments (not PII per Roham 2026-05-18),
+    // but listed in PER_TABLE_DENYLIST.transactions as defense-in-depth against future schema drift.
+    expect(PER_TABLE_DENYLIST.transactions).toContain("owner_user_id");
   });
 
   it("denylist fields are stripped even if accidentally allowlisted", () => {

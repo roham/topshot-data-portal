@@ -122,6 +122,15 @@ export async function syncTable(sb, tableKey, cursorStart, cursorEnd) {
         }
       }
     }
+    // BQ→Supabase column rename for moments:
+    //   owner_user_id  → owner_flow_address
+    // BQ names this "owner_user_id" but it is the public Flow blockchain address.
+    // Renamed in Supabase for explicitness (per schema comment on moments.owner_flow_address).
+    if (sbTable === "moments") {
+      for (const r of filtered) {
+        if ("owner_user_id" in r) { r.owner_flow_address = r.owner_user_id; delete r.owner_user_id; }
+      }
+    }
     const n = await upsertChunk(
       sb,
       sbTable,
