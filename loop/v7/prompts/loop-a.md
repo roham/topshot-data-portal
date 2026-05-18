@@ -156,10 +156,26 @@ Before dispatching the Builder, parse the research note for hollow signals:
 
 If REJECT: re-dispatch Researcher with the failure detail. After 3 consecutive rejects on the same track → switch to META track (anti-stall per CHARTER §4).
 
-### 2.5 — Phase 1 (D) gate: surface to /admin/review
+### 2.5 — Phase 1 (D) gate: surface to /admin/review (SCOPED per Roham 2026-05-18)
 
-If current phase = 1 (D = live taste-daemon):
+The Phase 1=D pre-approval gate fires ONLY for tracks where the strategic / blast-radius / design-taste signal is real. Mechanical tracks skip the gate.
 
+**Gate applies (vote needed):**
+- `BACKFILL` — large blast radius, hard to reverse
+- `DISCOVERY` — scope expansion (new BQ columns / tables / GraphQL endpoints to pull)
+- `DERIVATIVE` — new MV/RPC/table design (design taste)
+- `META` — strategic pivot
+- When gpt-5.5 /verification-before-completion returns `NEEDS-WORK` — tie-break
+
+**Gate skipped (no vote, direct to Builder):**
+- `CORRECTIVE` — applies a known fix from `source-of-truth-mapping §5` whose protocol was already approved
+- `VERIFY` / `AUDIT-FAILING` — read-only re-runs, no data changes
+- `BUILD-FAILING` — fix build, no doctrine ambiguity
+- `CEO-CORRECTIVE` — already driven by Roham's signal
+
+**Source ground truth note:** `dapperlabs-data.production_sem_open` is the PII-stripped publishable BQ dataset. The `etl-helpers.mjs PII_DENYLIST` is defensive-coding on a source that's already filtered. `owner_user_id` on that dataset is a public Flow address. PII is NOT a relevant risk axis for Loop A work — don't treat blocklist mods as if they were.
+
+**Gate flow when it applies:**
 1. POST research note + proposed fix to `/admin/review` via the API endpoint.
 2. Set `pending_ceo_signal` in iteration state.
 3. Wait for Roham vote OR 72h timeout.
@@ -168,7 +184,9 @@ If current phase = 1 (D = live taste-daemon):
 6. If 🎨: re-dispatch Researcher with comment as redirect.
 7. If timeout: anti-stall per CHARTER §4.
 
-If phase ≥ 2: skip this gate, proceed directly to Builder. CEO reviews post-apply.
+**Gate skipped:** proceed directly to §2.6 Builder dispatch. gpt-5.5 /verification-before-completion (§2.7) remains the load-bearing safety net.
+
+If phase ≥ 2: gate skipped for ALL tracks; CEO reviews post-apply via REPAIR signals.
 
 ### 2.6 — Dispatch Builder sub-agent
 
