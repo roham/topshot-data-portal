@@ -1,0 +1,21 @@
+{
+  "iteration_id": "loop-a-1",
+  "loop": "A",
+  "track": "BOOTSTRAP",
+  "branch": "dexter/loop-a-1-bootstrap-admin-review",
+  "commits": ["5a770f0", "63a6878"],
+  "files_changed": [
+    "supabase/migrations/0015_topshot_feature_reviews.sql",
+    "app/admin/review/page.tsx",
+    "app/api/admin/review/route.ts",
+    "app/api/admin/review/seed-iter1/route.ts",
+    "scripts/migrations/apply-0015.mjs"
+  ],
+  "migration_applied": true,
+  "audit_script_runs_cleanly": true,
+  "build_status": "GREEN",
+  "verification_probe_result": "topshot.feature_reviews exists with 1 row: {iteration_id: 'loop-a-1', loop: 'A', track: 'BOOTSTRAP', vote: null}. Players table has 1287 rows (audit probe 01-row-counts passes).",
+  "migration_apply_method": "exec_sql RPC via REST API (direct Postgres port unreachable from this VM; no CLI available)",
+  "seed_row_id": "0fba5103-d0fa-4a90-ac4d-03592898c409",
+  "finished_at": "2026-05-18T04:05:00Z"
+}
