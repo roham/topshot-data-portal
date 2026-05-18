@@ -218,7 +218,7 @@ export default async function PlayerPage({
         title="Editions matrix"
         subtitle={`${detail.editions.length} editions · ${allSetGroups.length} sets`}
         variant="inset"
-        methodology={`topshot.editions WHERE player_id='${id}' JOIN sets + market_caps (latest date per edition). Floor = lowest_ask_price; Market cap = market_cap. Blank cell = no edition in that (set × tier). ×N = N editions share this (set × tier) cell (distinct parallels). ?q= URL param filters set rows server-side.`}
+        methodology="Matrix of this player's editions by set and tier on the latest snapshot. Floor = lowest active ask. Blank cell = no edition in that combination. ×N badge = N distinct parallels share the cell. Search box filters set rows."
         right={
           qLower ? (
             <Link
@@ -256,7 +256,7 @@ export default async function PlayerPage({
         {detail.editions.length === 0 ? (
           <EmptyState
             title="No editions resolved"
-            body="The player row exists but no editions are linked. ETL backfill may still be running."
+            body="Editions for this player are still loading. Check back in a few minutes."
           />
         ) : setGroups.length === 0 ? (
           <div className="px-3 pb-3">
@@ -358,7 +358,7 @@ export default async function PlayerPage({
         title="Career volume"
         subtitle="all transaction windows"
         variant="inset"
-        methodology="Sources: topshot.mv_player_24h_volume, mv_player_7d_volume, mv_player_30d_volume, mv_player_1y_volume, mv_player_all_time_volume. ALL-time window bounded by ETL launch date (public-API ceiling #8). Null values (—) indicate no recorded activity in that window."
+        methodology="Trailing window volume aggregates. ALL-time is bounded by the start of our data coverage. Dashes (—) indicate no recorded activity in that window."
       >
         <div
           className="overflow-x-auto"

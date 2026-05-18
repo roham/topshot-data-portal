@@ -175,7 +175,7 @@ export default async function EditionPage({
       {activeTab === "holders" && (
         <Card
           title="Holders"
-          methodology="Per Ceiling 4 + Ceiling 7, the public API exposes no top-holders aggregate and no per-listing identity. Reconstructed by paginating searchMintedMoments(byEditions) grouped by ownerV2.flowAddress — gated on a follow-up iter that builds the sample-and-group worker."
+          methodology="Top owners reconstructed by paginating through all moments in this edition and grouping by collector. No single top-holders endpoint exists; coverage is sampled."
         >
           <EmptyState
             title="Holders view pending"
@@ -187,7 +187,7 @@ export default async function EditionPage({
       {activeTab === "serials" && (
         <Card
           title="Serials"
-          methodology="Full circulation list with per-serial rarity scoring (#1, jersey-match, last-mint, top-10, top-100, last-serial). The data exists via searchMintedMoments(byEditions) without byForSale — pending iter."
+          methodology="Every serial in circulation, scored by rarity tier — #1, jersey-number match, last-minted, top-10, top-100, last-serial. Coverage builds out across iterations."
         >
           <EmptyState
             title="Serials view pending"

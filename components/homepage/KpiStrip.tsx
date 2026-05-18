@@ -61,7 +61,7 @@ export async function KpiStrip({ window }: Props) {
   return (
     <Card
       variant="inset"
-      methodology={`topshot.${windowToMarketView(window)} — single-row ${label} rollup over SUCCEEDED transactions. Refreshed every 5-15 min by the ETL cron.`}
+      methodology={`${label} rollup over completed transactions. Refreshed every few minutes.`}
     >
       <div className="px-3 py-2 flex items-baseline gap-3 border-b border-[var(--border-subtle)]">
         <h2 className="text-[13px] font-semibold tracking-section-header">

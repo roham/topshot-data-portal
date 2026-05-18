@@ -276,7 +276,7 @@ export default async function PackDetailPage({
           <div className="px-3 pb-3">
             <EmptyState
               title="No edition data"
-              body="No moments with this pack_listing_id found in topshot.moments. The contents may not yet be indexed."
+              body="Pack contents aren't indexed yet. Check back shortly."
             />
           </div>
         ) : (

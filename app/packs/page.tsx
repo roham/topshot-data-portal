@@ -132,7 +132,7 @@ export default async function PacksPage({
       {rows.length === 0 ? (
         <EmptyState
           title="No packs found"
-          body="The packs ETL has not yet populated topshot.packs. Data lands on the next ETL cycle."
+          body="Pack data is loading. Check back in a few minutes."
         />
       ) : (
         <div

@@ -168,9 +168,7 @@ export default async function MomentsPage({
 
         <footer className="mt-8 text-[10px] text-[var(--text-faint)] leading-relaxed">
           <p>
-            Source: <code className="font-mono">topshot.moments</code> LEFT JOIN <code className="font-mono">topshot.editions</code>. &quot;Listed&quot; means
-            <code className="font-mono ml-1">listing_price_usd IS NOT NULL</code> — the canonical predicate per
-            <code className="font-mono ml-1">research/wiki/gotchas/moment-status-listed-is-empty.md</code>.
+            &quot;Listed&quot; means the moment has an active ask. Floor = lowest current ask.
           </p>
           <p className="mt-1">
             Total counts cap at 10,000+ to keep pagination snappy. To narrow the universe, add a player + tier filter.

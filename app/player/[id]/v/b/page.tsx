@@ -302,7 +302,7 @@ export default async function PlayerVariantBPage({
         title="Editions matrix — drill-down"
         subtitle={`${variantB.rows.length} editions · ${allSetGroups.length} sets · click ▼ to expand parallels`}
         variant="inset"
-        methodology={`topshot.editions JOIN sets + market_caps (latest date per edition) + moments WHERE listing_price_usd IS NOT NULL. Parent cell: aggregate low_ask (min) across parallels. ×N badge = N distinct parallels in this (set × tier). ▼ expands per-parallel rows with circulation + listings + low_ask + high_offer. Parallels never aggregated (Pillar 5 §6). ?q= URL param filters set rows server-side. ?expand= captures open cells.`}
+        methodology="Editions by set × tier. Parent cell shows the minimum active ask across parallels in that cell. ×N badge = N distinct parallels share the cell. Click ▼ to expand each parallel with its own circulation, active listings, low ask, and highest offer."
         right={
           qLower ? (
             <Link
@@ -340,7 +340,7 @@ export default async function PlayerVariantBPage({
         {variantB.rows.length === 0 ? (
           <EmptyState
             title="No editions resolved"
-            body="The player row exists but no editions are linked. ETL backfill may still be running."
+            body="Editions for this player are still loading. Check back in a few minutes."
           />
         ) : filteredSetGroups.length === 0 ? (
           <div className="px-3 pb-3">
@@ -371,7 +371,7 @@ export default async function PlayerVariantBPage({
         title="Career volume"
         subtitle="all transaction windows"
         variant="inset"
-        methodology="Sources: topshot.mv_player_24h_volume, mv_player_7d_volume, mv_player_30d_volume, mv_player_1y_volume, mv_player_all_time_volume."
+        methodology="Trailing window volume aggregates. ALL-time is bounded by the start of our data coverage."
       >
         <div className="overflow-x-auto" data-testid="career-volume-table">
           <table className="w-full text-[12px] font-mono">
@@ -443,16 +443,10 @@ export default async function PlayerVariantBPage({
         </div>
       </Card>
 
-      {/* ── Sample size + data source disclosure (Pillar 5 §4) ───────────── */}
       <div className="text-[10px] text-[var(--text-faint)] font-mono leading-snug">
-        <span className="text-[var(--text-dim)]">Data sources:</span>{" "}
-        <code>topshot.editions</code> ·{" "}
-        <code>topshot.market_caps</code> (latest date per edition) ·{" "}
-        <code>topshot.moments WHERE listing_price_usd IS NOT NULL</code> ·{" "}
-        <code>topshot.parallel_types</code>.{" "}
-        Blank cell = no edition in that (set × tier). 🆕 BE FIRST = circulation
-        &gt; 0 but no active listings. Click ▼ to drill into per-parallel
-        detail; URL captures expanded cells (?expand=).
+        Blank cell = no edition for that (set × tier). 🆕 BE FIRST = circulation
+        &gt; 0 but no active listings yet. Click ▼ to drill into per-parallel
+        detail.
       </div>
 
     </div>

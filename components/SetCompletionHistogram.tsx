@@ -112,7 +112,7 @@ export function SetCompletionHistogram({ data }: Props) {
       <div data-testid="completion-histogram">
         <EmptyState
           title="No completion data"
-          body="MV mv_set_completion_distribution returned no rows for this set. Backfill may still be running."
+          body="Completion data for this set is still loading. Check back in a few minutes."
         />
       </div>
     );

@@ -255,7 +255,7 @@ export default async function PlayerVariantAPage({
         title="Three-axis matrix"
         subtitle={`${totalEditions} editions · ${totalSets} sets · ${totalCols} (tier × parallel) columns`}
         variant="inset"
-        methodology={`topshot.editions WHERE player_id='${id}' JOIN sets + market_caps (latest date per edition) + moments WHERE listing_price_usd IS NOT NULL. Low ask = lowest_ask_price; Listings count = COUNT(moments WHERE listing_price_usd IS NOT NULL). Parallels never aggregated — each (tier × parallel) column is its own market. ?q= URL param filters set rows server-side.`}
+        methodology="Three-axis matrix: rows are sets, columns are tier × parallel combinations. Low ask = lowest active ask. Each (tier × parallel) column is its own market — parallels are never aggregated. Search box filters set rows."
         right={
           qLower ? (
             <Link
@@ -293,7 +293,7 @@ export default async function PlayerVariantAPage({
         {variantA.rows.length === 0 ? (
           <EmptyState
             title="No editions resolved"
-            body="The player row exists but no editions are linked. ETL backfill may still be running."
+            body="Editions for this player are still loading. Check back in a few minutes."
           />
         ) : setGroups.length === 0 ? (
           <div className="px-3 pb-3">
@@ -434,15 +434,10 @@ export default async function PlayerVariantAPage({
         )}
       </Card>
 
-      {/* ── Sample size confidence disclosure (Pillar 5 §4) ─────────────── */}
       <div className="text-[10px] text-[var(--text-faint)] font-mono leading-snug">
-        <span className="text-[var(--text-dim)]">Data sources:</span>{" "}
-        <code>topshot.editions</code> ·{" "}
-        <code>topshot.market_caps</code> (latest date per edition) ·{" "}
-        <code>topshot.moments WHERE listing_price_usd IS NOT NULL</code> ·{" "}
-        <code>topshot.parallel_types</code>. Blank cell = no edition in that
-        (set × tier × parallel). 🆕 BE FIRST = circulation &gt; 0 but no active
-        listings. Listings count is live; floor may lag 5-minute ETL window.
+        Blank cell = no edition for that (set × tier × parallel). 🆕 BE FIRST =
+        circulation &gt; 0 but no active listings yet. Listings count is live;
+        floor may lag a few minutes behind the latest sale.
       </div>
 
     </div>
