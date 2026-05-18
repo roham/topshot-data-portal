@@ -382,11 +382,12 @@ def main():
 
     try:
         # NO FALLBACK — gpt-5.5 only per Roham 2026-05-17. If the model fails, the verdict fails.
+        # gpt-5.5 requires max_completion_tokens (not max_tokens) and rejects temperature override
+        # (only default=1 supported). Discovered 2026-05-18 during iter-1 verification.
         response = client.chat.completions.create(
             model=args.model,
             messages=messages,
-            temperature=0.1,
-            max_tokens=2000,
+            max_completion_tokens=2000,
             response_format={"type": "json_object"},
         )
 
