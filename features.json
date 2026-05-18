@@ -161,8 +161,8 @@
       ],
       "priority": 4,
       "otm_parity": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-18T03:25:29.745Z",
       "blocked": false,
       "fail_reasons": [
         {
@@ -185,6 +185,11 @@
         {
           "at": "2026-05-17T09:03:44.300Z",
           "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/players-marketcap/2026-05-17T09-03-35-975Z",
+          "portal_url": "https://topshot-data-portal.vercel.app"
+        },
+        {
+          "at": "2026-05-18T03:25:29.745Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/players-marketcap/2026-05-18T03-25-20-895Z",
           "portal_url": "https://topshot-data-portal.vercel.app"
         }
       ]
