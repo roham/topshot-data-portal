@@ -169,7 +169,7 @@ export default async function MarketCapPage({
                 ? `${topTier.tier_name} leads at ${fmtUSD(topTier.total_mcap)} across ${topTier.edition_count.toLocaleString()} editions.`
                 : "No tier data."
             }
-            methodology="Aggregated from topshot.market_caps joined to topshot.editions on the latest date. Color = canonical tier palette (Common slate / Rare cyan / Legendary violet / Ultimate coral / Fandom gold)."
+            methodology="Market cap split by tier on the latest snapshot. Color: Common slate, Rare cyan, Legendary violet, Ultimate coral, Fandom gold."
           >
             <ByTierChart rows={data.byTier} />
           </ChartCard>
@@ -186,7 +186,7 @@ export default async function MarketCapPage({
                 ? `${data.byParallel[0].parallel_name} dominates at ${fmtUSD(data.byParallel[0].total_mcap)}.`
                 : `All ${data.totalEditions.toLocaleString()} editions in our DB resolve to Base parallel. Named parallels (Diamond, Anthology, etc.) live in Top Shot as sibling editions our ETL doesn't yet pull — sibling-edition fill is open work.`
             }
-            methodology="Parallel taxonomy: topshot.parallel_types (22 named + Base sentinel, sourced from Top Shot GraphQL 2026-05-17). Color = canonical parallel palette. Edition→parallel mapping verified against Top Shot getEdition direct lookup."
+            methodology="Market cap split across 22 named parallels plus Base. Each parallel is its own market."
           >
             <ByParallelChart rows={data.byParallel} />
           </ChartCard>
@@ -202,7 +202,7 @@ export default async function MarketCapPage({
                 ? `${topSet.set_name}${topSet.series_number != null ? ` (Series ${topSet.series_number})` : ""} leads at ${fmtUSD(topSet.total_mcap)}.`
                 : "No set data."
             }
-            methodology="Aggregated from market_caps joined to editions to sets on latest date. Color gradient = series (1 violet → 8 cyan)."
+            methodology="Top sets by total market cap on the latest snapshot. Color: series 1 violet → series 8 cyan."
           >
             <TopSetsChart rows={data.topSets} />
           </ChartCard>
@@ -220,7 +220,7 @@ export default async function MarketCapPage({
                 ? `${topTeam.team_name} leads at ${fmtUSD(topTeam.total_mcap)} across ${topTeam.player_count} players.`
                 : "No team data."
             }
-            methodology="players.last_known_team_full_name joined to editions on player_id, aggregated against market_caps on latest date. Treemap area is proportional to team total mcap."
+            methodology="Per-team aggregate market cap. Tile area is proportional to total team mcap."
           >
             <ByTeamTreemap rows={data.byTeam} />
           </ChartCard>
@@ -237,7 +237,7 @@ export default async function MarketCapPage({
                 ? `${fmtUSD(data.totalOverTime[data.totalOverTime.length - 1].total_mcap)} across ${data.totalOverTime[data.totalOverTime.length - 1].edition_count.toLocaleString()} editions on ${data.totalOverTime[data.totalOverTime.length - 1].date}.`
                 : `${data.totalOverTime.length} day(s) of mcap snapshots — more accrue daily.`
             }
-            methodology="Daily sum of topshot.market_caps.market_cap. Window is shallow (ETL began accumulating 2026-05-13); deepens daily."
+            methodology="Daily total market cap across all editions. History deepens with each refresh."
           >
             <TotalOverTimeChart rows={data.totalOverTime} />
           </ChartCard>

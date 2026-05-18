@@ -267,7 +267,7 @@ export default async function MomentPage({
         title="Price history"
         subtitle={`${history.length} sales · this serial · Supabase`}
         variant="inset"
-        methodology="topshot.transactions filtered by moment_id (resolved from moment_flow_id), state SUCCEEDED, ordered by source_updated_at ASC. Time-tab clicks update ?h= and re-fetch with a different WHERE clause."
+        methodology="Completed sales for this serial, ordered by date. Click the time tabs to change the window."
       >
         <MomentPriceHistory
           data={history.map((p) => ({ ts: p.ts, price_usd: p.price_usd }))}
@@ -283,7 +283,7 @@ export default async function MomentPage({
         title="Sale distribution"
         subtitle={`${priceDistribution.length} sales · this edition · ${HISTORY_WINDOW_LABELS[historyWindow]}`}
         variant="inset"
-        methodology="topshot.transactions filtered by edition_id via moments!inner; SUCCEEDED state only; up to 500 most-recent transactions; buckets auto-derived from price range."
+        methodology="Completed sales across this edition. Up to 500 most-recent transactions. Buckets sized to the price range."
       >
         {/* data-testid on this server-rendered wrapper — NOT inside the "use client"
             MomentPriceHistogram component — so Playwright's locator anchor is
@@ -300,7 +300,7 @@ export default async function MomentPage({
       <Card
         title="Circulation"
         variant="inset"
-        methodology="topshot.moments aggregated by edition_id; listing predicate: listing_price_usd IS NOT NULL (moment_status='LISTED' not written by BQ ETL). Six parallel PostgREST HEAD count calls."
+        methodology="Status breakdown across all moments in this edition. 'Listed' counts moments with an active ask."
       >
         <CirculationCard
           circulation={circulation}

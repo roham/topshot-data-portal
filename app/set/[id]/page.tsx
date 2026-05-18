@@ -112,7 +112,7 @@ export default async function SetPage({
       {/* KPI strip · 24h */}
       <Card
         variant="inset"
-        methodology="topshot.mv_set_24h_activity — rolled up from SUCCEEDED transactions on moments in this set over the trailing 24h."
+        methodology="Trailing 24-hour sales activity across all moments in this set."
       >
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
           <div className="p-3">
@@ -162,12 +162,12 @@ export default async function SetPage({
           title="Editions in set"
           subtitle={`${sortedEditions.length} editions · sorted by market cap · floor + cap from topshot.market_caps`}
           variant="inset"
-          methodology="Join across topshot.editions ↔ latest topshot.market_caps. Floor = lowest_ask_price; market cap = circulation × lowest ask (BQ-side definition)."
+          methodology="Per-edition floor and market cap on the latest snapshot. Floor = lowest ask. Market cap = circulation × lowest ask."
         >
           {sortedEditions.length === 0 ? (
             <EmptyState
               title="No editions resolved"
-              body="The set exists but the editions table has no rows joined to it. ETL backfill may still be running."
+              body="Editions for this set are still loading. Check back in a few minutes."
             />
           ) : (
             <table className="w-full text-[12px]">
@@ -268,7 +268,7 @@ export default async function SetPage({
                 : `${totalOwners.toLocaleString()} owners`
             }
             variant="inset"
-            methodology="topshot.mv_set_completion_distribution — buckets owners by fraction of the set's editions they hold (MINTED+LOCKED+UNLOCKED)."
+            methodology="Owners grouped by what fraction of this set they hold (counting minted, locked, and unlocked moments)."
           >
             <SetCompletionHistogram data={orderedCompletion} />
           </Card>
@@ -280,12 +280,12 @@ export default async function SetPage({
         title="Recent transactions"
         subtitle={`${detail.recentTransactions.length} most recent · SUCCEEDED only`}
         variant="inset"
-        methodology="topshot.transactions filtered by moments in this set, state SUCCEEDED, sorted by source_updated_at DESC."
+        methodology="Most-recent completed sales across all moments in this set."
       >
         {detail.recentTransactions.length === 0 ? (
           <EmptyState
             title="No recent transactions"
-            body="No SUCCEEDED transactions in the last few hours touched moments in this set."
+            body="No completed sales in this set within the last few hours."
           />
         ) : (
           <table className="w-full text-[12px]">

@@ -121,7 +121,7 @@ for (const dir of SCAN_DIRS) {
         !/<\w/.test(line) // no JSX
       );
 
-      if (isPureCode && !isLikelyUserFacing) continue;
+      if (isPureCode && !isLikelyUserFacing) return;
 
       for (const p of PATTERNS) {
         const m = line.match(p.re);

@@ -128,9 +128,10 @@ export default async function PortfolioPage({
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-4">
         {/* Bag table */}
-        <Card title="Bag" subtitle={`${totalCount} moments · click column to sort · click row to drill`} variant="inset" methodology="Bag pulled via searchMintedMoments(byOwnerFlowAddress). Floor = MintedMoment.lowAsk (per-listing prices not exposed). P&L = current floor − lastPurchasePrice; not adjusted for fees.">
+        <Card title="Bag" subtitle={`${totalCount} moments · click column to sort · click row to drill`} variant="inset" methodology="All moments owned by this collector. Floor is the lowest active ask per moment. P&L = current floor − last purchase price (not adjusted for fees).">
+
           {rows.length === 0 ? (
-            <EmptyState title="Bag is empty" body="This collector has no minted moments under the public API." />
+            <EmptyState title="Bag is empty" body="This collector doesn't own any moments right now." />
           ) : (
             <PortfolioBagTable rows={rows} />
           )}
@@ -151,12 +152,12 @@ export default async function PortfolioPage({
         title="Activity"
         subtitle={`${purchases.length} buys · ${sales.length} sells · 24h spend ${"$" + purchasesSpend.toFixed(0)} · 24h proceeds ${"$" + salesProceeds.toFixed(0)}`}
         variant="inset"
-        methodology="topshot.transactions filtered by buyer_safe_name / seller_safe_name = username. Window: 50 most recent SUCCEEDED on each side."
+        methodology="50 most-recent completed transactions on each side (buys and sells)."
       >
         {purchases.length === 0 && sales.length === 0 ? (
           <EmptyState
             title="No recent on-chain activity"
-            body="No SUCCEEDED transactions for this username under Supabase ETL coverage. Either this collector has been quiet, or the ETL hasn't backfilled their window."
+            body="No recent transactions for this collector."
           />
         ) : (
           <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[var(--border-subtle)]">
