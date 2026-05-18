@@ -1,0 +1,20 @@
+{
+  "iteration_id": "loop-a-1",
+  "loop": "A",
+  "track": "BOOTSTRAP",
+  "started_at": "2026-05-18T03:30:00Z",
+  "finished_at": null,
+  "files_changed": [],
+  "commits": [],
+  "research_note_path": null,
+  "build_log_path": "loop/v7/state/iteration-1.build.log",
+  "axis_scores": null,
+  "weighted_overall": null,
+  "cross_vendor_verdict": null,
+  "cross_vendor_path": "loop/v7/state/iteration-1.verify.json",
+  "ceo_signal": null,
+  "ceo_signal_received_at": null,
+  "ceo_comment": null,
+  "anti_stall_event": null,
+  "note": "Iteration 1 = bootstrap. Builds /admin/review surface. No data gap targeted. Per orchestration prompt §3."
+}

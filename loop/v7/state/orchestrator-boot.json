@@ -1,0 +1,38 @@
+{
+  "boot_at": "2026-05-18T03:30:00Z",
+  "doctrine_version": "v1.1",
+  "rubric_version": "loop-a-rubric v1 (2026-05-17)",
+  "latest_audit_verdict": "FAIL",
+  "latest_audit_overall_score": 65,
+  "latest_audit_path": "research/audits-baseline/2026-05-17-baseline.md",
+  "p0_gaps_remaining": [
+    "moments.owner_flow_address (0% populated, 3.5M rows NULL)",
+    "transactions.buyer_safe_name (0% populated)",
+    "transactions.seller_safe_name (24.5% populated)"
+  ],
+  "p1_gaps_remaining": [
+    "transactions time coverage only 20mo (need 24mo)",
+    "mv_player_movers_90d missing (timeout issue)"
+  ],
+  "axis_scores_at_boot": {
+    "a1_completeness": 50,
+    "a2_accuracy": "unmeasured",
+    "a3_freshness": 85,
+    "a4_schema_correctness": 90,
+    "a5_organization": 70,
+    "a6_pii_safety": 75,
+    "a7_doctrine_compliance": 70
+  },
+  "admin_review_surface_exists": false,
+  "iteration_1_track": "BOOTSTRAP",
+  "iteration_1_deliverables": [
+    "migration 0015_topshot_feature_reviews.sql",
+    "app/admin/review/page.tsx",
+    "app/api/admin/review/route.ts",
+    "verify data-quality-audit.mjs runs cleanly"
+  ],
+  "next_track": "BOOTSTRAP (iteration 1 — build supervision infrastructure)",
+  "openai_key_status": "pulled from GSM topshot-loop-openai-api-key at boot",
+  "build_status": "GREEN",
+  "stop_file": "absent"
+}
