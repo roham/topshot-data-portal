@@ -8,6 +8,7 @@ import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { SetCompletionHistogram } from "@/components/SetCompletionHistogram";
+import { NewDropTag } from "@/components/primitives/NewDropTag";
 
 export const revalidate = 60;
 
@@ -225,14 +226,19 @@ export default async function SetPage({
                       {e.num_moments_in_circulation?.toLocaleString() ?? "—"}
                     </td>
                     <td className="px-3 py-1.5 text-right tnum">
-                      <Num
-                        value={
-                          e.lowest_ask_price != null
-                            ? Number(e.lowest_ask_price)
-                            : null
-                        }
-                        format="usd"
-                      />
+                      {e.lowest_ask_price === null &&
+                      (e.num_moments_in_circulation ?? 0) > 0 ? (
+                        <NewDropTag />
+                      ) : (
+                        <Num
+                          value={
+                            e.lowest_ask_price != null
+                              ? Number(e.lowest_ask_price)
+                              : null
+                          }
+                          format="usd"
+                        />
+                      )}
                     </td>
                     <td className="px-3 py-1.5 text-right tnum font-semibold">
                       <Num

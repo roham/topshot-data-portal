@@ -38,12 +38,13 @@ export interface PlayerDetail {
     mint_count: number | null;
   }>;
   /**
-   * Per-edition floor + market cap from market_caps (latest date per edition).
+   * Per-edition floor + market cap + circulation from market_caps (latest date per edition).
    * Keyed by edition_id. Built via PostgREST .in("edition_id", ...) pattern
    * matching players-marketcap.ts Stage 3. JS-side dedup to first (most-recent)
    * row per edition_id after ordering by date DESC.
+   * `circulation` = num_moments_in_circulation; used by NewDropTag condition.
    */
-  editionFloors: Record<string, { floor: number | null; marketCap: number | null }>;
+  editionFloors: Record<string, { floor: number | null; marketCap: number | null; circulation: number | null }>;
 }
 
 async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
@@ -271,12 +272,12 @@ async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
     // limit = editionIds.length × 2: gets latest 2 date-rows per edition
     // so JS-side dedup has at least the most-recent row.
     const editionIds = editions.map((e) => e.edition_id);
-    const editionFloors: Record<string, { floor: number | null; marketCap: number | null }> = {};
+    const editionFloors: Record<string, { floor: number | null; marketCap: number | null; circulation: number | null }> = {};
 
     if (editionIds.length > 0) {
       const { data: mcData, error: mcErr } = await sb
         .from("market_caps")
-        .select("edition_id, lowest_ask_price, market_cap, date")
+        .select("edition_id, lowest_ask_price, market_cap, num_moments_in_circulation, date")
         .in("edition_id", editionIds)
         .order("date", { ascending: false })
         .limit(editionIds.length * 2);
@@ -289,12 +290,14 @@ async function _getPlayerDetail(playerId: string): Promise<PlayerDetail> {
           edition_id: string;
           lowest_ask_price: number | null;
           market_cap: number | null;
+          num_moments_in_circulation: number | null;
           date: string;
         }>) {
           if (!(row.edition_id in editionFloors)) {
             editionFloors[row.edition_id] = {
               floor: row.lowest_ask_price,
               marketCap: row.market_cap,
+              circulation: row.num_moments_in_circulation,
             };
           }
         }

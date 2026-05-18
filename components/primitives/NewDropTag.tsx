@@ -16,6 +16,7 @@ interface NewDropTagProps {
 export function NewDropTag({ className }: NewDropTagProps) {
   return (
     <span
+      data-testid="new-drop-tag"
       className={cn(
         "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-data-label",
         "bg-[rgba(0,200,100,0.12)] text-[var(--up)] border border-[rgba(0,200,100,0.25)]",

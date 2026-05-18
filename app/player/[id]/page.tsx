@@ -25,6 +25,7 @@ import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import { NewDropTag } from "@/components/primitives/NewDropTag";
 
 export const revalidate = 60;
 
@@ -460,7 +461,7 @@ function MatrixRow({
     }>;
   };
   visibleTierCols: typeof TIER_COLS;
-  editionFloors: Record<string, { floor: number | null; marketCap: number | null }>;
+  editionFloors: Record<string, { floor: number | null; marketCap: number | null; circulation: number | null }>;
   setTotalMktCap: number | null;
 }) {
   return (
@@ -500,12 +501,15 @@ function MatrixRow({
           );
         }
 
-        // Aggregate floor (min) + market cap (sum) across matches.
+        // Aggregate floor (min) + market cap (sum) + max circulation across matches.
         const floors = matches
           .map((e) => editionFloors[e.edition_id]?.floor ?? null)
           .filter((v): v is number => v != null);
         const mktCaps = matches
           .map((e) => editionFloors[e.edition_id]?.marketCap ?? null)
+          .filter((v): v is number => v != null);
+        const circulations = matches
+          .map((e) => editionFloors[e.edition_id]?.circulation ?? null)
           .filter((v): v is number => v != null);
 
         const minFloor = floors.length > 0 ? Math.min(...floors) : null;
@@ -513,6 +517,10 @@ function MatrixRow({
           mktCaps.length > 0
             ? mktCaps.reduce((a, b) => a + b, 0)
             : null;
+        const maxCirculation =
+          circulations.length > 0 ? Math.max(...circulations) : 0;
+        // NewDropTag condition: no floor listed but edition(s) have circulation > 0
+        const showNewDrop = minFloor === null && maxCirculation > 0;
         const count = matches.length;
 
         return (
@@ -524,10 +532,14 @@ function MatrixRow({
             data-set={group.set_id ?? undefined}
           >
             <div className="flex flex-col items-end gap-0.5">
-              {/* Floor — dominant value per OTM comparable */}
+              {/* Floor — dominant value per OTM comparable; NewDropTag when unlisted */}
+              {showNewDrop ? (
+                <NewDropTag />
+              ) : (
               <span className="text-[13px] font-semibold text-[var(--text)]">
                 <Num value={minFloor} format="usd" />
               </span>
+              )}
               {/* Market cap — secondary, muted */}
               <span className="text-[10px] text-[var(--text-faint)] tnum">
                 <Num value={sumMktCap} format="usdCompact" />
