@@ -1,0 +1,149 @@
+{
+  "verdict": "FAIL",
+  "axis_scores": {
+    "a1_completeness": 50,
+    "a2_accuracy": 0,
+    "a3_freshness": 85,
+    "a4_schema_correctness": 60,
+    "a5_organization": 45,
+    "a6_pii_safety": 55,
+    "a7_doctrine_compliance": 30
+  },
+  "weighted_overall": 46,
+  "addresses_claimed_gap": true,
+  "addresses_evidence": "The diff does implement the claimed bootstrap /admin/review surface: `supabase/migrations/0015_topshot_feature_reviews.sql` creates `topshot.feature_reviews` via `CREATE TABLE IF NOT EXISTS topshot.feature_reviews (...)`; `app/admin/review/page.tsx` reads `.from(\"feature_reviews\").select(\"*\").order(\"created_at\", { ascending: false })`; `app/api/admin/review/route.ts` exposes GET and POST, and POST updates `vote`, `comment`, and `voted_at`. However, this closes no Loop A source-of-truth \u00a75 P0/P1 data gap: no diff touches `scripts/etl/lib/etl-helpers.mjs`, `scripts/etl/lib/sync.mjs`, `bq-backfill-historical.mjs`, `moments.owner_flow_address`, `transactions.buyer_safe_name`, `transactions.seller_safe_name`, transaction time coverage, or mover MVs.",
+  "hidden_failure_modes": [
+    {
+      "what": "Unauthorized track selection for Loop A: this iteration runs `BOOTSTRAP`, but the Loop A rubric \u00a74 priority table has no BOOTSTRAP track and the baseline still has P0 audit failures. The correct track should have been AUDIT-FAILING or CORRECTIVE.",
+      "severity": "P0",
+      "evidence": "`loop/v7/state/iteration-1.build.json` says `\"track\": \"BOOTSTRAP\"`; rubric \u00a74 allowed tracks are BUILD-FAILING, AUDIT-FAILING, CEO-CORRECTIVE, CORRECTIVE, BACKFILL, DERIVATIVE, VERIFY, META."
+    },
+    {
+      "what": "The migration seed is not actually idempotent and can create duplicate review rows for the same iteration.",
+      "severity": "P1",
+      "evidence": "`supabase/migrations/0015_topshot_feature_reviews.sql` defines `iteration_id text NOT NULL` but no UNIQUE constraint; the seed uses `INSERT ... ON CONFLICT DO NOTHING`, but with only the UUID primary key there is no conflict on repeated application. The POST route then selects by `iteration_id` ordered by `created_at DESC`, making votes ambiguous if duplicates exist."
+    },
+    {
+      "what": "Migration is not safely reversible or fully atomic from the repository's perspective.",
+      "severity": "P1",
+      "evidence": "There is only `0015_topshot_feature_reviews.sql`; no down migration exists. `scripts/migrations/apply-0015.mjs` sends a multi-statement SQL blob to `/rest/v1/rpc/exec_sql` and, on fallback, treats an existing `feature_reviews` table as success without verifying columns, policies, constraints, seed, or indexes."
+    },
+    {
+      "what": "The API comment says POST upserts a vote, but the implementation only updates an existing row and returns 404 if missing.",
+      "severity": "P2",
+      "evidence": "`app/api/admin/review/route.ts` header says `POST /api/admin/review \u2014 upsert vote + comment`, but the code does `.select(\"id\").eq(\"iteration_id\", iteration_id).maybeSingle()` and returns `{ error: No feature_review found ... }` when `!existing`; it never inserts."
+    },
+    {
+      "what": "Potential internal-information leak: all authenticated Supabase users can SELECT every review row, including proposals, diff previews, comments, screenshot URLs, and cross-vendor paths.",
+      "severity": "P1",
+      "evidence": "`supabase/migrations/0015_topshot_feature_reviews.sql` creates policy `authenticated_select` with `FOR SELECT TO authenticated USING (true)` and grants `SELECT ON topshot.feature_reviews TO authenticated`; the page already reads server-side with service role, so this broad read policy is unnecessary."
+    },
+    {
+      "what": "Admin token is encouraged in the URL and then embedded into the DOM for inline fetch scripts, increasing exposure through browser history, logs, screenshots, and referrers.",
+      "severity": "P1",
+      "evidence": "`app/admin/review/page.tsx` accepts `?token=<value>` and renders `data-token={token}`; the inline script reads `var token = form.getAttribute('data-token')` and sends `Authorization: 'Bearer ' + token`."
+    },
+    {
+      "what": "The diff mutates unrelated product state by flipping a player-detail feature to passes:true, which can mislead downstream orchestration and product review.",
+      "severity": "P0",
+      "evidence": "`features.json` changes `player-detail-variant-a-three-axis-matrix` from `\"passes\": false` to `\"passes\": true` with `passes_at`, and `progress.md` records it as passed. This is unrelated to the admin-review bootstrap and was not part of a Loop A data-quality fix."
+    },
+    {
+      "what": "The state file claims data/audit success without recording the required seven-axis scores or closing any known P0 data gap.",
+      "severity": "P1",
+      "evidence": "`loop/v7/state/iteration-1.build.json` has `\"audit_script_runs_cleanly\": true` and a row-count probe for players, but it does not include `score_per_axis`, `overall_pass`, or evidence for probes 02-10; known baseline P0 gaps remain open."
+    }
+  ],
+  "doctrine_violations": [
+    {
+      "principle": "P9",
+      "what_breaks_it": "`features.json` flips `player-detail-variant-a-three-axis-matrix` to `passes:true`. Doctrine P9 says start with market-cap visualizations only and rejects shipping `/players` + `/moments` + other routes in parallel before the canonical market-cap surface is excellent."
+    },
+    {
+      "principle": "P5",
+      "what_breaks_it": "Marking `player-detail-variant-a-three-axis-matrix` as passed is not supportable while the source-of-truth mapping says all 11,904 `editions` have `parallel_id = 0` and sibling parallels are not in the DB. A parallel matrix cannot honestly pass parallels-as-first-class when the underlying data only has Base."
+    },
+    {
+      "principle": "P4",
+      "what_breaks_it": "The unrelated player-detail pass is accepted through `features.json` judge evidence only; this review diff provides no proof that the data-bearing entity rendered real, complete parallel data rather than a shape built on missing sibling-parallel data."
+    }
+  ],
+  "in_loop_judge_likely_missed": [
+    {
+      "what": "The iteration is a governance/admin bootstrap, not a Loop A data-quality fix, and it bypasses the deterministic track priority despite open P0 audit gaps.",
+      "why_critical": "Loop A exists to close completeness/accuracy/freshness gaps. Allowing an unlisted BOOTSTRAP track while P0 gaps remain recreates the V4 failure mode: the loop declares progress without improving the data substrate."
+    },
+    {
+      "what": "The unrelated `features.json` and `progress.md` changes are product-surface pass-state mutations hidden inside a data/admin iteration.",
+      "why_critical": "This can cause downstream repair selection to skip a feature that should remain failed, and it violates P9 by blessing non-market-cap player-detail work before the canonical market-cap surface is complete."
+    },
+    {
+      "what": "`ON CONFLICT DO NOTHING` is ineffective because there is no uniqueness constraint on `iteration_id`.",
+      "why_critical": "The review system is supposed to be the CEO signal source of truth. Duplicate rows make votes ambiguous and can cause the orchestrator to read the wrong vote."
+    },
+    {
+      "what": "The migration application script can falsely report success if the table exists but the migration is only partially applied.",
+      "why_critical": "Future iterations may rely on columns, policies, or indexes that are missing, while state claims `migration_applied: true`."
+    },
+    {
+      "what": "The RLS policy grants all authenticated users read access to internal review rows.",
+      "why_critical": "Internal proposals and CEO comments may include sensitive operational details. The admin page does not need this policy because it uses a server-side service-role client."
+    },
+    {
+      "what": "The reported audit success is far narrower than the Loop A audit contract.",
+      "why_critical": "A single players row-count check does not satisfy the required probes for owner coverage, transaction names, freshness, MV freshness, and cross-source accuracy."
+    }
+  ],
+  "improvements": [
+    {
+      "axis": "a7",
+      "suggestion": "Revert the unrelated `features.json` and `progress.md` pass-state changes for `player-detail-variant-a-three-axis-matrix`; review that feature only in the proper Loop B/product gate after P9 market-cap scope is satisfied.",
+      "priority": "P0"
+    },
+    {
+      "axis": "a1",
+      "suggestion": "Run the required Loop A priority track next: CORRECTIVE/AUDIT-FAILING for `moments.owner_flow_address`, `transactions.buyer_safe_name`, and `transactions.seller_safe_name`, with post-fix probes proving the P0 gaps closed.",
+      "priority": "P0"
+    },
+    {
+      "axis": "a5",
+      "suggestion": "Add `UNIQUE (iteration_id)` or `UNIQUE (loop, iteration_id)` to `topshot.feature_reviews` and change the seed to `ON CONFLICT (iteration_id) DO NOTHING` or an explicit upsert.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a6",
+      "suggestion": "Remove the `authenticated_select` RLS policy and authenticated SELECT grant; expose review data only through the token-guarded server API/page.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a6",
+      "suggestion": "Stop encouraging `?token=` authentication for admin review. Use an HTTP-only cookie, Basic Auth, or header-only token flow so the token is not persisted in URLs and DOM attributes.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a4",
+      "suggestion": "Wrap the migration in an explicit transaction where supported, add a down migration, and make `apply-0015.mjs` verify all expected columns, constraints, indexes, policies, and seed row uniqueness before declaring success.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a5",
+      "suggestion": "Make the iteration state file match the rubric contract: include `score_per_axis`, `overall_pass`, full audit probe results, files changed, and commits; do not claim clean audit from a single row-count probe.",
+      "priority": "P1"
+    },
+    {
+      "axis": "a2",
+      "suggestion": "Implement and run probe 10 cross-source accuracy before assigning any nonzero A2 score for Loop A.",
+      "priority": "P1"
+    }
+  ],
+  "would_you_ship_this": false,
+  "one_line_justification": "No: it builds useful admin scaffolding, but it bypasses Loop A priority, closes none of the P0 data gaps, introduces ambiguous review-state semantics, weakens internal-data access control, and smuggles an unrelated doctrine-violating feature pass.",
+  "_meta": {
+    "model_used": "gpt-5.5-2026-04-23",
+    "usage": {
+      "completion_tokens": 5063,
+      "prompt_tokens": 25513,
+      "total_tokens": 30576
+    }
+  }
+}
