@@ -16,8 +16,9 @@
     "total": 3892846,
     "pct_owner": 6.4,
     "pass": false,
-    "note": "249,459 rows already have owner_flow_address from a prior partial backfill. ETL pipeline fix ensures all future rows will populate. Full backfill to ~97% requires BQ credentials not available in this build environment."
+    "note": "6.4% populated (249,459 / 3,892,846) — from a prior partial sync, not from this fix. ETL code fix is correct and applied (42/42 tests pass). Backfill pending: requires BQ credentials on daemon VM. Gap will close to ≥97% once backfill runs."
   },
+  "p01_status": "code_fix_applied_backfill_pending",
   "backfill_log_summary": "BQ credentials not available in build environment (.env.local contains only Supabase keys). ETL code fixes are correct and will take effect on next scheduled sync. Full backfill command: ETL_BACKFILL_START=2024-01-01 node scripts/etl/bq-backfill-historical.mjs --tables=moments",
   "etl_tests_pass": true,
   "etl_test_count": 42,
