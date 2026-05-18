@@ -341,4 +341,304 @@ Any of these = page rebuild required, not ship:
 
 ---
 
+## §11 — Empty-state patterns (doctrine §P8 NEW DROP)
+
+Doctrine §P8 says empty cells are invitations, not bugs. Persona doc rejects "Coming Soon" / "Get Started" on load-bearing routes. The corrective pattern: render empty as opportunity.
+
+### 11.1 — Empty filter result
+
+```tsx
+// When user's filter combination returns 0 rows
+<EmptyState
+  icon="🆕"
+  primary="No moments match your filter."
+  secondary="Try removing the price ceiling — there's a $40 Wemby Common one filter away."
+  cta={{ label: "Clear price filter", href: "/moments?...without-maxPrice..." }}
+/>
+```
+
+**Reject:** "No results found." (bare); "0 matches" (cold); spinner-on-empty-load.
+
+### 11.2 — Empty chart card (data is genuinely absent — vs. fetch failure)
+
+```tsx
+// When a chart has NO real data for the current entity
+<ChartCard title="Sibling Parallels" comparable="StockX size-as-market-segmenter">
+  <EmptyChartFrame
+    icon="🆕"
+    primary="No sibling parallels in DB yet."
+    secondary="Loop A §P2.1 will populate sibling editions. Until then, only Base parallel is shown."
+    methodologyLink="/methodology#parallel-coverage"
+  />
+</ChartCard>
+```
+
+**Reject:** flat path rendering (D-substance probe rejects); skeleton-as-permanent-state.
+
+### 11.3 — Empty BAG (collector with no moments)
+
+```tsx
+// /u/[username] for collector with zero moments
+<div className="bag-empty">
+  <h2>🆕 No moments yet — start your collection.</h2>
+  <p>Search nbatopshot.com or join a drop to acquire your first moment.</p>
+  <Link href="https://nbatopshot.com/" className="external">Open Top Shot →</Link>
+</div>
+```
+
+**Reject:** any framing that treats the absence as a deficit ("You have no moments — get some!" — patronizing). Per doctrine §P8 — emphasize the exciting part.
+
+---
+
+## §12 — Sparkline-as-canvas for performance
+
+Per /moments brief §9 risk #5 + /players brief §9 risk #5: rendering N sparklines via SVG paths is expensive when N > 30. Each SVG path forces a layout/paint. The mitigation:
+
+### 12.1 — When SVG is fine
+
+Page-level chart cards (8-13 charts max). SVG is the right tool — interactive, accessible, scalable. Visx works here.
+
+### 12.2 — When canvas wins
+
+Dense leaderboard tables with sparkline-per-row (30+ rows above fold). Each row's sparkline is ~80×24px, ~30 data points. SVG = 30+ paths per row × 30 rows = 900+ paths. Canvas = 30 row paints, one Canvas2D per row.
+
+```tsx
+// components/primitives/SparklineCanvas.tsx
+import { useEffect, useRef } from "react";
+
+export function SparklineCanvas({
+  values,
+  width = 80,
+  height = 24,
+  color = "#22d3ee",
+}: { values: number[]; width?: number; height?: number; color?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d"); if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr; canvas.height = height * dpr; ctx.scale(dpr, dpr);
+
+    if (values.length < 2) return;
+    const min = Math.min(...values); const max = Math.max(...values);
+    const range = max - min || 1;
+    const xStep = width / (values.length - 1);
+
+    ctx.strokeStyle = color; ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = i * xStep;
+      const y = height - ((v - min) / range) * height;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }, [values, width, height, color]);
+
+  return <canvas ref={ref} width={width} height={height} style={{ width, height }} />;
+}
+```
+
+**When to switch:** sparkline-per-row tables with 20+ rows. Below 20, SVG via Visx is fine.
+
+**Reject:** chart.js sparklines (heavy lib for one-line charts); animated drawing (jitter).
+
+---
+
+## §13 — Pagination patterns
+
+### 13.1 — PostgREST `Range` header for total-count + pagination
+
+```ts
+// lib/supabase/queries/<page>-pagination.ts
+export async function paginatedQuery<T>(
+  query: any,           // a SupabaseQueryBuilder
+  page: number,
+  pageSize: number = 50
+): Promise<{ rows: T[]; total: number; pageCount: number }> {
+  const offset = (page - 1) * pageSize;
+  const { data, error, count } = await query
+    .range(offset, offset + pageSize - 1);
+  if (error) throw error;
+  const total = count ?? 0;
+  return {
+    rows: (data ?? []) as T[],
+    total,
+    pageCount: Math.ceil(total / pageSize),
+  };
+}
+```
+
+Always call the parent query with `{ count: 'exact' }` in `.select(..., { count: 'exact' })` before invoking — that triggers the Content-Range header that supabase-js puts in `count`.
+
+### 13.2 — Pagination component (Link-based)
+
+```tsx
+// components/primitives/Pagination.tsx
+export function Pagination({ current, total, hrefFor }: {
+  current: number; total: number;
+  hrefFor: (page: number) => string;
+}) {
+  if (total <= 1) return null;
+  return (
+    <nav className="flex gap-1 text-xs items-center">
+      <Link href={hrefFor(Math.max(1, current - 1))} className="px-2 py-1 ...">←</Link>
+      <span className="text-slate-400">Page {current} of {total}</span>
+      <Link href={hrefFor(Math.min(total, current + 1))} className="px-2 py-1 ...">→</Link>
+    </nav>
+  );
+}
+```
+
+**Reject:** infinite-scroll (defeats URL state); modal pagination; client-side state.
+
+---
+
+## §14 — Dense leaderboard row pattern
+
+The Card Ladder dashboard-04 + Tensor row-density + StockX leaderboard combined pattern. Used on /players, /moments, /sets, /u/[username] BAG.
+
+```tsx
+// components/primitives/DenseTableRow.tsx
+export function DenseTableRow({
+  thumbnail,
+  title,
+  subtitle,
+  badges,        // array of chips
+  primaryValue,
+  secondaryValue,
+  delta,         // ± with color
+  sparkline,     // canvas-based for performance
+  href,
+}: DenseTableRowProps) {
+  return (
+    <Link href={href}
+      className="grid grid-cols-[40px_minmax(0,1fr)_auto_auto_auto_auto] gap-3 items-center
+                 px-3 py-1.5 border-b border-slate-800 hover:bg-slate-900/50 transition-colors">
+      {/* col 1: thumb */}
+      <Avatar src={thumbnail} size={32} />
+      {/* col 2: title + subtitle + badges */}
+      <div className="min-w-0">
+        <div className="text-sm text-slate-100 truncate">{title}</div>
+        <div className="text-xs text-slate-400 flex items-center gap-1">
+          {subtitle}
+          {badges.map(b => <Chip key={b.label} {...b} />)}
+        </div>
+      </div>
+      {/* col 3: primary value */}
+      <div className="tabular-nums font-mono text-sm text-slate-100">{primaryValue}</div>
+      {/* col 4: secondary value */}
+      <div className="tabular-nums font-mono text-xs text-slate-400">{secondaryValue}</div>
+      {/* col 5: delta */}
+      <DeltaPill value={delta} />
+      {/* col 6: sparkline */}
+      <SparklineCanvas values={sparkline} width={80} height={24} />
+    </Link>
+  );
+}
+```
+
+**Density target:** 30 rows above fold (Bloomberg-tier per §P2).
+
+**Reject:** card-grid layout for the leaderboard (low density); rows with marketing copy; missing tabular-nums alignment.
+
+---
+
+## §15 — Tab navigation pattern (STATS | MOMENTS | etc.)
+
+Per Card Ladder dashboard-02 + dapper.market detail page tabs.
+
+```tsx
+// components/primitives/TabNav.tsx
+export function TabNav({ tabs, current, hrefFor }: {
+  tabs: { id: string; label: string }[];
+  current: string;
+  hrefFor: (id: string) => string;
+}) {
+  return (
+    <nav className="flex gap-4 border-b border-slate-800 px-3" role="tablist">
+      {tabs.map(t => {
+        const active = current === t.id;
+        return (
+          <Link key={t.id} href={hrefFor(t.id)} role="tab" aria-selected={active}
+            className={cn(
+              "py-2 text-xs font-mono tracking-wider uppercase transition-colors",
+              "border-b-2 -mb-px",
+              active
+                ? "text-slate-100 border-cyan-400"
+                : "text-slate-500 border-transparent hover:text-slate-300"
+            )}>
+            {t.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+```
+
+**Reject:** shadcn-default-tabs without URL state (loses share-ability); modal tabs.
+
+---
+
+## §16 — KPI grid layout pattern
+
+Per Card Ladder dashboard-02 STATS column.
+
+```tsx
+// components/primitives/KpiGrid.tsx
+export function KpiGrid({ cells, columns = 2 }: { cells: KpiCell[]; columns?: number }) {
+  return (
+    <div className={`grid grid-cols-${columns} gap-x-6 gap-y-3`}>
+      {cells.map(cell => (
+        <div key={cell.label} className="flex flex-col">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">{cell.label}</div>
+          <div className="tabular-nums font-mono text-lg text-slate-100">{cell.value}</div>
+          {cell.delta != null && <DeltaPill value={cell.delta} size="xs" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Pattern:** 8 cells in a 2-column grid is the canonical Card Ladder shape. For /market-cap landing use 4 cells in 4-column. For /player/[id] detail use 8 cells in 2-column (Card Ladder-shape).
+
+**Reject:** centered KPI tiles (left-align numbers); colored backgrounds per tile (too noisy); inconsistent decimal precision.
+
+---
+
+## §17 — Methodology footer pattern
+
+Every page has one. Links to doctrine + comparable + caveat disclosures.
+
+```tsx
+// components/primitives/MethodologyFooter.tsx
+export function MethodologyFooter({ items }: { items: { label: string; href: string }[] }) {
+  return (
+    <footer className="mt-12 pt-6 border-t border-slate-800 text-xs text-slate-500">
+      <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-slate-600">Methodology</span>
+        {items.map(i => (
+          <Link key={i.label} href={i.href} className="hover:text-slate-300 transition-colors">
+            {i.label}
+          </Link>
+        ))}
+      </div>
+    </footer>
+  );
+}
+```
+
+**Standard items per page:**
+- "Floor × circulation" — link to `doctrine.md#P1`
+- "Parallels-first" — link to `doctrine.md#P5`
+- "Default 30D" — link to `doctrine.md#P7`
+- "Comparable: <name>" — link to `research/wiki/comparable/<name>-signature-moves.md` (rendered as HTML doc)
+- "Data coverage limits" — link to a coverage-disclosure page
+
+**Reject:** marketing-copy footer ("Built with love by Dapper Labs"); social-icon-overkill footer.
+
+---
+
 *This cookbook supersedes ad-hoc page-build instructions. When in doubt, read /market-cap's source code and clone the shape.*
