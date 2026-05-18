@@ -954,8 +954,8 @@
       "priority": 3,
       "otm_parity": false,
       "beyond_otm": true,
-      "passes": false,
-      "passes_at": null,
+      "passes": true,
+      "passes_at": "2026-05-18T03:07:22.324Z",
       "blocked": false,
       "fail_reasons": [],
       "acceptance": "On any matrix or table cell where the underlying data has CIRCULATION > 0 but ZERO ACTIVE LISTINGS, render a positive visual indicator (\"🆕 NEW DROP\" tag, green accent, or \"be first to list\" CTA) — NOT a dash or blank. The cell is repositioned as opportunity, not gap. Per Roham 2026-05-17 17:10Z: \"make it visually positive don't hide, emphasize the exciting part if it exists.\" Initial NEW DROP tag in /parallels/page.tsx; loop propagates to all listed routes.",
@@ -967,7 +967,14 @@
         "GitHub repo first-time-experience banners",
         "Linear inbox \"Inbox zero\" celebration"
       ],
-      "data_viz_kind": "empty-state-positive-framing"
+      "data_viz_kind": "empty-state-positive-framing",
+      "judge_evidence": [
+        {
+          "at": "2026-05-18T03:07:22.324Z",
+          "capture_dir": "/home/r_dapperlabs_com/topshot-builder/topshot-data-portal/loop/judge/captures/empty-rows-positive-framing/2026-05-18T03-07-16-162Z",
+          "portal_url": "https://topshot-data-portal-9eihs123h-ros-projects-9a9bb0c9.vercel.app"
+        }
+      ]
     },
     {
       "id": "subedition-keyed-market-cap-etl",
