@@ -1,0 +1,169 @@
+{
+  "schema_version": "v8.0",
+  "charter": "loop/v8/CHARTER.md",
+  "created": "2026-05-19T01:53:00-04:00",
+  "phase_status_ref": "loop/v8/state/phase-status.json",
+  "current_iter": null,
+  "iter_counter": 0,
+  "replan_count": 0,
+  "stall_window": [],
+  "queue": [
+    {
+      "tier": "A",
+      "id": "A-1",
+      "name": "Grail Index synthesizer",
+      "track_default": "DEEPENING",
+      "rw_class": "READ-WRITE",
+      "spec_ref": "HANDOVER §6 Tier A-1",
+      "files_to_touch": [
+        "lib/indices/grail-synthesizer.ts",
+        "research/data-schema/grail-225-with-edition-ids-2026-05-19.csv"
+      ],
+      "comparable": "Card Ladder Pro CL50 + Glassnode supply-distribution",
+      "signature_move": "value-weighted index with carry-forward on ETL gaps",
+      "doctrine_quote": "§P1 faithful + §P5 parallels first-class",
+      "verification": "getGrailIndex({lookbackDays:30}).series.length >= 5 AND constituents.length === 184 AND series_pct_change is finite",
+      "status": "queued"
+    },
+    {
+      "tier": "A",
+      "id": "A-2",
+      "name": "IndexPillRow segmented control",
+      "track_default": "DEEPENING",
+      "rw_class": "READ-WRITE",
+      "spec_ref": "HANDOVER §6 Tier A-2",
+      "files_to_touch": [
+        "components/indices/IndexPillRow.tsx",
+        "components/IndexHero.tsx",
+        "app/page.tsx",
+        "app/market-cap/page.tsx"
+      ],
+      "comparable": "Card Ladder Pro + Polymarket category pills",
+      "signature_move": "segmented pills > dropdown; 300ms cross-fade on swap",
+      "doctrine_quote": "§P2 graphs-first",
+      "verification": "?index=grail AND ?index=rookies render distinct charts; pill row shows active state; cross-fade visible on swap",
+      "status": "queued"
+    },
+    {
+      "tier": "A",
+      "id": "A-3",
+      "name": "Global Mcap toggle promoted to sticky chrome",
+      "track_default": "DEEPENING",
+      "rw_class": "READ-WRITE",
+      "spec_ref": "HANDOVER §6 Tier A-3",
+      "files_to_touch": [
+        "components/global/GlobalMcapToggle.tsx",
+        "app/layout.tsx"
+      ],
+      "comparable": "TradingView global timeframe selector",
+      "signature_move": "page-level sticky chrome with hairline-shadow detach",
+      "doctrine_quote": "§P1 default floor",
+      "verification": "toggle visible top-right on /, /market-cap, /players, /sets, /moments, /collectors; hidden on /moment/[flowId]; hairline shadow on scroll",
+      "status": "queued"
+    },
+    {
+      "tier": "A",
+      "id": "A-4",
+      "name": "Compare-formulas drawer",
+      "track_default": "DEEPENING",
+      "rw_class": "READ-WRITE",
+      "spec_ref": "HANDOVER §6 Tier A-4",
+      "files_to_touch": [
+        "components/global/CompareFormulasDrawer.tsx"
+      ],
+      "comparable": "TradingView hover-crosshair with locked-y-axis read",
+      "signature_move": "drawer slides over chart, two formulas overlaid (solid + dashed), single crosshair reveals both values at same x",
+      "doctrine_quote": "§P4 (intentional override of single-toggle worldview)",
+      "feature_flag": "NEXT_PUBLIC_FEATURE_COMPARE_DRAWER",
+      "verification": "compare chip visible; click opens drawer; both lines render; hover-crosshair reads both; Esc closes",
+      "status": "queued"
+    },
+    {
+      "tier": "A",
+      "id": "A-5",
+      "name": "Per-card Pro toggle on 6-block strip",
+      "track_default": "DEEPENING",
+      "rw_class": "READ-WRITE",
+      "spec_ref": "HANDOVER §6 Tier A-5",
+      "files_to_touch": [
+        "app/page.tsx",
+        "components/cards/*.tsx (6 hero cards)"
+      ],
+      "comparable": "Stripe Developers toggle (Spec D signature move)",
+      "signature_move": "per-card OFF/ON; OFF = consumer view; ON = dense KPI table + sparkline + 4-decimal precision + Expand link",
+      "doctrine_quote": "§P2 clean default, power-behind-toggle",
+      "persistence": "localStorage per-card + master toggle",
+      "verification": "each card has its toggle; click flips view; localStorage persists across reload; master toggle flips all six",
+      "status": "queued"
+    },
+    {
+      "tier": "A",
+      "id": "A-6",
+      "name": "TradingView chart-canvas-as-hero refinement",
+      "track_default": "DEEPENING",
+      "rw_class": "READ-WRITE",
+      "spec_ref": "HANDOVER §6 Tier A-6",
+      "files_to_touch": [
+        "components/cards/*.tsx",
+        "app/globals.css"
+      ],
+      "comparable": "Polymarket dominant-chart canvas + TradingView aesthetic chrome",
+      "signature_move": "chart height priority (320/480/560px); chrome down a font size; bg-surface-deep on chart; borders not shadows; sharp 4px corners",
+      "doctrine_quote": "§P2 graphs-first + Q9 'the key thing is visuals / graphs'",
+      "verification": "desktop screenshot at 1440x900 shows charts dominate above-fold; mobile 375px chart >= 320px tall",
+      "status": "queued"
+    },
+    {
+      "tier": "CHARTER",
+      "id": "CHARTER-AUTHORING",
+      "name": "V8 Charter scripts + hooks + prompts",
+      "track_default": "META",
+      "rw_class": "READ-WRITE",
+      "spec_ref": "CHARTER.md §13 implementation manifest",
+      "blocks_phase_4": true,
+      "files_to_touch": [
+        ".claude/settings.json",
+        "loop/v8/scripts/cron-tick.sh",
+        "loop/v8/scripts/stop-gate.sh",
+        "loop/v8/scripts/verify-deterministic.sh",
+        "loop/v8/scripts/dispatch-validator.mjs",
+        "loop/v8/scripts/cost-gate.mjs",
+        "loop/v8/scripts/judge-vote.mjs",
+        "loop/v8/scripts/orchestrator.mjs",
+        "loop/v8/scripts/compress-transcript.mjs",
+        "loop/v8/prompts/*.md (8 files)"
+      ],
+      "verification": "dry-run cron-tick.sh plans an iter without applying; wet-run one iter under Phase 1 with Roham watching",
+      "status": "queued_after_tier_a"
+    }
+  ],
+  "tier_b_parking_lot": [
+    "B-1 visx hero chart with TradingView crosshair",
+    "B-2 overlay drawer (comp-set/VWAP/owner-count/serial-rarity)",
+    "B-3 Polymarket shared-layout card->detail transition",
+    "B-4 /u/[username] Supabase rewrite",
+    "B-5 /set/[id] Top Collectors panel"
+  ],
+  "tier_c_parking_lot": [
+    "C-1 mv_market_caps_avgsale daily-grain MV",
+    "C-2 Polymarket cards-grid landings standardized",
+    "C-3 /moment/[flowId] six-panel drill",
+    "C-4 mv_player_movers_90d migration applied",
+    "C-5 sibling parallels backfill"
+  ],
+  "tier_d_parking_lot": [
+    "D-1 mobile-first audit at 375x812",
+    "D-2 sparklines everywhere",
+    "D-3 empty-state pass per §P8",
+    "D-4 URL filter state",
+    "D-5 final audit-copy.mjs --llm pass"
+  ],
+  "loop_a_discovery_parking_lot": [
+    "Vaultopolis topshot-data catalog ETL (tier + tags -> topshot.editions.tags)",
+    "locked-moments backfill (Vaultopolis tradeable supply = mint - burned - locked)",
+    "asset_ownership_nba_moment_history (197.8M-row historical ownership ledger)",
+    "9 unpulled NBA tables from BQ enumeration",
+    "transactions.buyer_safe_name 0% + seller_safe_name 24.5% backfill",
+    "mv_player_market_cap $35M unattributed / 320 editions without player_id"
+  ]
+}

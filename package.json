@@ -10,6 +10,7 @@
     "snapshot:indices": "node --import tsx scripts/snapshot-indices.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.97.0",
     "@google-cloud/bigquery": "^8.3.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
