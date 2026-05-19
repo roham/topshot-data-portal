@@ -22,12 +22,27 @@ if [[ "$TSC_ERRORS" -gt 0 ]]; then
   FAILURES+=("tsc_errors:$TSC_ERRORS")
 fi
 
-# 3. Probe-evidence: any "X unavailable" claim in last commit's diff has SQL probe adjacent.
-# Skip if there's no previous commit (initial seed).
-if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-  LAST_DIFF=$(git diff HEAD~1 HEAD)
-  UNAVAILABLE_CLAIMS=$(echo "$LAST_DIFF" | grep -cE 'unavailable|cannot determine|TBD|approximately' || true)
-  PROBES=$(echo "$LAST_DIFF" | grep -cE 'SELECT|bq query|psql' || true)
+# 3. Probe-evidence: any "X unavailable" claim in the iter's CODE diff has SQL probe adjacent.
+# Use the iter-start-sha if present (full iter diff, code only); else fall back to HEAD~1.
+# Exclude loop/v8/state/** and CHARTER.md — those are reviewer/planner PROSE, not code claims.
+EXCLUDES=(':(exclude)loop/v8/state/**' ':(exclude)loop/v8/CHARTER.md' ':(exclude)loop/v8/prompts/**')
+ITER_START_SHA=""
+for D in loop/v8/state/iteration-*/; do
+  if [[ -f "$D/.iter-start-sha" ]]; then
+    ITER_START_SHA=$(cat "$D/.iter-start-sha" | tr -d '\n')
+  fi
+done
+if [[ -n "$ITER_START_SHA" ]] && git rev-parse --verify "$ITER_START_SHA" >/dev/null 2>&1; then
+  LAST_DIFF=$(git diff "$ITER_START_SHA" HEAD -- "${EXCLUDES[@]}")
+elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+  LAST_DIFF=$(git diff HEAD~1 HEAD -- "${EXCLUDES[@]}")
+else
+  LAST_DIFF=""
+fi
+if [[ -n "$LAST_DIFF" ]]; then
+  # Only count lines ADDED to code (start with +, not +++), strict hollowness markers.
+  UNAVAILABLE_CLAIMS=$(printf '%s' "$LAST_DIFF" | grep -E '^\+[^+]' | grep -cE 'unavailable|cannot determine|\bTBD\b|approximately' || true)
+  PROBES=$(printf '%s' "$LAST_DIFF" | grep -E '^\+[^+]' | grep -cE 'SELECT|bq\s+(query|show|ls)|psql|INFORMATION_SCHEMA' || true)
   if [[ "$UNAVAILABLE_CLAIMS" -gt 0 && "$PROBES" -lt "$UNAVAILABLE_CLAIMS" ]]; then
     FAILURES+=("probe_evidence_missing:claims=$UNAVAILABLE_CLAIMS,probes=$PROBES")
   fi
