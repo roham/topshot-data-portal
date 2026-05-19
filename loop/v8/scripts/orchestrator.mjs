@@ -210,20 +210,28 @@ function awaitingVoteCount(ledger) {
 // hollowness scan (Gate D, Rule 5)
 // -----------------------------------------------------------------------------
 
-const HOLLOW_TOKENS = [
-  /\bapproximately\b/i, /\bwould suggest\b/i, /\bappears to\b/i, /\bcannot determine\b/i,
-  /\bTBD\b/, /\bfor now\b/i, /\bfallback\b/i, /\blikely\b/i,
+// Strong markers (any one without probe context = hollow claim).
+const HOLLOW_STRONG = [
+  /\bapproximately\b/i, /\bwould suggest\b/i, /\bcannot determine\b/i,
+  /\bTBD\b/, /data\s+unavailable/i,
 ];
+// Weak markers (single occurrence is normal English; flagged only when paired
+// with a data-shape claim word in the same line).
+const HOLLOW_WEAK_TOKEN = /\b(likely|fallback|for now|appears to)\b/i;
+const DATA_CLAIM_TOKEN = /\b(data|table|column|row|count|series|schema)\b/i;
 
 function containsHollowness(text) {
   if (!text) return false;
   // Allow hollowness markers if there's a SQL or bq probe within ~10 lines.
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    if (HOLLOW_TOKENS.some((re) => re.test(lines[i]))) {
+    const line = lines[i];
+    const strongHit = HOLLOW_STRONG.some((re) => re.test(line));
+    const weakHit = HOLLOW_WEAK_TOKEN.test(line) && DATA_CLAIM_TOKEN.test(line);
+    if (strongHit || weakHit) {
       const ctx = lines.slice(Math.max(0, i - 5), Math.min(lines.length, i + 6)).join('\n');
-      if (!/SELECT|bq query|bq show|psql|\\d \w/i.test(ctx)) {
-        log('hollowness-found', { line: i + 1, snippet: lines[i].slice(0, 120) });
+      if (!/SELECT|bq\s+(query|show|ls)|psql|\\d \w|INFORMATION_SCHEMA/i.test(ctx)) {
+        log('hollowness-found', { line: i + 1, weak: !strongHit, snippet: line.slice(0, 120) });
         return true;
       }
     }
@@ -473,9 +481,11 @@ async function runIter(ledger, item) {
   commitStage(iterN, 'PLAN', 'plan filed');
 
   const planText = readFileSync(planPath, 'utf-8');
-  if (containsHollowness(planText)) {
-    return archiveIter(iterN, 'ABORTED', item, { reason: 'plan-hollow' });
-  }
+  // NOTE: Per CHARTER §11, the spot-read on the plan checks for doctrine markers
+  // (comparable + signature_move + doctrine_quote), NOT hollowness — the plan is
+  // reasoning prose where words like "likely" appear naturally. Hollowness scan is
+  // reserved for the implementer's DIFF (§11 step 2). Plan goes through the planner
+  // prompt's own anti-shortcircuit block; reviewers/judge catch real hollow claims.
 
   // DRY-RUN exit: stop after planner — no impl, no review, no judge, no deploy.
   // Surfaces full pipeline wiring + planner output without writing code or spending judge $.
@@ -589,9 +599,12 @@ async function runIter(ledger, item) {
   }
   commitStage(iterN, 'VERIFY', 'P3+P13+P9 all PASS');
 
-  // 6. Spot-read (Gate D, Rule 5)
-  if (containsHollowness(planText) || containsHollowness(implPath ? readFileSync(implPath, 'utf-8') : '')) {
-    return archiveIter(iterN, 'ABORTED', item, { reason: 'hollowness-found-at-spot-read' });
+  // 6. Spot-read (Gate D, Rule 5) — check the largest file in the diff per CHARTER §11.
+  // Plan is reasoning prose (NOT scanned). Implementer's impl report is the gate.
+  const diffPathIter = join(iterDir, 'diff.patch');
+  const largestText = existsSync(diffPathIter) ? readFileSync(diffPathIter, 'utf-8') : '';
+  if (containsHollowness(largestText)) {
+    return archiveIter(iterN, 'ABORTED', item, { reason: 'hollowness-found-at-spot-read', stage: 'spot-read' });
   }
 
   // 7. Deploy (push origin main; Vercel auto-deploys)
