@@ -41,6 +41,30 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  // 301 redirects for routes retired by the 2026-05-19 IA pass. These were
+  // pure ComingSoon placeholders with no shipped functionality — killing
+  // them rather than carrying placeholder pages forward. Bookmarks land on
+  // the right surface in the new five-lane IA.
+  async redirects() {
+    return [
+      // Singular aliases / duplicates → canonical plural or lane home
+      { source: "/parallel", destination: "/parallels", permanent: true },
+      { source: "/tier", destination: "/indices", permanent: true },
+      { source: "/series", destination: "/indices", permanent: true },
+      { source: "/teams", destination: "/indices", permanent: true },
+      { source: "/movement", destination: "/movers", permanent: true },
+      // Pure placeholders → most-relevant lane home
+      { source: "/specials", destination: "/", permanent: true },
+      { source: "/archive", destination: "/on-this-day", permanent: true },
+      { source: "/changelog", destination: "/methodology", permanent: true },
+      { source: "/alerts", destination: "/sniper", permanent: true },
+      { source: "/watching", destination: "/portfolio", permanent: true },
+      { source: "/anomalies", destination: "/feed", permanent: true },
+      // Duplicate index detail route
+      { source: "/index/:code", destination: "/indices/:code", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

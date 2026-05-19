@@ -6,17 +6,80 @@ import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { TimeWindowSelector } from "./global/TimeWindowSelector";
 
+// Five-lane IA per the 2026-05-19 senior-designer pass:
+// - Market    — the macro view (homepage, indices, market-cap, volume, movers, trends, per-tier, per-series, per-team rollups)
+// - Browse    — find a specific thing (players, sets, editions, moments, packs, parallels)
+// - Trade     — active decisions (sniper, feed, sales, portfolio, collectors, whales, compare, leaderboards, locking)
+// - Editorial — narrative + history (on-this-day, briefing, per-game retrospectives)
+// - Methodology — model + rules transparency
+//
+// The /misc page (intentionally NOT in nav) catalogs orphan-but-real surfaces
+// (retired homepage variants etc) for discoverability without polluting nav.
+
 const TABS = [
-  { label: "Market", href: "/", match: (p: string) => p === "/" },
-  { label: "Moments", href: "/moments", match: (p: string) => p === "/moments" || p.startsWith("/moments?") },
-  { label: "Indices", href: "/indices", match: (p: string) => p.startsWith("/indices") },
-  { label: "Editions", href: "/editions", match: (p: string) => p.startsWith("/edition") },
-  { label: "Collectors", href: "/collectors", match: (p: string) => p.startsWith("/collectors") || p.startsWith("/u/") },
-  { label: "Methodology", href: "/methodology", match: (p: string) => p === "/methodology" },
+  {
+    label: "Market",
+    href: "/",
+    match: (p: string) =>
+      p === "/" ||
+      p.startsWith("/indices") ||
+      p.startsWith("/market-cap") ||
+      p.startsWith("/volume") ||
+      p.startsWith("/movers") ||
+      p.startsWith("/trends") ||
+      p === "/parallels" ||
+      p.startsWith("/tier/") ||
+      p.startsWith("/series/") ||
+      p.startsWith("/team/"),
+  },
+  {
+    label: "Browse",
+    href: "/players",
+    match: (p: string) =>
+      p === "/players" ||
+      p.startsWith("/player/") ||
+      p === "/sets" ||
+      p.startsWith("/set/") ||
+      p === "/editions" ||
+      p.startsWith("/edition/") ||
+      p === "/moments" ||
+      p.startsWith("/moment/") ||
+      p === "/packs" ||
+      p.startsWith("/packs/"),
+  },
+  {
+    label: "Trade",
+    href: "/sniper",
+    match: (p: string) =>
+      p === "/sniper" ||
+      p === "/feed" ||
+      p === "/sales" ||
+      p === "/portfolio" ||
+      p === "/collectors" ||
+      p === "/whales" ||
+      p === "/compare" ||
+      p === "/leaderboards" ||
+      p === "/locking" ||
+      p.startsWith("/u/"),
+  },
+  {
+    label: "Editorial",
+    href: "/on-this-day",
+    match: (p: string) =>
+      p === "/on-this-day" ||
+      p === "/briefing" ||
+      p.startsWith("/game/"),
+  },
+  {
+    label: "Methodology",
+    href: "/methodology",
+    match: (p: string) => p === "/methodology" || p === "/rules",
+  },
 ];
 
-// Username / flow-address resolver — submits to /u/{value}. Live resolve
-// happens server-side on /u; here we just navigate.
+// Command bar — placeholder for ⌘K. For now: a username/flow-address resolver
+// that submits to /u/{value}. Richer search (player/set/edition/team) lands
+// in a subsequent iter.
 function SearchResolver() {
   const router = useRouter();
   const [v, setV] = useState("");
@@ -34,8 +97,8 @@ function SearchResolver() {
       <input
         value={v}
         onChange={(e) => setV(e.target.value)}
-        placeholder="username or 0x address →"
-        className="bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded text-[11px] px-2.5 py-1 w-[220px] focus:border-[var(--border-strong)] outline-none font-mono"
+        placeholder="username · address · player →"
+        className="bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded text-[11px] px-2.5 py-1 w-[240px] focus:border-[var(--border-strong)] outline-none font-mono"
         spellCheck={false}
       />
     </form>

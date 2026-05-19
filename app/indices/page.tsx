@@ -1,89 +1,109 @@
-// /indices — directory of every defined index.
+// /indices — directory anchored on the two canonical baskets: Grail and Rookies.
 //
-// Surfaces all 17 entries from lib/indices/registry.ts grouped by kind
-// (TS500 / Tier / Series / Team). Each row links into /indices/[slug] for
-// the deep view. Honest empty-state: indices without a live synthesizer are
-// flagged "computing" — but the directory itself is real, not a placeholder.
+// Per the V8 handover (Tier A-1 and A-2 specs), the only first-class indices
+// for collectors are GRAIL (184-edition value-weighted "blue-chip" basket
+// from grail-225-with-edition-ids-2026-05-19.csv) and ROOKIES (per-class
+// rookie editions). Everything in registry.ts is legacy/exploratory and is
+// surfaced under "Legacy" below for context, not as the headline.
 
 import Link from "next/link";
 import { Card } from "@/components/primitives/Card";
-import { INDICES, type IndexDef, type IndexKind } from "@/lib/indices/registry";
+import { INDICES } from "@/lib/indices/registry";
 
 export const metadata = {
   title: "Indices · TS·PORTAL",
-  description: "Every published Top Shot index — TS500, tier, series, and team.",
+  description: "Grail and Rookies — the two canonical Top Shot indices.",
 };
 
-const KIND_LABEL: Record<IndexKind, string> = {
-  ts500: "Headline",
-  tier: "Tier",
-  series: "Series",
-  team: "Team",
-};
+interface CanonicalIndex {
+  slug: string;
+  name: string;
+  oneLiner: string;
+  basket: string;
+  comparable: string;
+  status: "live" | "computing";
+}
 
-const KIND_DESCRIPTION: Record<IndexKind, string> = {
-  ts500: "The whole market in one number — every active edition weighted by circulation × floor.",
-  tier: "Floor-weighted indices, one per Top Shot tier. Watch the Legendary basket vs the Rare basket.",
-  series: "One index per Top Shot series. Series 1 still carries the largest dollar weight.",
-  team: "Sale-weighted indices for the highest-trading NBA franchises on Top Shot.",
-};
+const CANONICAL: CanonicalIndex[] = [
+  {
+    slug: "grail",
+    name: "Grail Index",
+    oneLiner:
+      "The 184-edition blue-chip basket. Value-weighted, daily-grain, carry-forward on ETL gaps. The closest thing Top Shot has to a 'serious-collector' index.",
+    basket:
+      "Curated from research/data-schema/grail-225-with-edition-ids-2026-05-19.csv — 184 editions matched to canonical Vaultopolis IDs after de-duplication.",
+    comparable: "Card Ladder Pro CL50 + Glassnode supply-distribution",
+    status: "computing",
+  },
+  {
+    slug: "rookies",
+    name: "Rookies Index",
+    oneLiner:
+      "Floor-weighted basket of current-class rookie editions. The 'what's the rookie market doing today' single number.",
+    basket:
+      "Active rookie editions for the current NBA season, weighted by current floor × circulation. Refreshed daily from topshot.market_caps.",
+    comparable: "PWCC Rookie Card Index",
+    status: "computing",
+  },
+];
 
-const KIND_ORDER: IndexKind[] = ["ts500", "tier", "series", "team"];
-
-// Slugs with a live synthesizer surfaced to a chart today.
-// Add slugs here as new synthesizers land so the badge flips from "computing" to "live".
-const LIVE_SLUGS = new Set<string>([
-  // ts50-synthesizer renders on the homepage (the canonical headline chart).
-  // Per-tier/series/team rollups exist as queries but aren't yet surfaced.
-]);
-
-function IndexRow({ def }: { def: IndexDef }) {
-  const live = LIVE_SLUGS.has(def.slug);
+function CanonicalCard({ idx }: { idx: CanonicalIndex }) {
   return (
     <Link
-      href={`/indices/${def.slug}`}
+      href={`/indices/${idx.slug}`}
+      className="group block bg-[var(--surface-1)] border border-[var(--border-subtle)] hover:border-[var(--accent)] rounded-md p-4 transition-colors"
+    >
+      <div className="flex items-baseline gap-3">
+        <h2 className="font-mono text-[14px] font-semibold tracking-tight text-[var(--text)] group-hover:text-[var(--accent)]">
+          {idx.name}
+        </h2>
+        <span className="font-mono text-[10px] text-[var(--text-faint)]">/{idx.slug}</span>
+        <span
+          className={
+            idx.status === "live"
+              ? "ml-auto text-[9px] font-mono uppercase tracking-data-label text-[var(--up)] border border-[var(--up)]/40 rounded px-1.5 py-0.5"
+              : "ml-auto text-[9px] font-mono uppercase tracking-data-label text-[var(--text-faint)] border border-[var(--border-subtle)] rounded px-1.5 py-0.5"
+          }
+        >
+          {idx.status}
+        </span>
+      </div>
+      <p className="text-[12px] text-[var(--text-dim)] mt-2 leading-relaxed">{idx.oneLiner}</p>
+      <dl className="mt-3 text-[10px] font-mono space-y-1">
+        <div className="flex gap-2">
+          <dt className="text-[var(--text-faint)] uppercase tracking-data-label w-20 shrink-0">Basket</dt>
+          <dd className="text-[var(--text-dim)] flex-1">{idx.basket}</dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="text-[var(--text-faint)] uppercase tracking-data-label w-20 shrink-0">Compare</dt>
+          <dd className="text-[var(--text-dim)] flex-1">{idx.comparable}</dd>
+        </div>
+      </dl>
+    </Link>
+  );
+}
+
+function LegacyRow({ slug, name, description }: { slug: string; name: string; description: string }) {
+  return (
+    <Link
+      href={`/indices/${slug}`}
       className="group flex items-center gap-3 px-3 py-2 border-b border-[var(--border-subtle)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className="font-mono text-[12px] text-[var(--text)] tracking-tight">
-            {def.name}
-          </span>
-          <span className="font-mono text-[10px] text-[var(--text-faint)]">
-            /{def.slug}
-          </span>
+          <span className="font-mono text-[11px] text-[var(--text-dim)]">{name}</span>
+          <span className="font-mono text-[10px] text-[var(--text-faint)]">/{slug}</span>
         </div>
-        <p className="text-[11px] text-[var(--text-dim)] leading-snug mt-0.5">
-          {def.description}
-        </p>
+        <p className="text-[10px] text-[var(--text-faint)] leading-snug mt-0.5">{description}</p>
       </div>
-      <span
-        className={
-          live
-            ? "text-[9px] font-mono uppercase tracking-data-label text-[var(--up)] border border-[var(--up)]/40 rounded px-1.5 py-0.5"
-            : "text-[9px] font-mono uppercase tracking-data-label text-[var(--text-faint)] border border-[var(--border-subtle)] rounded px-1.5 py-0.5"
-        }
-      >
-        {live ? "live" : "computing"}
-      </span>
-      <span className="text-[var(--text-faint)] group-hover:text-[var(--accent)] text-[12px] font-mono">
-        →
+      <span className="text-[9px] font-mono uppercase tracking-data-label text-[var(--text-faint)] border border-[var(--border-subtle)] rounded px-1.5 py-0.5">
+        legacy
       </span>
     </Link>
   );
 }
 
 export default function Page() {
-  const grouped = KIND_ORDER.map((kind) => ({
-    kind,
-    label: KIND_LABEL[kind],
-    description: KIND_DESCRIPTION[kind],
-    items: INDICES.filter((i) => i.kind === kind),
-  }));
-
-  const total = INDICES.length;
-  const liveCount = INDICES.filter((i) => LIVE_SLUGS.has(i.slug)).length;
-
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6">
       <header className="mb-6">
@@ -91,32 +111,46 @@ export default function Page() {
           INDICES · DIRECTORY
         </h1>
         <p className="text-[12px] text-[var(--text-dim)] mt-1 leading-relaxed max-w-2xl">
-          {total} indices defined across {KIND_ORDER.length} categories. {liveCount} live, {total - liveCount} still computing first snapshots.
-          The headline TS-style index lives at the top of <Link href="/" className="text-[var(--accent)] hover:underline">the homepage</Link>; this page is the catalog.
+          Two indices for the trader-collector: <span className="text-[var(--text)]">Grail</span> tracks the
+          blue-chip basket; <span className="text-[var(--text)]">Rookies</span> tracks the active rookie class.
+          The homepage hero rotates between them. Everything else below is exploratory and pre-dates the canonical pair.
         </p>
       </header>
 
-      <div className="grid gap-4">
-        {grouped.map((group) => (
-          <Card
-            key={group.kind}
-            title={`${group.label.toUpperCase()} — ${group.items.length}`}
-            subtitle={group.description}
-            variant="inset"
-          >
-            <div className="border-t border-[var(--border-subtle)]">
-              {group.items.map((def) => (
-                <IndexRow key={def.slug} def={def} />
-              ))}
-            </div>
-          </Card>
-        ))}
-      </div>
+      <section className="mb-8">
+        <h2 className="font-mono text-[10px] uppercase tracking-data-label text-[var(--text-faint)] mb-3">
+          Canonical — 2
+        </h2>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {CANONICAL.map((idx) => (
+            <CanonicalCard key={idx.slug} idx={idx} />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-mono text-[10px] uppercase tracking-data-label text-[var(--text-faint)] mb-3">
+          Legacy — {INDICES.length}
+        </h2>
+        <p className="text-[11px] text-[var(--text-faint)] mb-3 max-w-2xl leading-relaxed">
+          The earlier registry — TS500, tier rollups, series indices, team indices. Kept addressable for the historical chart routes; not the recommended entry points.
+        </p>
+        <Card variant="inset">
+          <div className="border-t border-[var(--border-subtle)]">
+            {INDICES.map((def) => (
+              <LegacyRow
+                key={def.slug}
+                slug={def.slug}
+                name={def.name}
+                description={def.description}
+              />
+            ))}
+          </div>
+        </Card>
+      </section>
 
       <p className="text-[10px] text-[var(--text-faint)] mt-6 leading-snug max-w-2xl">
-        Methodology: TS500 is circulation × floor-weighted across every active edition.
-        Tier and series indices are floor-weighted across their constituents. Team indices are sale-weighted by the team-at-moment field on each historical sale.
-        See <Link href="/methodology" className="hover:text-[var(--text)] underline decoration-dotted">/methodology</Link> for full definitions.
+        Methodology lives at <Link href="/methodology" className="hover:text-[var(--text)] underline decoration-dotted">/methodology</Link>. Grail constituents are documented in <code className="text-[var(--text-dim)]">research/data-schema/grail-225-with-edition-ids-2026-05-19.csv</code>.
       </p>
     </div>
   );
