@@ -142,14 +142,13 @@ function findClaude() {
 
 function dispatchSubagent({ model, systemPromptPath, taskPrompt, outputPath, maxTurns = 25, allowEdits = true }) {
   const claudeBin = findClaude();
-  const sysFile = `/tmp/v8-sys-${Date.now()}-${Math.random().toString(36).slice(2)}.md`;
-  writeFileSync(sysFile, readFileSync(systemPromptPath, 'utf-8'));
+  const sysPromptContent = readFileSync(systemPromptPath, 'utf-8');
 
   const cliArgs = [
     '-p',
     '--output-format', 'json',
-    '--max-turns', String(maxTurns),
-    '--append-system-prompt-file', sysFile,
+    '--add-dir', REPO_ROOT,
+    '--append-system-prompt', sysPromptContent,
   ];
   if (model) { cliArgs.push('--model', model); }
   if (allowEdits) { cliArgs.push('--permission-mode', 'acceptEdits'); }
