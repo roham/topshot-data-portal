@@ -477,6 +477,13 @@ async function runIter(ledger, item) {
     return archiveIter(iterN, 'ABORTED', item, { reason: 'plan-hollow' });
   }
 
+  // DRY-RUN exit: stop after planner — no impl, no review, no judge, no deploy.
+  // Surfaces full pipeline wiring + planner output without writing code or spending judge $.
+  if (!WET) {
+    log('dry-run-stop-after-planner', { iterN });
+    return archiveIter(iterN, 'DRY_RUN_COMPLETE', item, { rw_class: rwClass });
+  }
+
   // 3a. READ-ONLY: discovery report path
   if (rwClass === 'READ-ONLY') {
     const reportPath = join(iterDir, '02-discovery-report.md');
