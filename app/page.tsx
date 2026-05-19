@@ -18,6 +18,7 @@ import { readSeriesIndicesSnapshot } from "@/lib/indices/series-synthesizer";
 import { listRecentSnapshotKeys } from "@/lib/snapshots/store";
 import { SupabaseHomepageStrip } from "@/components/SupabaseHomepageStrip";
 import { LegacyCascadeSkeleton } from "@/components/HomepageSkeletons";
+import { TS50IndexHero } from "@/components/TS50IndexHero";
 
 // Window-level cache for the Supabase strip + the snapshot-derived legacy
 // cascade. Page-level revalidate runs every 60s so window switches hit a
@@ -1229,10 +1230,32 @@ export default async function Home({
   // page from streaming.
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
+      {/* Doctrine §0.1 graph-first landing: CL50 signature move ported.
+          30D default per §P7. Hero sits above the KPI strip so the first
+          paint a visitor sees is a chart, not a table. */}
+      <Suspense fallback={<TS50HeroSkeleton />}>
+        <TS50IndexHero lookbackDays={30} />
+      </Suspense>
       <SupabaseHomepageStrip rawWindow={rawWindow} />
       <Suspense fallback={<LegacyCascadeSkeleton />}>
         <LegacyCascade />
       </Suspense>
+    </div>
+  );
+}
+
+function TS50HeroSkeleton() {
+  return (
+    <div className="border border-[var(--border-subtle)] rounded-md bg-[var(--surface-1)]/30 p-6">
+      <div className="h-4 w-32 bg-[var(--surface-2)] rounded animate-pulse mb-3" />
+      <div className="h-3 w-72 bg-[var(--surface-2)]/60 rounded animate-pulse mb-6" />
+      <div className="grid lg:grid-cols-[280px_1fr] gap-4">
+        <div className="space-y-3">
+          <div className="h-12 w-40 bg-[var(--surface-2)] rounded animate-pulse" />
+          <div className="h-8 w-32 bg-[var(--surface-2)]/60 rounded animate-pulse" />
+        </div>
+        <div className="h-[320px] bg-[var(--surface-2)]/40 rounded animate-pulse" />
+      </div>
     </div>
   );
 }

@@ -17,6 +17,7 @@ import { ByParallelChart } from "@/components/charts/market-cap/ByParallelChart"
 import { TopSetsChart } from "@/components/charts/market-cap/TopSetsChart";
 import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
 import { TotalOverTimeChart } from "@/components/charts/market-cap/TotalOverTimeChart";
+import { TS50IndexHero } from "@/components/TS50IndexHero";
 import { MoversCardGrid } from "@/components/charts/market-cap/MoversCardGrid";
 import { ConcentrationChart } from "@/components/charts/market-cap/ConcentrationChart";
 import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
@@ -90,6 +91,13 @@ export default async function MarketCapPage({
           )}
         </div>
         <McapFormulaToggle />
+      </div>
+
+      {/* TS50 Composite Index hero — doctrine §0.1 CL50 signature move ported.
+          365D lookback (will look thin until ETL accumulates more snapshots;
+          honest absence handled inside the component). */}
+      <div className="mb-4">
+        <TS50IndexHero lookbackDays={365} />
       </div>
 
       {/* KPI strip — 4 tiles, info-dense without being a table. Reactive to formula. */}
