@@ -19,6 +19,7 @@ import { listRecentSnapshotKeys } from "@/lib/snapshots/store";
 import { SupabaseHomepageStrip } from "@/components/SupabaseHomepageStrip";
 import { LegacyCascadeSkeleton } from "@/components/HomepageSkeletons";
 import { TS50IndexHero } from "@/components/TS50IndexHero";
+import { IndexHeroPair, IndexHeroPairSkeleton } from "@/components/IndexHeroPair";
 
 // Window-level cache for the Supabase strip + the snapshot-derived legacy
 // cascade. Page-level revalidate runs every 60s so window switches hit a
@@ -1230,11 +1231,12 @@ export default async function Home({
   // page from streaming.
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
-      {/* Doctrine §0.1 graph-first landing: CL50 signature move ported.
-          30D default per §P7. Hero sits above the KPI strip so the first
-          paint a visitor sees is a chart, not a table. */}
-      <Suspense fallback={<TS50HeroSkeleton />}>
-        <TS50IndexHero lookbackDays={30} />
+      {/* Doctrine §0.1 graph-first landing.
+          2026-05-19 IA pass: paired Grail + Rookies hero per the senior-designer
+          spec. Grail = blue-chip basket (Legendary+Ultimate, top 50 by mcap).
+          Rookies = current draft class (top 30 by mcap). Both 30D default per §P7. */}
+      <Suspense fallback={<IndexHeroPairSkeleton />}>
+        <IndexHeroPair lookbackDays={30} />
       </Suspense>
       <SupabaseHomepageStrip rawWindow={rawWindow} />
       <Suspense fallback={<LegacyCascadeSkeleton />}>
