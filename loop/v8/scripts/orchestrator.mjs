@@ -444,7 +444,7 @@ async function runIter(ledger, item) {
   // 1. Track selector
   const trackPath = join(iterDir, '00-track.md');
   const track = dispatchSubagent({
-    model: 'claude-haiku-4-6',
+    model: 'haiku',
     systemPromptPath: 'loop/v8/prompts/orchestrator.md',
     taskPrompt: buildTrackPrompt(item, ledger),
     outputPath: trackPath,
@@ -461,7 +461,7 @@ async function runIter(ledger, item) {
   // 2. Planner
   const planPath = join(iterDir, '01-plan.md');
   const plan = dispatchSubagent({
-    model: 'claude-opus-4-7',
+    model: 'opus',
     systemPromptPath: 'loop/v8/prompts/planner.md',
     taskPrompt: buildPlannerPrompt(item, trackText, ledger),
     outputPath: planPath,
@@ -488,7 +488,7 @@ async function runIter(ledger, item) {
   if (rwClass === 'READ-ONLY') {
     const reportPath = join(iterDir, '02-discovery-report.md');
     dispatchSubagent({
-      model: 'claude-sonnet-4-6',
+      model: 'sonnet',
       systemPromptPath: 'loop/v8/prompts/orchestrator.md',
       taskPrompt: [
         `objective: produce discovery report aggregating the plan's fan-out probes.`,
@@ -512,7 +512,7 @@ async function runIter(ledger, item) {
   // 3b. READ-WRITE: implementer
   const implPath = join(iterDir, '02-impl.md');
   dispatchSubagent({
-    model: 'claude-sonnet-4-6',
+    model: 'sonnet',
     systemPromptPath: 'loop/v8/prompts/implementer.md',
     taskPrompt: buildImplementerPrompt(item, planText, iterN),
     outputPath: implPath,
@@ -527,7 +527,7 @@ async function runIter(ledger, item) {
   // 4. Two-Stage Review
   const completenessPath = join(iterDir, '03-completeness.md');
   dispatchSubagent({
-    model: 'claude-sonnet-4-6',
+    model: 'sonnet',
     systemPromptPath: 'loop/v8/prompts/completeness-reviewer.md',
     taskPrompt: buildReviewPrompt('completeness', planText, '', iterN),
     outputPath: completenessPath,
@@ -540,7 +540,7 @@ async function runIter(ledger, item) {
 
   const qualityPath = join(iterDir, '04-quality.md');
   dispatchSubagent({
-    model: 'claude-opus-4-7',
+    model: 'opus',
     systemPromptPath: 'loop/v8/prompts/quality-reviewer.md',
     taskPrompt: buildReviewPrompt('quality', planText, '', iterN),
     outputPath: qualityPath,
@@ -577,7 +577,7 @@ async function runIter(ledger, item) {
   // 5c. Doctrine checker
   const doctrinePath = join(iterDir, '07-doctrine.md');
   dispatchSubagent({
-    model: 'claude-sonnet-4-6',
+    model: 'sonnet',
     systemPromptPath: 'loop/v8/prompts/doctrine-checker.md',
     taskPrompt: buildDoctrinePrompt(item, iterN),
     outputPath: doctrinePath,
@@ -610,7 +610,7 @@ async function runIter(ledger, item) {
   // 8. CEO Signal Surfacer
   const ceoPath = join(iterDir, '08-ceo-proposal.md');
   dispatchSubagent({
-    model: 'claude-sonnet-4-6',
+    model: 'sonnet',
     systemPromptPath: 'loop/v8/prompts/ceo-signal-surfacer.md',
     taskPrompt: buildCeoPrompt(item, iterN),
     outputPath: ceoPath,
