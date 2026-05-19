@@ -10,6 +10,24 @@ cd "$REPO_ROOT"
 TS() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 log() { printf '[%s] %s\n' "$(TS)" "$*"; }
 
+# Pre-flight 0: hydrate API keys from GSM (kaaos-daemon pattern, inherits from V7 supervisor).
+# Skipped on dev Macs (gcloud not configured to the kaaos compute SA).
+ANTHROPIC_SECRET_PROJECT="${ANTHROPIC_SECRET_PROJECT:-dl-ai-pantheon}"
+ANTHROPIC_SECRET_NAME="${ANTHROPIC_SECRET_NAME:-topshot-builder-anthropic-api-key}"
+OPENAI_SECRET_NAME="${OPENAI_SECRET_NAME:-topshot-loop-openai-api-key}"
+COMPUTE_SA="${COMPUTE_SA:-941997949640-compute@developer.gserviceaccount.com}"
+
+if [[ -z "${ANTHROPIC_API_KEY:-}" ]] && command -v gcloud >/dev/null 2>&1; then
+  KEY=$(gcloud --account="$COMPUTE_SA" secrets versions access latest \
+    --secret="$ANTHROPIC_SECRET_NAME" --project="$ANTHROPIC_SECRET_PROJECT" 2>/dev/null || true)
+  if [[ -n "$KEY" ]]; then export ANTHROPIC_API_KEY="$KEY"; log "ANTHROPIC_API_KEY hydrated (${#KEY} bytes)"; fi
+fi
+if [[ -z "${OPENAI_API_KEY:-}" ]] && command -v gcloud >/dev/null 2>&1; then
+  KEY=$(gcloud --account="$COMPUTE_SA" secrets versions access latest \
+    --secret="$OPENAI_SECRET_NAME" --project="$ANTHROPIC_SECRET_PROJECT" 2>/dev/null || true)
+  if [[ -n "$KEY" ]]; then export OPENAI_API_KEY="$KEY"; log "OPENAI_API_KEY hydrated (${#KEY} bytes)"; fi
+fi
+
 # Pre-flight 1: STOP file
 if [[ -f "$REPO_ROOT/STOP" ]]; then
   log "STOP file present, halting"
