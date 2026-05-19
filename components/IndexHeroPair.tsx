@@ -3,7 +3,8 @@
 // Per the 2026-05-19 senior-designer IA pass: the homepage leads with TWO
 // canonical baskets so the Pro Trader sees both the blue-chip market and the
 // rookie market at first paint. Each pane is a compact mini-hero:
-//   · Index value (40px tabular)
+//   · Time-window pills (30D / 90D / 6M / 1Y / 2Y / ALL)
+//   · Index value (32px tabular)
 //   · % change over series
 //   · Basket mcap
 //   · Recharts area-chart
@@ -15,6 +16,12 @@ import Link from "next/link";
 import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TS50IndexChart } from "@/components/TS50IndexChart";
+import { IndexTimeWindowPills } from "@/components/IndexTimeWindowPills";
+import {
+  parseTimeWindow,
+  windowToDays,
+  type TimeWindow,
+} from "@/components/global/window-types";
 import { getGrailIndex, type GrailIndexResult } from "@/lib/indices/grail-synthesizer";
 import { getRookiesIndex, type RookiesIndexResult } from "@/lib/indices/rookies-synthesizer";
 import type { TS50SeriesPoint } from "@/lib/indices/ts50-synthesizer";
@@ -36,6 +43,12 @@ interface MiniHeroProps {
   daysOfHistory: number;
   series: { date: string; index_value: number; basket_mcap_usd: number }[];
   emptyReason?: string;
+  /** Path the pill links navigate within (homepage = "/"; detail = "/indices/<slug>"). */
+  pillBasePath: string;
+  /** Active time window for the pill highlight. */
+  activeWindow: TimeWindow;
+  /** Other query params to preserve when changing window. */
+  preserveQuery?: Record<string, string | undefined>;
 }
 
 function MiniHero({
@@ -49,6 +62,9 @@ function MiniHero({
   daysOfHistory,
   series,
   emptyReason,
+  pillBasePath,
+  activeWindow,
+  preserveQuery,
 }: MiniHeroProps) {
   if (series.length === 0) {
     return (
@@ -70,12 +86,19 @@ function MiniHero({
       methodology={methodology}
       variant="inset"
       right={
-        <Link
-          href={`/indices/${slug}`}
-          className="text-[11px] text-[var(--accent)] hover:underline font-mono"
-        >
-          basket →
-        </Link>
+        <div className="flex items-center gap-3">
+          <IndexTimeWindowPills
+            basePath={pillBasePath}
+            preserveQuery={preserveQuery}
+            active={activeWindow}
+          />
+          <Link
+            href={`/indices/${slug}`}
+            className="text-[11px] text-[var(--accent)] hover:underline font-mono whitespace-nowrap"
+          >
+            basket →
+          </Link>
+        </div>
       }
     >
       <div className="grid lg:grid-cols-[200px_1fr] gap-4 p-3">
@@ -109,7 +132,18 @@ function MiniHero({
   );
 }
 
-export async function IndexHeroPair({ lookbackDays = 30 }: { lookbackDays?: number }) {
+export async function IndexHeroPair({
+  windowRaw,
+  preserveQuery,
+}: {
+  /** Raw `iw` searchParam value from the page. */
+  windowRaw?: string | string[];
+  /** Other query params on the homepage to preserve when changing window. */
+  preserveQuery?: Record<string, string | undefined>;
+}) {
+  const { window: activeWindow } = parseTimeWindow(windowRaw, "30d");
+  const lookbackDays = windowToDays(activeWindow);
+
   // Parallel fetch — both indices independent.
   const [grail, rookies] = await Promise.all([
     getGrailIndex(lookbackDays).catch((err) => {
@@ -131,12 +165,15 @@ export async function IndexHeroPair({ lookbackDays = 30 }: { lookbackDays?: numb
         slug="grail"
         title="GRAIL"
         subtitle={`Vaultopolis ${grailResult?.basket_resolved_size ?? 0} of ${grailResult?.basket_target_size ?? 0}${grailResult?.as_of_date ? ` · ${grailResult.as_of_date}` : ""}`}
-        methodology="Vaultopolis-canonical Grail list (Apr 2026 ASP). Compound (set_id, play_id) keys resolved against the editions table. Value-weighted: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing. Editions missing on date d carry forward last known value."
+        methodology="Vaultopolis-canonical Grail list (Apr 2026 ASP). Compound key in CSV is the editions.edition_id directly. Value-weighted: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing. Editions missing on date d carry forward last known value."
         latestValue={grailResult?.latest_index_value ?? 100}
         pctChange={grailResult?.series_pct_change ?? 0}
         basketMcap={grailResult?.basket_mcap_total_usd ?? 0}
         daysOfHistory={grailResult?.days_of_history ?? 0}
         series={grailResult?.series ?? []}
+        pillBasePath="/"
+        activeWindow={activeWindow}
+        preserveQuery={preserveQuery}
       />
       <MiniHero
         slug="rookies"
@@ -153,6 +190,9 @@ export async function IndexHeroPair({ lookbackDays = 30 }: { lookbackDays?: numb
             ? "No editions matched for current rookie draft classes (2025, 2024)."
             : undefined
         }
+        pillBasePath="/"
+        activeWindow={activeWindow}
+        preserveQuery={preserveQuery}
       />
     </div>
   );

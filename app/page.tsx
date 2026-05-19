@@ -1216,27 +1216,24 @@ async function loadDepthCaption(): Promise<string> {
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: Promise<{ w?: string }>;
+  searchParams?: Promise<{ w?: string; iw?: string }>;
 }) {
-  // The Supabase strip at the top of the page reads `?w=` and switches the
-  // player-volume window between mv_player_24h/7d/30d_volume — this is the
-  // "time-period filters MUST work" wiring.
+  // ?w=  → global volume-strip window (SupabaseHomepageStrip)
+  // ?iw= → index-hero window (Grail + Rookies pills)
   const sp = (await searchParams) ?? {};
   const rawWindow = sp.w;
+  const rawIndexWindow = sp.iw;
 
-  // The shell renders synchronously; SupabaseHomepageStrip mounts its own
-  // <Suspense> boundaries for each leaf (KPI / top players / most active /
-  // largest sales). The legacy cascade sits behind a single Suspense so the
-  // slow snapshot reads + recentSalesBulk(2000) don't block the rest of the
-  // page from streaming.
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
       {/* Doctrine §0.1 graph-first landing.
           2026-05-19 IA pass: paired Grail + Rookies hero per the senior-designer
-          spec. Grail = blue-chip basket (Legendary+Ultimate, top 50 by mcap).
-          Rookies = current draft class (top 30 by mcap). Both 30D default per §P7. */}
+          spec. Pills zoom 30D / 90D / 6M / 1Y / 2Y / ALL. */}
       <Suspense fallback={<IndexHeroPairSkeleton />}>
-        <IndexHeroPair lookbackDays={30} />
+        <IndexHeroPair
+          windowRaw={rawIndexWindow}
+          preserveQuery={{ w: rawWindow }}
+        />
       </Suspense>
       <SupabaseHomepageStrip rawWindow={rawWindow} />
       <Suspense fallback={<LegacyCascadeSkeleton />}>

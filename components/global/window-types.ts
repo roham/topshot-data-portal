@@ -2,7 +2,7 @@
 // This module has NO React / client-only code so it can be imported from
 // both server components and the client hook in useTimeWindow.ts.
 
-export const TIME_WINDOWS = ["24h", "7d", "30d", "90d", "1y", "all"] as const;
+export const TIME_WINDOWS = ["24h", "7d", "30d", "90d", "6m", "1y", "2y", "all"] as const;
 export type TimeWindow = (typeof TIME_WINDOWS)[number];
 
 // Iter-16: default flipped 24h → 30d. Card Ladder index pages default 90D
@@ -23,9 +23,25 @@ export const WINDOW_SPECS: Record<TimeWindow, WindowSpec> = {
   "7d":  { label: "7D",  ms: 7 * 24 * 60 * 60 * 1000 },
   "30d": { label: "30D", ms: 30 * 24 * 60 * 60 * 1000 },
   "90d": { label: "90D", ms: 90 * 24 * 60 * 60 * 1000 },
+  "6m":  { label: "6M",  ms: 182 * 24 * 60 * 60 * 1000 },
   "1y":  { label: "1Y",  ms: 365 * 24 * 60 * 60 * 1000 },
+  "2y":  { label: "2Y",  ms: 730 * 24 * 60 * 60 * 1000 },
   "all": { label: "ALL", ms: null },
 };
+
+/** Convert TimeWindow → lookback days for synthesizers that need a day count. */
+export function windowToDays(w: TimeWindow): number {
+  switch (w) {
+    case "24h": return 2;
+    case "7d":  return 7;
+    case "30d": return 30;
+    case "90d": return 90;
+    case "6m":  return 182;
+    case "1y":  return 365;
+    case "2y":  return 730;
+    case "all": return 9999;
+  }
+}
 
 /**
  * Pure helper for server components / route handlers. Parses the `w` search
@@ -50,7 +66,9 @@ export function windowToCadence(w: TimeWindow): "day" | "week" | "month" | "mark
     case "7d":  return "week";
     case "30d": return "month";
     case "90d": return "month"; // 90d aggregate not yet built — falls through to month
+    case "6m":  return "month";
     case "1y":  return "month"; // 1y aggregate not yet built — falls through to month
+    case "2y":  return "month";
     case "all": return "month";
     default:    return null;
   }
