@@ -3,7 +3,6 @@
 // Per the 2026-05-19 senior-designer IA pass: the homepage leads with TWO
 // canonical baskets so the Pro Trader sees both the blue-chip market and the
 // rookie market at first paint. Each pane is a compact mini-hero:
-//   · Time-window pills (30D / 90D / 6M / 1Y / 2Y / ALL)
 //   · Index value (32px tabular)
 //   · % change over series
 //   · Basket mcap
@@ -17,7 +16,6 @@ import { Suspense } from "react";
 import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TS50IndexChart } from "@/components/TS50IndexChart";
-import { IndexTimeWindowPills } from "@/components/IndexTimeWindowPills";
 import {
   parseTimeWindow,
   windowToDays,
@@ -44,12 +42,6 @@ interface MiniHeroProps {
   daysOfHistory: number;
   series: { date: string; index_value: number; basket_mcap_usd: number }[];
   emptyReason?: string;
-  /** Path the pill links navigate within (homepage = "/"; detail = "/indices/<slug>"). */
-  pillBasePath: string;
-  /** Active time window for the pill highlight. */
-  activeWindow: TimeWindow;
-  /** Other query params to preserve when changing window. */
-  preserveQuery?: Record<string, string | undefined>;
 }
 
 function MiniHero({
@@ -63,9 +55,6 @@ function MiniHero({
   daysOfHistory,
   series,
   emptyReason,
-  pillBasePath,
-  activeWindow,
-  preserveQuery,
 }: MiniHeroProps) {
   if (series.length === 0) {
     return (
@@ -87,19 +76,12 @@ function MiniHero({
       methodology={methodology}
       variant="inset"
       right={
-        <div className="flex items-center gap-3">
-          <IndexTimeWindowPills
-            basePath={pillBasePath}
-            preserveQuery={preserveQuery}
-            active={activeWindow}
-          />
-          <Link
-            href={`/indices/${slug}`}
-            className="text-[11px] text-[var(--accent)] hover:underline font-mono whitespace-nowrap"
-          >
-            basket →
-          </Link>
-        </div>
+        <Link
+          href={`/indices/${slug}`}
+          className="text-[11px] text-[var(--accent)] hover:underline font-mono whitespace-nowrap"
+        >
+          basket →
+        </Link>
       }
     >
       <div className="grid lg:grid-cols-[200px_1fr] gap-4 p-3">
@@ -138,10 +120,8 @@ function MiniHero({
 // moment its synthesizer resolves.
 async function GrailMiniHero({
   activeWindow,
-  preserveQuery,
 }: {
   activeWindow: TimeWindow;
-  preserveQuery?: Record<string, string | undefined>;
 }) {
   const lookbackDays = windowToDays(activeWindow);
   const result: GrailIndexResult | null = await getGrailIndex(lookbackDays).catch((err) => {
@@ -159,9 +139,6 @@ async function GrailMiniHero({
       basketMcap={result?.basket_mcap_total_usd ?? 0}
       daysOfHistory={result?.days_of_history ?? 0}
       series={result?.series ?? []}
-      pillBasePath="/"
-      activeWindow={activeWindow}
-      preserveQuery={preserveQuery}
       emptyReason={result === null ? "Grail index temporarily unavailable." : undefined}
     />
   );
@@ -169,10 +146,8 @@ async function GrailMiniHero({
 
 async function RookiesMiniHero({
   activeWindow,
-  preserveQuery,
 }: {
   activeWindow: TimeWindow;
-  preserveQuery?: Record<string, string | undefined>;
 }) {
   const lookbackDays = windowToDays(activeWindow);
   const result: RookiesIndexResult | null = await getRookiesIndex(lookbackDays).catch((err) => {
@@ -197,9 +172,6 @@ async function RookiesMiniHero({
             ? "No editions matched for current rookie draft classes (2025, 2024)."
             : undefined
       }
-      pillBasePath="/"
-      activeWindow={activeWindow}
-      preserveQuery={preserveQuery}
     />
   );
 }
@@ -222,21 +194,18 @@ function MiniHeroSkeleton() {
 
 export function IndexHeroPair({
   windowRaw,
-  preserveQuery,
 }: {
-  /** Raw `iw` searchParam value from the page. */
+  /** Raw `w` searchParam value from the page (the global time window). */
   windowRaw?: string | string[];
-  /** Other query params on the homepage to preserve when changing window. */
-  preserveQuery?: Record<string, string | undefined>;
 }) {
   const { window: activeWindow } = parseTimeWindow(windowRaw, "30d");
   return (
     <div className="grid lg:grid-cols-2 gap-4">
       <Suspense fallback={<MiniHeroSkeleton />}>
-        <GrailMiniHero activeWindow={activeWindow} preserveQuery={preserveQuery} />
+        <GrailMiniHero activeWindow={activeWindow} />
       </Suspense>
       <Suspense fallback={<MiniHeroSkeleton />}>
-        <RookiesMiniHero activeWindow={activeWindow} preserveQuery={preserveQuery} />
+        <RookiesMiniHero activeWindow={activeWindow} />
       </Suspense>
     </div>
   );

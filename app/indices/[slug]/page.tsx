@@ -11,7 +11,6 @@ import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
 import { TS50IndexChart } from "@/components/TS50IndexChart";
-import { IndexTimeWindowPills } from "@/components/IndexTimeWindowPills";
 import {
   parseTimeWindow,
   windowToDays,
@@ -232,14 +231,14 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ iw?: string }>;
+  searchParams?: Promise<{ w?: string }>;
 }) {
   const { slug } = await params;
   const shape = SHAPES[slug];
   if (!shape) notFound();
 
   const sp = (await searchParams) ?? {};
-  const { window: activeWindow } = parseTimeWindow(sp.iw, "30d");
+  const { window: activeWindow } = parseTimeWindow(sp.w, "30d");
   const lookbackDays = windowToDays(activeWindow);
 
   let series: { date: string; index_value: number; basket_mcap_usd: number }[] = [];
@@ -301,16 +300,15 @@ export default async function Page({
         / <span className="text-[var(--text-dim)]">{shape.slug}</span>
       </nav>
 
-      {/* Hero card */}
+      {/* Hero card — time-window control is the global TopNav selector */}
       <Card
         title={shape.title}
         subtitle={shape.subtitle(asOfDate, basketSize)}
         variant="inset"
         right={
-          <IndexTimeWindowPills
-            basePath={`/indices/${shape.slug}`}
-            active={activeWindow}
-          />
+          <span className="text-[11px] text-[var(--text-faint)] font-mono">
+            window · {WINDOW_SPECS[activeWindow].label} (top-right selector)
+          </span>
         }
       >
         <HeroChart

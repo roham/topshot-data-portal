@@ -1217,24 +1217,20 @@ async function loadDepthCaption(): Promise<string> {
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: Promise<{ w?: string; iw?: string }>;
+  searchParams?: Promise<{ w?: string }>;
 }) {
-  // ?w=  → global volume-strip window (SupabaseHomepageStrip)
-  // ?iw= → index-hero window (Grail + Rookies pills)
+  // Single ?w= controls all graphs AND tables across the portal.
+  // The TopNav's TimeWindowSelector is the canonical UI affordance.
   const sp = (await searchParams) ?? {};
   const rawWindow = sp.w;
-  const rawIndexWindow = sp.iw;
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
       {/* Doctrine §0.1 graph-first landing.
-          2026-05-19 IA pass: paired Grail + Rookies hero per the senior-designer
-          spec. Pills zoom 30D / 90D / 6M / 1Y / 2Y / ALL. */}
+          Single time-window control (TopNav) drives both heroes + the
+          aggregate strip below. */}
       <Suspense fallback={<IndexHeroPairSkeleton />}>
-        <IndexHeroPair
-          windowRaw={rawIndexWindow}
-          preserveQuery={{ w: rawWindow }}
-        />
+        <IndexHeroPair windowRaw={rawWindow} />
       </Suspense>
       <SupabaseHomepageStrip rawWindow={rawWindow} />
       <Suspense fallback={<LegacyCascadeSkeleton />}>
