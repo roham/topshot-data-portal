@@ -21,7 +21,6 @@ import {
 } from "@/lib/supabase/queries/validation-runs";
 
 export const metadata = { title: "Data quality · TS·PORTAL" };
-export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 interface PageProps {

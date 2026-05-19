@@ -24,7 +24,6 @@ import type { MarketplaceTransaction, MomentTier } from "@/lib/topshot/types";
 // because gqlFetch caches the chronologicalTxBackfill page-1 result at 30s
 // TTL inside the process.
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
 export const metadata = { title: "Activity feed · TS·PORTAL" };
 
 interface FeedRow {

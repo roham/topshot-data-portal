@@ -12,7 +12,6 @@ import { EntityTabs } from "@/components/EntityTabs";
 // URL form: /edition/{setFlowId}-{playFlowId}
 // Composite is the simplest path that maps directly to getEditionByFlowIDs.
 
-export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 interface EditionShape {

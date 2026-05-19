@@ -9,7 +9,6 @@ import { Num } from "@/components/primitives/Num";
 import { getRecentTransactions } from "@/lib/supabase/queries/recent-transactions";
 import type { MintedMoment } from "@/lib/topshot/types";
 
-export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 async function loadFullBag(flowAddress: string): Promise<MintedMoment[]> {

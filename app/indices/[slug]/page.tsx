@@ -21,7 +21,7 @@ import {
 import { getGrailIndex, type GrailConstituentRow, type GrailIndexResult } from "@/lib/indices/grail-synthesizer";
 import { getRookiesIndex, type RookiesConstituentRow, type RookiesIndexResult } from "@/lib/indices/rookies-synthesizer";
 
-export const revalidate = 60 * 60;
+export const revalidate = 3600;
 
 const CONSTITUENT_LIMIT = 25;
 

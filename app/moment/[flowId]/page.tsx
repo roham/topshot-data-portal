@@ -49,7 +49,6 @@ function parseHistoryWindow(
 // Five sections: Hero · Valuation · Depth ladder · Recent comps · Parallels matrix.
 // Senior research analyst voice; honest absence per design/00 §4.7.
 
-export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 const HISTORY_WINDOW_LABELS: Record<MomentHistoryWindow, string> = {

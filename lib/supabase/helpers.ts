@@ -13,12 +13,15 @@ export type MarketView =
   | "mv_market_summary_all_time";
 
 export function windowToMarketView(w: TimeWindow): MarketView {
+  // No 6m / 2y MV variants yet — fold to closest existing (6m→90d, 2y→all).
   switch (w) {
     case "24h": return "mv_market_summary_24h";
     case "7d":  return "mv_market_summary_7d";
     case "30d": return "mv_market_summary_30d";
-    case "90d": return "mv_market_summary_90d";
+    case "90d":
+    case "6m":  return "mv_market_summary_90d";
     case "1y":  return "mv_market_summary_1y";
+    case "2y":
     case "all": return "mv_market_summary_all_time";
   }
 }
@@ -37,8 +40,10 @@ export function windowToPlayerView(w: TimeWindow): PlayerView {
     case "24h": return "mv_player_24h_volume";
     case "7d":  return "mv_player_7d_volume";
     case "30d": return "mv_player_30d_volume";
-    case "90d": return "mv_player_90d_volume";
+    case "90d":
+    case "6m":  return "mv_player_90d_volume";
     case "1y":  return "mv_player_1y_volume";
+    case "2y":
     case "all": return "mv_player_all_time_volume";
   }
 }
@@ -63,8 +68,10 @@ export function windowToLargestSalesView(w: TimeWindow): LargestSalesView {
     case "24h": return "mv_largest_sales_24h";
     case "7d":  return "mv_largest_sales_7d";
     case "30d":
-    case "90d": return "mv_largest_sales_30d";
+    case "90d":
+    case "6m":  return "mv_largest_sales_30d";
     case "1y":  return "mv_largest_sales_1y";
+    case "2y":
     case "all": return "mv_largest_sales_all_time";
   }
 }
@@ -83,15 +90,17 @@ export function windowToEditionActivityView(w: TimeWindow): EditionActivityView 
     case "24h": return "mv_edition_24h_activity";
     case "7d":  return "mv_edition_7d_activity";
     case "30d":
-    case "90d": return "mv_edition_30d_activity";
+    case "90d":
+    case "6m":  return "mv_edition_30d_activity";
     case "1y":  return "mv_edition_1y_activity";
+    case "2y":
     case "all": return "mv_edition_all_time_activity";
   }
 }
 
 // ─── Window parsing + labeling ─────────────────────────────────────────────
 const VALID_WINDOWS: ReadonlyArray<TimeWindow> = [
-  "24h", "7d", "30d", "90d", "1y", "all",
+  "24h", "7d", "30d", "90d", "6m", "1y", "2y", "all",
 ];
 
 // Defaults to "30d" to match DEFAULT_WINDOW in components/global/window-types.ts —
