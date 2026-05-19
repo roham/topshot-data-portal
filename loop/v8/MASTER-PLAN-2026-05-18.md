@@ -131,22 +131,57 @@ Per THE-WAY §VI ("generate-score-ship, never generate-ship") and the V7 charter
 
 ---
 
-## §5 — V8 Charter patches (TO BE FILLED from practitioner survey)
+## §5 — V8 Charter patches (filed from practitioner survey)
 
-*The practitioner survey subagent is running in background (dispatch ID `a7fda57ee4ff3bf80`). When it returns with the survey of Anthropic / Microsoft Research / OpenAI / DeepMind / Cursor / Cognition / Sourcegraph / Aider / Karpathy / LangChain practices, this section gets populated with concrete patches to the V7 charter.*
+Full survey at `research/design-specs/2026-05-18-infinite-loop-practitioners.md`. 11 practitioners studied (Anthropic, Magentic-One/MSR, Cognition, OpenAI Swarm, DeepMind AlphaEvolve, Cursor, Sourcegraph, Aider, Karpathy, LangGraph, Claude Code hooks substrate). The survey identifies **V7's biggest structural gap**: the V4-era "judge says PASS but artifact is hollow" failure mode is **unsolved** — V7 has the gpt-5.5 cross-vendor judge but no cheap deterministic primitives running BEFORE the judge. Also: V7's anti-shortcircuit rules are advisory text in skill bodies, when Claude Code's hooks substrate makes them enforceable; V7 contradicts itself on cost (§5 caps vs §9 rule 3 "no cap").
 
-**Expected return:** within the next 5-10 minutes of session time.
+### Patches converging across ≥3 practitioners (= adopt as doctrine)
 
-**Working hypothesis** (pending survey confirmation):
-- **Keep V7's** two-loop architecture, multi-track selection, cross-vendor judge, STOP file, phase progression D→B→C→A
-- **Add** Magentic-One's five-questions-per-step Progress Ledger answer (already in the hook per THE-WAY §VI line 233)
-- **Add** Cognition/Devin-style explicit planner-executor-verifier separation per iter
-- **Add** Anthropic's "Building effective agents" tool-choice gating (use the right primitive per task type — Workflow vs Agent vs Tool)
-- **Add** explicit budget gates per iter: token cap, BQ bytes-billed cap, Vercel deploys per change cap
-- **Revise** the 7-axis Loop A rubric and 8-axis Loop B rubric based on what we learned from V7 — likely simplify, possibly add an explicit "mobile-first" axis to Loop B per §D1
-- **Revise** the META track triggers — V7 says "same fail-shape 3 consecutive iters"; we may want a stall counter on the Progress Ledger's forward-progress question per Magentic-One
+| Pattern | Practitioners |
+|---|---|
+| Verification decoupled from generation (separate evaluator) | Anthropic CitationAgent + Eval-Optimizer / DeepMind programmable evaluator / Cognition test-driven iter / Aider /run-/test / Karpathy "eval is the bottleneck" |
+| Artifact-via-filesystem (subagents write files, return paths) | Anthropic / Magentic-One FileSurfer / Aider repo map / Cursor Composer |
+| Explicit two-loop / two-ledger separation (plan-revision vs step-exec) | Magentic-One (Task Ledger + Progress Ledger) / LangGraph (supervisor + subgraphs) / Anthropic (orchestrator-workers + eval-optimizer) |
+| Stall threshold = small int (2-3 consecutive failures → replan) | Magentic-One (>2) / V7 (3) / Anthropic ("not making progress") |
+| Single-threaded linear default; parallel only for read-only | Cognition (explicit) / Anthropic (read-only research subagents) / Claude Code (Q&A only) |
+| Context compression for long runs | Cognition (compression LLM) / Anthropic (summarize completed phases) / Magentic-One (Task Ledger IS the compressed view) |
+| Hooks/gates at lifecycle boundaries | Claude Code (PreToolUse, Stop) / Cursor (apply-edit gate) / Aider (git auto-commit per edit) |
 
-Concrete patches land in §5.1 - §5.N when the survey returns. Until then, V7 Charter is the in-force loop spec.
+### The 13 patches (full text in research/design-specs/2026-05-18-infinite-loop-practitioners.md §3)
+
+| # | Patch | Source | Risk if not landed |
+|---|---|---|---|
+| **P1** | Two-ledger split — `task-ledger.json` (outer, facts/guesses/plan) + `iteration-<N>.json` (inner, progress ledger answering 4 questions) | Magentic-One | Orchestrator re-derives "what's the live plan?" every iter |
+| **P2** | Stall threshold tightened 3→2 consecutive identical `failure_signature`; META track MUST write new Task Ledger plan; add `replan_budget=5` (silent looping is the failure mode beyond that) | Magentic-One / Cognition | V7 silently loops past the budget |
+| **P3** | Deterministic verification primitives BEFORE the LLM judge: (a) `npm run build` exit 0, (b) PROBE-EVIDENCE check (any "X unavailable" claim has an adjacent SQL probe artifact), (c) MULTI-VIEWPORT (Loop B) — screenshots at 375/768/1280/1920 px before judge runs | Anthropic / DeepMind / Cognition | The V4-failure-mode is still possible |
+| **P4** | Wire verifier as literal Claude Code `Stop` hook (not "called by orchestrator"); `{"decision":"block","reason":"FAIL"}` on FAIL | Claude Code hooks | Verifier is bypassable |
+| **P5** | Subagent dispatch contract has 5 required fields: `objective` / `output_path` / `output_format` / `tool_boundaries` / `predecessor_artifacts[]` (full file paths, NOT summaries — Cognition's share-full-context rule) | Anthropic + Cognition | Implicit-decisions bug between subagents |
+| **P6** | Program-database write path: `loop/v8/state/program-database/<iter-id>.json` preserves every FAILed iter (verdict, novel_ideas[], rejected_reason, diff_snapshot) so META can sample from the graveyard | AlphaEvolve | Good ideas abandoned in FAILed iters lost forever |
+| **P7** | Phase-progression gates become deterministic computed signals: `phase-status.json` has `eligible:bool` from objective signals (consecutive ✓ votes, FAIL rate, no anti-stall). `/promote` only works when `eligible == true` | Karpathy autonomy slider | Vibes-y phase transitions |
+| **P8** | Cost gates moved from orchestrator self-policing to `PreToolUse` hook reading `cost-ledger.jsonl`: BigQuery ≤ 50GB/day, Vercel ≤ 10 deploys/day, gpt-5.5 ≤ 100 calls/day | Claude Code hooks | Policy without mechanism |
+| **P9** | Doctrine-compliance checker subagent in Stop-hook chain: for each new feature, asserts named comparable + signature-move reference + quote from comparable's doctrine page | Anthropic CitationAgent + cgs-template | "Doctrine-named comparable per feature" drifts without enforcement |
+| **P10** | REMOVE §9 rule 3 ("No spend cap. No effort cap. Push through") — it contradicts §5's $5/iter and $50/day. Replace with "within §5 budget envelope treat compute as cheap; outside, escalate, do not silently degrade" | V7 internal consistency | Agent picks whichever rule rationalizes its current action |
+| **P11** | Tag every track READ-ONLY or READ-WRITE. READ-ONLY (DISCOVERY/VERIFY/META-diagnostic) skips verifier (no diff). READ-WRITE (BUILD-FAILING/AUDIT-FAILING/CORRECTIVE/BACKFILL/DERIVATIVE/DEEPENING) requires it | Cursor agent-vs-chat | Wasted verifier budget on no-op iters |
+| **P12** | Compression policy: when orchestrator transcript > 100K tokens, Haiku-based compression produces `transcript-summary-<N>.md` (live Task Ledger + last 3 iter outcomes + queue + anti-stall events). Next prompt loads summary + most recent iter, not full history | Cognition compression-LLM | No defined behavior at context overflow |
+| **P13** | Loop B taste signals use VOTING parallelization: spawn 3 parallel judge instances with different seeds; PASS verdict requires ≥ 2/3 | Anthropic parallelization-voting | Single-judge blind spots on high-stakes taste calls |
+
+### The load-bearing trio (ship first — survey's §4 recommendation)
+
+**1. P3 + P4 — deterministic primitives + Stop-hook verifier.** Closes the V4-failure-mode. The agent literally cannot claim done without build passing, probe-evidence for negative claims, multi-viewport screenshots (Loop B), AND the gpt-5.5 judge PASS. Mechanism not policy.
+
+**2. P1 — two-ledger split.** Cheapest structural change with the highest information-architecture payoff. Live plan becomes a one-read primitive. Replan triggers (P2) become trivial.
+
+**3. P5 — typed subagent dispatch contract.** Closes the Cognition implicit-decisions bug for Researcher → Builder → Judge handoffs. Every dispatch becomes a typed object Roham can inspect.
+
+These three close the verification gap, make state legible, prevent context fragmentation. Rest of the patches are multipliers on top.
+
+### How V8 Charter relates to the V8 Master Plan (this file)
+
+- The Master Plan (this file) is **what we ship**.
+- The V8 Charter (forthcoming, at `loop/v8/CHARTER.md`) is **how we ship it autonomously**.
+- The V7 Charter remains in force *for the next session's Tier A execution* — Dexter executes Tier A items inside the V7 frame because the V8 Charter isn't drafted yet.
+- After Tier A ships, Dexter writes the V8 Charter (≤2h of focused work) incorporating P1 + P3 + P4 + P5 as the load-bearing patches.
+- V8 Charter then governs Tier B onward.
 
 ---
 
