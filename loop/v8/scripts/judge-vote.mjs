@@ -18,7 +18,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname, basename } from 'node:path';
 
 const REPO_ROOT = process.env.CLAUDE_PROJECT_DIR
   ? resolve(process.env.CLAUDE_PROJECT_DIR)
@@ -34,7 +34,9 @@ const iterDir = resolve(REPO_ROOT, iterDirArg);
 const loopFlagIdx = args.indexOf('--loop');
 const loop = loopFlagIdx >= 0 ? args[loopFlagIdx + 1] : 'A';
 
-const iterStatePath = join(iterDir, 'iteration-state.json');
+// Iteration state is written by the orchestrator as a sibling of iterDir:
+//   STATE_DIR/iteration-N.json   (NOT  STATE_DIR/iteration-N/iteration-state.json)
+const iterStatePath = join(dirname(iterDir), `${basename(iterDir)}.json`);
 const diffPath = join(iterDir, 'diff.patch');
 const rubricPath = resolve(REPO_ROOT, `research/quality-rubrics/loop-${loop.toLowerCase()}-rubric.md`);
 const doctrinePath = resolve(REPO_ROOT, 'research/doctrine.md');
