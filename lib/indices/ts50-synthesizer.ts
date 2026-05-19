@@ -171,14 +171,28 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
   const seriesStartDate = dates[0];
   const isThin = dates.length < 7;
 
-  // ── Step 5: compute weights from latest mcap, 5% cap per edition ─────────
-  // S&P / CL50 standard — prevents single-stuck-listing outliers from
-  // dominating the basket (e.g., a $500K stuck floor producing $10M edition
-  // mcap = 65% raw weight = blows the index up). See grail-synthesizer.ts
-  // for the bug history.
-  const MAX_WEIGHT = 0.05;
+  // ── Step 5: robust weighting — outlier exclusion + 2% per-edition cap.
+  // See grail-synthesizer.ts for full derivation + bug history.
+  const MAX_WEIGHT = 0.02;
+  const OUTLIER_RATIO = 5;
+
+  const medianByEdition = new Map<string, number>();
+  for (const [eid, dmap] of byEdition.entries()) {
+    const values: number[] = [];
+    for (const v of dmap.values()) if (v > 0) values.push(v);
+    if (values.length === 0) continue;
+    values.sort((a, b) => a - b);
+    const mid = Math.floor(values.length / 2);
+    medianByEdition.set(
+      eid,
+      values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid]
+    );
+  }
+
   const weights = new Map<string, number>();
   for (const t of top) {
+    const median = medianByEdition.get(t.edition_id);
+    if (median && median > 0 && t.current_mcap / median > OUTLIER_RATIO) continue;
     const raw = t.current_mcap / basketMcapTotal;
     weights.set(t.edition_id, Math.min(raw, MAX_WEIGHT));
   }

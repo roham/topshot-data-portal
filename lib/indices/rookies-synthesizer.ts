@@ -202,12 +202,29 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
   const seriesStartDate = dates[0];
   const isThin = dates.length < 7;
 
-  // 5% per-edition weight cap — same rationale as grail-synthesizer.ts
-  // (S&P / CL50 standard, prevents single-stuck-listing outliers from
-  // dominating the basket).
+  // Robust weighting — see grail-synthesizer.ts for full math derivation.
+  // (a) Exclude editions where current_mcap > 5× window-median (outliers).
+  // (b) Cap remaining weights at 5% (rookies has fewer editions so cap is laxer).
   const MAX_WEIGHT = 0.05;
+  const OUTLIER_RATIO = 5;
+
+  const medianByEdition = new Map<string, number>();
+  for (const [eid, dmap] of byEdition.entries()) {
+    const values: number[] = [];
+    for (const v of dmap.values()) if (v > 0) values.push(v);
+    if (values.length === 0) continue;
+    values.sort((a, b) => a - b);
+    const mid = Math.floor(values.length / 2);
+    medianByEdition.set(
+      eid,
+      values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid]
+    );
+  }
+
   const weights = new Map<string, number>();
   for (const t of top) {
+    const median = medianByEdition.get(t.edition_id);
+    if (median && median > 0 && t.current_mcap / median > OUTLIER_RATIO) continue;
     const raw = t.current_mcap / basketMcapTotal;
     weights.set(t.edition_id, Math.min(raw, MAX_WEIGHT));
   }

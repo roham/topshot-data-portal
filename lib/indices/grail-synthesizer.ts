@@ -258,22 +258,44 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   }
   const seriesStartDate = dates[0];
 
-  // 7. Value-weighted weights from CURRENT mcap, with a 5% per-edition cap.
-  //
-  // Standard practice for every real value-weighted index (S&P 500, CL50,
-  // Russell 2000): no single constituent can dominate. Without a cap, a single
-  // stuck listing — e.g., Steven Adams Holo at $500K floor producing a $10M
-  // edition mcap = 65% of basket — drags the whole index along that one
-  // edition's per-day variance. With cap=5%, no edition has more than 5% impact.
-  //
-  // Weights below cap stay raw; weights above cap clip to cap. We don't
-  // redistribute the excess — the basket weight sum becomes < 1, which is
-  // mathematically fine since index = ratio of (Σ w × mcap) at two dates.
-  const MAX_WEIGHT = 0.05;
+  // 7. Robust weighting:
+  //    (a) Exclude editions whose current mcap > 5× their median observed mcap
+  //        in the window — these are outliers (stuck listings, ETL artifacts).
+  //        Example: Stephen Curry Holo MMXX with stuck $500K floor produces
+  //        current_mcap=$10M vs window-median ~$134K → 75× → excluded.
+  //    (b) Among the remaining editions, cap each weight at 2%.
+  //    No redistribution of excess weight; basket sum < 1 is fine (it cancels
+  //    in the ratio).
+  const MAX_WEIGHT = 0.02;
+  const OUTLIER_RATIO = 5;
+
+  // Compute window-median per edition (robust to single-day spikes/drops).
+  const medianByEdition = new Map<string, number>();
+  for (const [eid, dmap] of byEdition.entries()) {
+    const values: number[] = [];
+    for (const v of dmap.values()) if (v > 0) values.push(v);
+    if (values.length === 0) continue;
+    values.sort((a, b) => a - b);
+    const mid = Math.floor(values.length / 2);
+    medianByEdition.set(
+      eid,
+      values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid]
+    );
+  }
+
   const weights = new Map<string, number>();
+  const excluded: string[] = [];
   for (const [eid, m] of currentMcap.entries()) {
+    const median = medianByEdition.get(eid);
+    if (median && median > 0 && m / median > OUTLIER_RATIO) {
+      excluded.push(eid);
+      continue;
+    }
     const raw = m / basketMcapTotal;
     weights.set(eid, Math.min(raw, MAX_WEIGHT));
+  }
+  if (excluded.length > 0) {
+    console.log(`[grail] excluded ${excluded.length} outlier editions (current > 5× window-median)`);
   }
 
   // 8. Series — basket-level normalization with BIDIRECTIONAL carry-forward.
