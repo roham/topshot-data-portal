@@ -66,80 +66,63 @@ const EMPTY: GrailIndexResult = {
   basket_active_size: 0,
 };
 
-/** Parse the Vaultopolis canonical CSV → deduped (set_id, play_id) pairs. */
-async function parseGrailBasket(): Promise<{ set_id: string; play_id: string }[]> {
+/** Parse the Vaultopolis canonical CSV → deduped edition_ids.
+ *  Column 6 of the CSV is the compound {set_id}+{play_id} string, which IS
+ *  the editions.edition_id key (verified against schema 2026-05-19). */
+async function parseGrailBasket(): Promise<string[]> {
   const path = join(process.cwd(), CSV_RELATIVE_PATH);
   const text = await readFile(path, "utf-8");
   const lines = text.split("\n").slice(1); // drop header
-  const pairs = new Set<string>(); // serialized "set_id+play_id" for dedupe
+  const ids = new Set<string>();
   for (const line of lines) {
     if (!line.trim()) continue;
     const cols = line.split(",");
-    const compound = cols[5]?.trim();
-    if (!compound) continue;
-    const [setId, playId] = compound.split("+");
-    if (!setId || !playId) continue;
-    pairs.add(`${setId}+${playId}`);
+    const editionId = cols[5]?.trim();
+    if (!editionId || !editionId.includes("+")) continue;
+    ids.add(editionId);
   }
-  return Array.from(pairs).map((s) => {
-    const [set_id, play_id] = s.split("+");
-    return { set_id, play_id };
-  });
+  return Array.from(ids);
 }
 
 async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   const sb = getSupabaseServerAnon();
   if (!sb) return EMPTY;
 
-  // 1. Parse canonical basket
-  let basketPairs: { set_id: string; play_id: string }[] = [];
+  // 1. Parse canonical basket — column 6 IS the editions.edition_id directly.
+  let basketEditionIds: string[] = [];
   try {
-    basketPairs = await parseGrailBasket();
+    basketEditionIds = await parseGrailBasket();
   } catch (err) {
     console.error("[grail] CSV parse failed", err);
     return EMPTY;
   }
-  if (basketPairs.length === 0) return EMPTY;
+  if (basketEditionIds.length === 0) return EMPTY;
 
-  // 2. Resolve to edition_ids via editions table.
-  // Query editions with all relevant set_ids OR play_ids in IN-clauses, then
-  // filter cartesian on the client side to the exact (set_id, play_id) pairs.
-  const setIds = Array.from(new Set(basketPairs.map((p) => p.set_id)));
-  const playIds = Array.from(new Set(basketPairs.map((p) => p.play_id)));
-  const wanted = new Set(basketPairs.map((p) => `${p.set_id}+${p.play_id}`));
-
+  // 2. Pull edition metadata for those ids (player_name, tier_name) for the
+  //    constituents table. set_name lives on the `sets` table; we fetch it
+  //    separately if/when needed for the deep view.
   type EdLookup = {
     edition_id: string;
-    set_id: string | null;
-    play_id: string | null;
     player_name: string | null;
-    set_name: string | null;
     tier_name: string | null;
+    edition_name: string | null;
   };
   const edLookup: EdLookup[] = [];
   const CHUNK = 500;
-  // Paginate over set_ids; for each chunk, also constrain to the play_ids we want
-  // to bound result size. play_id IN over up to 166 ids is fine on PostgREST.
-  for (let i = 0; i < setIds.length; i += CHUNK) {
-    const setChunk = setIds.slice(i, i + CHUNK);
-    for (let j = 0; j < playIds.length; j += CHUNK) {
-      const playChunk = playIds.slice(j, j + CHUNK);
-      const { data } = await sb
-        .from("editions")
-        .select("edition_id, set_id, play_id, player_name, set_name, tier_name")
-        .in("set_id", setChunk)
-        .in("play_id", playChunk);
-      for (const r of (data as EdLookup[] | null) ?? []) edLookup.push(r);
-    }
+  for (let i = 0; i < basketEditionIds.length; i += CHUNK) {
+    const chunk = basketEditionIds.slice(i, i + CHUNK);
+    const { data } = await sb
+      .from("editions")
+      .select("edition_id, player_name, tier_name, edition_name")
+      .in("edition_id", chunk);
+    for (const r of (data as EdLookup[] | null) ?? []) edLookup.push(r);
   }
-  const resolved = edLookup.filter(
-    (e) => e.set_id && e.play_id && wanted.has(`${e.set_id}+${e.play_id}`),
-  );
-  if (resolved.length === 0) return { ...EMPTY, basket_target_size: basketPairs.length };
-
   const editionIdToMeta = new Map<string, EdLookup>();
-  for (const e of resolved) editionIdToMeta.set(e.edition_id, e);
-  const editionIds = Array.from(editionIdToMeta.keys());
+  for (const e of edLookup) editionIdToMeta.set(e.edition_id, e);
+  const editionIds = basketEditionIds.filter((id) => editionIdToMeta.has(id));
+  if (editionIds.length === 0) {
+    return { ...EMPTY, basket_target_size: basketEditionIds.length };
+  }
 
   // 3. Latest snapshot date
   const { data: latestRow } = await sb
@@ -152,8 +135,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (!asOfDate) {
     return {
       ...EMPTY,
-      basket_target_size: basketPairs.length,
-      basket_resolved_size: resolved.length,
+      basket_target_size: basketEditionIds.length,
+      basket_resolved_size: editionIds.length,
     };
   }
 
@@ -176,8 +159,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (basketMcapTotal <= 0) {
     return {
       ...EMPTY,
-      basket_target_size: basketPairs.length,
-      basket_resolved_size: resolved.length,
+      basket_target_size: basketEditionIds.length,
+      basket_resolved_size: editionIds.length,
       as_of_date: asOfDate,
     };
   }
@@ -219,8 +202,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (allHistory.length === 0) {
     return {
       ...EMPTY,
-      basket_target_size: basketPairs.length,
-      basket_resolved_size: resolved.length,
+      basket_target_size: basketEditionIds.length,
+      basket_resolved_size: editionIds.length,
       as_of_date: asOfDate,
     };
   }
@@ -237,8 +220,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (dates.length === 0) {
     return {
       ...EMPTY,
-      basket_target_size: basketPairs.length,
-      basket_resolved_size: resolved.length,
+      basket_target_size: basketEditionIds.length,
+      basket_resolved_size: editionIds.length,
       as_of_date: asOfDate,
     };
   }
@@ -301,7 +284,7 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
       return {
         edition_id: eid,
         player_name: meta?.player_name ?? null,
-        set_name: meta?.set_name ?? null,
+        set_name: null, // set_name lives on the `sets` table; deep view joins it
         tier_name: meta?.tier_name ?? null,
         weight: weights.get(eid) ?? 0,
         current_mcap_usd: mcap,
@@ -318,8 +301,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     latest_index_value: latestIndexValue,
     series_pct_change: seriesPctChange,
     days_of_history: dates.length,
-    basket_target_size: basketPairs.length,
-    basket_resolved_size: resolved.length,
+    basket_target_size: basketEditionIds.length,
+    basket_resolved_size: editionIds.length,
     basket_active_size: byEdition.size,
   };
 }
