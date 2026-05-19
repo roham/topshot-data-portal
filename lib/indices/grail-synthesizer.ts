@@ -310,6 +310,6 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
 export const getGrailIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),
-    ["grail-index-v2-canonical", String(lookbackDays)],
+    ["grail-index-v3-direct-edition-id", String(lookbackDays)],
     { revalidate: 60 * 60, tags: ["grail-index"] }
   )();
