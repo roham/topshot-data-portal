@@ -202,8 +202,15 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
   const seriesStartDate = dates[0];
   const isThin = dates.length < 7;
 
+  // 5% per-edition weight cap — same rationale as grail-synthesizer.ts
+  // (S&P / CL50 standard, prevents single-stuck-listing outliers from
+  // dominating the basket).
+  const MAX_WEIGHT = 0.05;
   const weights = new Map<string, number>();
-  for (const t of top) weights.set(t.edition_id, t.current_mcap / basketMcapTotal);
+  for (const t of top) {
+    const raw = t.current_mcap / basketMcapTotal;
+    weights.set(t.edition_id, Math.min(raw, MAX_WEIGHT));
+  }
 
   // Basket-level normalization with BIDIRECTIONAL carry-forward.
   // See grail-synthesizer.ts for math derivation + bug history (outliers, sparse-baseline).

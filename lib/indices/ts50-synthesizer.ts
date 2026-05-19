@@ -171,10 +171,16 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
   const seriesStartDate = dates[0];
   const isThin = dates.length < 7;
 
-  // ── Step 5: compute weights from latest mcap ────────────────────────────
+  // ── Step 5: compute weights from latest mcap, 5% cap per edition ─────────
+  // S&P / CL50 standard — prevents single-stuck-listing outliers from
+  // dominating the basket (e.g., a $500K stuck floor producing $10M edition
+  // mcap = 65% raw weight = blows the index up). See grail-synthesizer.ts
+  // for the bug history.
+  const MAX_WEIGHT = 0.05;
   const weights = new Map<string, number>();
   for (const t of top) {
-    weights.set(t.edition_id, t.current_mcap / basketMcapTotal);
+    const raw = t.current_mcap / basketMcapTotal;
+    weights.set(t.edition_id, Math.min(raw, MAX_WEIGHT));
   }
 
   // ── Step 6: index series via basket-level normalization + bidirectional fill.

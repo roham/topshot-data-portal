@@ -258,9 +258,23 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   }
   const seriesStartDate = dates[0];
 
-  // 7. Value-weighted weights from CURRENT mcap (latest snapshot defines the basket).
+  // 7. Value-weighted weights from CURRENT mcap, with a 5% per-edition cap.
+  //
+  // Standard practice for every real value-weighted index (S&P 500, CL50,
+  // Russell 2000): no single constituent can dominate. Without a cap, a single
+  // stuck listing — e.g., Steven Adams Holo at $500K floor producing a $10M
+  // edition mcap = 65% of basket — drags the whole index along that one
+  // edition's per-day variance. With cap=5%, no edition has more than 5% impact.
+  //
+  // Weights below cap stay raw; weights above cap clip to cap. We don't
+  // redistribute the excess — the basket weight sum becomes < 1, which is
+  // mathematically fine since index = ratio of (Σ w × mcap) at two dates.
+  const MAX_WEIGHT = 0.05;
   const weights = new Map<string, number>();
-  for (const [eid, m] of currentMcap.entries()) weights.set(eid, m / basketMcapTotal);
+  for (const [eid, m] of currentMcap.entries()) {
+    const raw = m / basketMcapTotal;
+    weights.set(eid, Math.min(raw, MAX_WEIGHT));
+  }
 
   // 8. Series — basket-level normalization with BIDIRECTIONAL carry-forward.
   //
