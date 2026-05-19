@@ -186,10 +186,9 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
   }
   if (allHistory.length === 0) return { ...EMPTY, draft_year_used: draftYear };
 
-  // Single forward pass: pivot + dates + baseline. allHistory is pre-sorted by query.
+  // Single forward pass: pivot + dates.
   const byEdition = new Map<string, Map<string, number>>();
   const dates: string[] = [];
-  const baseline = new Map<string, number>();
   let prevDate = "";
   for (const h of allHistory) {
     if (h.date !== prevDate) {
@@ -198,9 +197,6 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
     }
     if (!byEdition.has(h.edition_id)) byEdition.set(h.edition_id, new Map());
     byEdition.get(h.edition_id)!.set(h.date, h.market_cap);
-    if (h.market_cap > 0 && !baseline.has(h.edition_id)) {
-      baseline.set(h.edition_id, h.market_cap);
-    }
   }
   if (dates.length === 0) return { ...EMPTY, draft_year_used: draftYear };
   const seriesStartDate = dates[0];
@@ -209,32 +205,38 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
   const weights = new Map<string, number>();
   for (const t of top) weights.set(t.edition_id, t.current_mcap / basketMcapTotal);
 
-  const series: RookiesSeriesPoint[] = [];
-  const lastKnown = new Map<string, number>(baseline);
+  // Basket-level normalization (S&P / CL50 standard) — robust to per-edition
+  // outliers. See grail-synthesizer.ts for math derivation + bug history.
+  const lastKnown = new Map<string, number>();
+  const weightedSumByDate: number[] = [];
+  const rawSumByDate: number[] = [];
   for (const d of dates) {
-    let weightedRatio = 0;
-    let basketSum = 0;
-    let includedWeight = 0;
+    let wSum = 0;
+    let rawSum = 0;
     for (const t of top) {
       const w = weights.get(t.edition_id) ?? 0;
-      const base = baseline.get(t.edition_id);
-      if (!base || base <= 0) continue;
+      if (w === 0) continue;
       const dmap = byEdition.get(t.edition_id);
       const today = dmap?.get(d);
       const useVal = today ?? lastKnown.get(t.edition_id) ?? 0;
       if (today && today > 0) lastKnown.set(t.edition_id, today);
       if (useVal > 0) {
-        weightedRatio += w * (useVal / base);
-        basketSum += useVal;
-        includedWeight += w;
+        wSum += w * useVal;
+        rawSum += useVal;
       }
     }
-    const adjusted = includedWeight > 0 ? weightedRatio / includedWeight : 0;
-    series.push({ date: d, index_value: 100 * adjusted, basket_mcap_usd: basketSum });
+    weightedSumByDate.push(wSum);
+    rawSumByDate.push(rawSum);
   }
+  const startWSum = weightedSumByDate[0] || 0;
+  const series: RookiesSeriesPoint[] = dates.map((d, i) => ({
+    date: d,
+    index_value: startWSum > 0 ? 100 * (weightedSumByDate[i] / startWSum) : 0,
+    basket_mcap_usd: rawSumByDate[i],
+  }));
   const latestIndexValue = series[series.length - 1]?.index_value ?? 100;
   const seriesPctChange =
-    series.length >= 2
+    series.length >= 2 && series[0].index_value > 0
       ? ((series[series.length - 1].index_value - series[0].index_value) /
           series[0].index_value) *
         100

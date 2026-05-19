@@ -171,63 +171,51 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
   const seriesStartDate = dates[0];
   const isThin = dates.length < 7;
 
-  // ── Step 5: compute per-edition baseline (first available mcap >= startDate) ─
-  const baseline = new Map<string, number>();
-  for (const [eid, dmap] of byEdition.entries()) {
-    // Earliest date for which we have a mcap on this edition
-    const sortedDates = Array.from(dmap.keys()).sort();
-    for (const d of sortedDates) {
-      const v = dmap.get(d) ?? 0;
-      if (v > 0) {
-        baseline.set(eid, v);
-        break;
-      }
-    }
-  }
-
-  // ── Step 6: compute weights from latest mcap ────────────────────────────
+  // ── Step 5: compute weights from latest mcap ────────────────────────────
   const weights = new Map<string, number>();
   for (const t of top) {
     weights.set(t.edition_id, t.current_mcap / basketMcapTotal);
   }
 
-  // ── Step 7: compute index series ─────────────────────────────────────────
-  // I(d) = 100 × sum_i(w_i × mcap_i(d) / baseline_i)
-  // Editions missing a value on date d carry forward from the prior known
-  // value (gap-tolerant, honest about ETL holes). Editions with no baseline
-  // (no data anywhere in the window) are excluded from that day's sum.
-  const series: TS50SeriesPoint[] = [];
-  const lastKnown = new Map<string, number>(baseline); // start at baseline for carry-forward
+  // ── Step 6: compute index series via BASKET-LEVEL normalization ─────────
+  // Previous formulation divided EACH edition by ITS OWN baseline:
+  //     index = 100 × Σ_i w_i × (mcap_i(d) / mcap_i(d_0))
+  // Fragile to per-edition outliers — one edition with a tiny baseline ratio'd
+  // huge produced index values like 5149 instead of ~100.
+  //
+  // New formulation (S&P / CL50 standard):
+  //     index = 100 × Σ_i w_i × mcap_i(d) / Σ_i w_i × mcap_i(d_0)
+  // Outliers wash out at the basket level. Carry-forward preserved for ETL gaps.
+  const lastKnown = new Map<string, number>();
+  const weightedSumByDate: number[] = [];
+  const rawSumByDate: number[] = [];
   for (const d of dates) {
-    let weightedRatio = 0;
-    let basketSum = 0;
-    let includedWeight = 0;
+    let wSum = 0;
+    let rawSum = 0;
     for (const t of top) {
       const w = weights.get(t.edition_id) ?? 0;
-      const base = baseline.get(t.edition_id);
-      if (!base || base <= 0) continue;
+      if (w === 0) continue;
       const dmap = byEdition.get(t.edition_id);
       const today = dmap?.get(d);
       const useVal = today ?? lastKnown.get(t.edition_id) ?? 0;
       if (today && today > 0) lastKnown.set(t.edition_id, today);
       if (useVal > 0) {
-        weightedRatio += w * (useVal / base);
-        basketSum += useVal;
-        includedWeight += w;
+        wSum += w * useVal;
+        rawSum += useVal;
       }
     }
-    // Re-normalize by includedWeight so a single missing edition doesn't drag
-    // the whole index down.
-    const adjusted = includedWeight > 0 ? weightedRatio / includedWeight : 0;
-    series.push({
-      date: d,
-      index_value: 100 * adjusted,
-      basket_mcap_usd: basketSum,
-    });
+    weightedSumByDate.push(wSum);
+    rawSumByDate.push(rawSum);
   }
+  const startWSum = weightedSumByDate[0] || 0;
+  const series: TS50SeriesPoint[] = dates.map((d, i) => ({
+    date: d,
+    index_value: startWSum > 0 ? 100 * (weightedSumByDate[i] / startWSum) : 0,
+    basket_mcap_usd: rawSumByDate[i],
+  }));
   const latestIndexValue = series[series.length - 1]?.index_value ?? 100;
   const seriesPctChange =
-    series.length >= 2
+    series.length >= 2 && series[0].index_value > 0
       ? ((series[series.length - 1].index_value - series[0].index_value) /
           series[0].index_value) * 100
       : 0;

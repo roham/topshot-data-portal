@@ -235,13 +235,10 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     };
   }
 
-  // 6. Pivot + baseline derivation — single forward pass.
-  // PERF: allHistory comes pre-sorted by (date ASC, edition_id ASC) from the
-  // query above. Previously this section did N+1 Set/Array.from/.sort() — once
-  // for the date dedup and once per-edition for baseline derivation. Now O(N).
+  // 6. Pivot — single forward pass. allHistory comes pre-sorted by
+  // (date ASC, edition_id ASC) from the query above.
   const byEdition = new Map<string, Map<string, number>>();
   const dates: string[] = [];
-  const baseline = new Map<string, number>();
   let prevDate = "";
   for (const h of allHistory) {
     if (h.date !== prevDate) {
@@ -250,9 +247,6 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     }
     if (!byEdition.has(h.edition_id)) byEdition.set(h.edition_id, new Map());
     byEdition.get(h.edition_id)!.set(h.date, h.market_cap);
-    if (h.market_cap > 0 && !baseline.has(h.edition_id)) {
-      baseline.set(h.edition_id, h.market_cap);
-    }
   }
   if (dates.length === 0) {
     return {
@@ -264,38 +258,56 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   }
   const seriesStartDate = dates[0];
 
-  // 8. Value-weighted weights from latest mcap
+  // 7. Value-weighted weights from CURRENT mcap (latest snapshot defines the basket).
   const weights = new Map<string, number>();
   for (const [eid, m] of currentMcap.entries()) weights.set(eid, m / basketMcapTotal);
 
-  // 9. Series with carry-forward
-  const series: GrailSeriesPoint[] = [];
-  const lastKnown = new Map<string, number>(baseline);
+  // 8. Series — basket-level normalization (S&P / CL50 standard).
+  //
+  // Previous formulation divided EACH edition by ITS OWN baseline:
+  //     index = 100 × Σ_i w_i × (mcap_i(d) / mcap_i(d_0))
+  // That is fragile to per-edition outliers — one edition with a tiny baseline
+  // (e.g., a $0.01 lowest-ask outlier on a single day) blows up its ratio and
+  // dominates the weighted sum, producing index values like 5149 instead of ~100.
+  //
+  // New formulation normalizes at the BASKET level:
+  //     index = 100 × Σ_i w_i × mcap_i(d) / Σ_i w_i × mcap_i(d_0)
+  // Outliers wash out — the basket-sum at d_0 absorbs them. This is how every
+  // real-world value-weighted index (S&P 500, CL50, Russell 2000) is computed.
+  //
+  // Carry-forward semantics preserved: editions missing on date d use last
+  // known value, so ETL gaps don't manufacture spikes/drops.
+  const lastKnown = new Map<string, number>();
+  // Per-date weighted basket sum (computed in one pass over dates × editions)
+  const weightedSumByDate: number[] = [];
+  const rawSumByDate: number[] = [];
   for (const d of dates) {
-    let weightedRatio = 0;
-    let basketSum = 0;
-    let includedWeight = 0;
+    let wSum = 0;
+    let rawSum = 0;
     for (const eid of editionIds) {
       const w = weights.get(eid) ?? 0;
       if (w === 0) continue;
-      const base = baseline.get(eid);
-      if (!base || base <= 0) continue;
       const dmap = byEdition.get(eid);
       const today = dmap?.get(d);
       const useVal = today ?? lastKnown.get(eid) ?? 0;
       if (today && today > 0) lastKnown.set(eid, today);
       if (useVal > 0) {
-        weightedRatio += w * (useVal / base);
-        basketSum += useVal;
-        includedWeight += w;
+        wSum += w * useVal;
+        rawSum += useVal;
       }
     }
-    const adjusted = includedWeight > 0 ? weightedRatio / includedWeight : 0;
-    series.push({ date: d, index_value: 100 * adjusted, basket_mcap_usd: basketSum });
+    weightedSumByDate.push(wSum);
+    rawSumByDate.push(rawSum);
   }
+  const startWSum = weightedSumByDate[0] || 0;
+  const series: GrailSeriesPoint[] = dates.map((d, i) => ({
+    date: d,
+    index_value: startWSum > 0 ? 100 * (weightedSumByDate[i] / startWSum) : 0,
+    basket_mcap_usd: rawSumByDate[i],
+  }));
   const latestIndexValue = series[series.length - 1]?.index_value ?? 100;
   const seriesPctChange =
-    series.length >= 2
+    series.length >= 2 && series[0].index_value > 0
       ? ((series[series.length - 1].index_value - series[0].index_value) /
           series[0].index_value) *
         100
