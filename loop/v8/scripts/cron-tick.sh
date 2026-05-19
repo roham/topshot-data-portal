@@ -57,6 +57,22 @@ log "tick — phase=$PHASE wet=$WET"
 LOCK="/tmp/topshot-v8-cron-tick.lock"
 (
   flock -n 9 || { log "previous tick still running, skipping"; exit 0; }
+
+  # Pre-flight 6: pull latest from origin/main IF no iter is active.
+  # active-iter.lock is held by orchestrator.mjs during a running iter; if it's
+  # present, a prior tick is mid-flight and pulling could rebase commits in
+  # progress. flock already prevents concurrent cron ticks; this just guards
+  # against the orphan-orchestrator case.
+  if [[ ! -f "$REPO_ROOT/loop/v8/state/active-iter.lock" ]]; then
+    git fetch origin --quiet 2>/dev/null || true
+    LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
+    REMOTE_HEAD=$(git rev-parse origin/main 2>/dev/null || echo "")
+    if [[ -n "$REMOTE_HEAD" && "$LOCAL_HEAD" != "$REMOTE_HEAD" ]]; then
+      log "syncing to origin/main: $LOCAL_HEAD -> $REMOTE_HEAD"
+      git reset --hard origin/main 2>&1 | tail -1
+    fi
+  fi
+
   TIMEOUT_BIN="$(command -v timeout || command -v gtimeout || true)"
   if [[ -n "$TIMEOUT_BIN" ]]; then
     "$TIMEOUT_BIN" 3300 node loop/v8/scripts/orchestrator.mjs \
