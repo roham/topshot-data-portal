@@ -265,6 +265,6 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
 export const getRookiesIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),
-    ["rookies-index", String(lookbackDays)],
+    ["rookies-index-v2-full-pagination", String(lookbackDays)],
     { revalidate: 60 * 60, tags: ["rookies-index"] }
   )();

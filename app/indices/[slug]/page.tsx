@@ -22,6 +22,7 @@ import { getGrailIndex, type GrailConstituentRow, type GrailIndexResult } from "
 import { getRookiesIndex, type RookiesConstituentRow, type RookiesIndexResult } from "@/lib/indices/rookies-synthesizer";
 
 export const revalidate = 3600;
+export const maxDuration = 60; // synthesizer paginates ~50 supabase calls for 1Y/2Y windows
 
 const CONSTITUENT_LIMIT = 25;
 

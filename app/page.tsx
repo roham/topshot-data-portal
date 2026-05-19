@@ -25,6 +25,7 @@ import { IndexHeroPair, IndexHeroPairSkeleton } from "@/components/IndexHeroPair
 // cascade. Page-level revalidate runs every 60s so window switches hit a
 // CDN-cached page, while individual leaf data is `unstable_cache`'d at 60s.
 export const revalidate = 60;
+export const maxDuration = 60; // index synthesizers paginate ~50 supabase calls for 1Y/2Y windows
 export const metadata = { title: "Market · TS·PORTAL" };
 
 // /  — V3 iter-1 homepage rebuild.
