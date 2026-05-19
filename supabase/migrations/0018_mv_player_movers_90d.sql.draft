@@ -1,0 +1,163 @@
+-- =============================================================================
+-- 0018 — topshot.mv_player_movers_90d (REPLACEMENT FAMILY)
+--
+-- DESIGN NOTES
+-- ----------------------------------------------------------------------------
+-- Why this exists, and what it replaces:
+--   Migration 0014 already created topshot.mv_player_movers_{15,30,90}d, but
+--   those use avg-sale-price (gross_amount_usd averaged over completed
+--   transactions) as the "recent vs prior" proxy. Roham's V7 review flagged
+--   that as a tape-reader's metric, not a market-cap mover. The intent is the
+--   meme-coin tracker shape ("biggest mcap movers, last 15/30/90 days") which
+--   needs the snapshot table topshot.market_caps (daily-grain, per edition)
+--   compared at endpoints, NOT trades smoothed across a window.
+--
+-- Strategy chosen — three-window UNION ALL with window_days column:
+--   Single MV. Each player_id appears up to three times — one row per window
+--   in {15, 30, 90}. The API selects by `WHERE window_days = ?w`.
+--
+-- Join graph (per window):
+--   topshot.market_caps mc_now    — snapshot at MAX(date)
+--   topshot.market_caps mc_then   — DISTINCT ON (edition_id) at-or-before
+--                                   MAX(date) - window_days (gap-tolerant)
+--   topshot.editions e            — player_id, set_id, tier_id, parallel_id
+--   topshot.players  p            — full_name, last_known_team_full_name
+--   topshot.transactions tx       — n_sales + volume in window
+--
+-- Doctrine principles honored:
+--   P1 (faithful, never smooth) — snapshot vs snapshot, no averaging
+--   P5 (parallels first-class)  — floor_by_parallel_cents JSONB; never collapsed
+--   P7 (default 30D)            — window_days in {15, 30, 90}; UI default 30D
+--
+-- KNOWN BLOCKER:
+--   editions.parallel_id is NULL for un-backfilled rows. Step 1.9 (sibling-
+--   parallels backfill) must complete before this MV is P5-meaningful;
+--   until then JSONB is mostly Base-only.
+-- =============================================================================
+
+DROP MATERIALIZED VIEW IF EXISTS topshot.mv_player_movers_90d CASCADE;
+
+CREATE MATERIALIZED VIEW topshot.mv_player_movers_90d AS
+WITH params AS (
+    SELECT unnest(ARRAY[15, 30, 90]) AS window_days
+),
+mc_max AS (
+    SELECT MAX(date) AS d_end FROM topshot.market_caps
+),
+mc_start AS (
+    SELECT DISTINCT ON (p.window_days, mc.edition_id)
+        p.window_days, mc.edition_id, mc.date,
+        mc.market_cap, mc.lowest_ask_price, mc.num_moments_in_circulation
+    FROM params p
+    CROSS JOIN mc_max
+    JOIN topshot.market_caps mc
+      ON mc.date <= mc_max.d_end - (p.window_days || ' days')::interval
+    ORDER BY p.window_days, mc.edition_id, mc.date DESC
+),
+mc_end AS (
+    SELECT mc.edition_id, mc.date,
+           mc.market_cap, mc.lowest_ask_price, mc.num_moments_in_circulation
+    FROM topshot.market_caps mc, mc_max
+    WHERE mc.date = mc_max.d_end
+),
+edition_delta AS (
+    SELECT
+        s.window_days,
+        e.player_id, e.set_id, e.tier_id, COALESCE(e.parallel_id, 0) AS parallel_id,
+        (en.market_cap * 100)::bigint  AS end_mcap_cents,
+        (s.market_cap * 100)::bigint   AS start_mcap_cents,
+        (en.lowest_ask_price * en.num_moments_in_circulation * 100)::bigint AS end_parallel_floor_cents,
+        (s.lowest_ask_price  * s.num_moments_in_circulation  * 100)::bigint AS start_parallel_floor_cents
+    FROM mc_end en
+    JOIN mc_start s ON s.edition_id = en.edition_id
+    JOIN topshot.editions e ON e.edition_id = en.edition_id
+    WHERE e.player_id IS NOT NULL
+),
+player_parallel_agg AS (
+    SELECT
+        window_days, player_id, parallel_id,
+        SUM(end_mcap_cents)              AS end_mcap_cents,
+        SUM(start_mcap_cents)            AS start_mcap_cents,
+        SUM(end_parallel_floor_cents)    AS end_parallel_floor_cents,
+        SUM(start_parallel_floor_cents)  AS start_parallel_floor_cents
+    FROM edition_delta
+    GROUP BY window_days, player_id, parallel_id
+),
+player_rollup AS (
+    SELECT
+        window_days,
+        player_id,
+        SUM(end_mcap_cents)              AS end_mcap_cents,
+        SUM(start_mcap_cents)            AS start_mcap_cents,
+        SUM(end_parallel_floor_cents)    AS end_floor_total_cents,
+        SUM(start_parallel_floor_cents)  AS start_floor_total_cents,
+        jsonb_object_agg(
+            parallel_id::text,
+            jsonb_build_object(
+                'end_cents',   end_parallel_floor_cents,
+                'start_cents', start_parallel_floor_cents
+            )
+        ) AS floor_by_parallel_cents
+    FROM player_parallel_agg
+    GROUP BY window_days, player_id
+),
+sales_agg AS (
+    SELECT
+        p.window_days,
+        e.player_id,
+        COUNT(*)::bigint                            AS n_sales_in_window,
+        (SUM(tx.gross_amount_usd) * 100)::bigint    AS volume_in_window_cents
+    FROM params p
+    CROSS JOIN topshot.transactions tx
+    JOIN topshot.moments m  ON m.moment_id = tx.moment_id
+    JOIN topshot.editions e ON e.edition_id = m.edition_id
+    WHERE tx.transaction_state_id = 'SUCCEEDED'
+      AND tx.completed_at IS NOT NULL
+      AND tx.gross_amount_usd > 0
+      AND e.player_id IS NOT NULL
+      AND tx.completed_at >= NOW() - (p.window_days || ' days')::interval
+    GROUP BY p.window_days, e.player_id
+)
+SELECT
+    pr.window_days,
+    pr.player_id,
+    pl.full_name                       AS player_name,
+    pl.last_known_team_full_name       AS team_name,
+    pr.start_mcap_cents,
+    pr.end_mcap_cents,
+    (pr.end_mcap_cents - pr.start_mcap_cents)                                AS abs_change_cents,
+    CASE WHEN pr.start_mcap_cents > 0
+         THEN ((pr.end_mcap_cents - pr.start_mcap_cents)::numeric
+               / pr.start_mcap_cents * 100)
+         ELSE NULL END                                                       AS pct_change,
+    pr.start_floor_total_cents,
+    pr.end_floor_total_cents,
+    pr.floor_by_parallel_cents,
+    COALESCE(sa.n_sales_in_window, 0)        AS n_sales_in_window,
+    COALESCE(sa.volume_in_window_cents, 0)   AS volume_in_window_cents,
+    now()                                    AS last_updated_at
+FROM player_rollup pr
+JOIN topshot.players pl
+  ON pl.player_id = pr.player_id
+LEFT JOIN sales_agg sa
+  ON sa.player_id = pr.player_id
+ AND sa.window_days = pr.window_days
+WHERE pr.start_mcap_cents > 0;
+
+CREATE UNIQUE INDEX uidx_mv_player_movers_90d_pk
+    ON topshot.mv_player_movers_90d (player_id, window_days);
+
+CREATE INDEX idx_mv_player_movers_90d_pct
+    ON topshot.mv_player_movers_90d (window_days, pct_change DESC NULLS LAST);
+
+CREATE INDEX idx_mv_player_movers_90d_abs
+    ON topshot.mv_player_movers_90d (window_days, abs_change_cents DESC NULLS LAST);
+
+CREATE INDEX idx_mv_player_movers_90d_vol
+    ON topshot.mv_player_movers_90d (window_days, volume_in_window_cents DESC NULLS LAST);
+
+GRANT SELECT ON topshot.mv_player_movers_90d
+    TO anon, authenticated, service_role;
+
+COMMENT ON MATERIALIZED VIEW topshot.mv_player_movers_90d IS
+    'Per-player market-cap movers across 15/30/90D windows. Snapshot-based (P1); per-parallel floor in JSONB (P5). Refresh daily ~13:30 UTC after BQ market_caps lands.';

@@ -56,6 +56,15 @@ export interface MomentsGridRow {
   player_name: string | null;
   team_name: string | null;
   mint_count: number | null;
+  /** Owner flow address (16 hex chars, no 0x prefix). Sourced from
+   * `topshot.moments.owner_flow_address` which is populated by the
+   * `asset_ownership_nba_moment` BQ backfill. NULL when ownership ETL hasn't
+   * landed for this moment. */
+  owner_flow_address: string | null;
+  /** Owner username — resolved from `topshot.collectors` via flow_address.
+   * NULL when address is anonymous/unmapped. Renders as truncated address
+   * in UI when null. */
+  owner_username: string | null;
 }
 
 export interface MomentsGridResult {
@@ -176,7 +185,7 @@ export async function queryMomentsGrid(opts: {
   let q = admin
     .from("moments")
     .select(
-      "moment_id, moment_flow_id, play_name, edition_name, edition_id, serial_number, listing_price_usd, top_shot_score, set_name, series_name, league",
+      "moment_id, moment_flow_id, play_name, edition_name, edition_id, serial_number, listing_price_usd, top_shot_score, set_name, series_name, league, owner_flow_address",
       { count: useExactCount ? "exact" : "planned", head: false },
     );
 
@@ -248,8 +257,30 @@ export async function queryMomentsGrid(opts: {
     set_name: string | null;
     series_name: string | null;
     league: string | null;
+    owner_flow_address: string | null;
   };
   const rawRows = (data as MomentRowRaw[] | null) ?? [];
+
+  // Stage 2.5 — resolve owner usernames from `topshot.collectors`.
+  // We batch-fetch the distinct addresses appearing in this page (<=50) so the
+  // page render gets `owner_username` populated without an N+1 hit. NULL is
+  // the honest empty state for moments whose ownership ETL hasn't landed.
+  const ownerAddrs = Array.from(
+    new Set(
+      rawRows
+        .map((r) => r.owner_flow_address)
+        .filter((a): a is string => !!a && /^[a-f0-9]{16}$/i.test(a)),
+    ),
+  );
+  let ownerUsernameByAddr = new Map<string, string | null>();
+  if (ownerAddrs.length > 0) {
+    const { data: cdata } = await admin
+      .from("collectors")
+      .select("flow_address, username")
+      .in("flow_address", ownerAddrs);
+    const crows = (cdata as { flow_address: string; username: string | null }[] | null) ?? [];
+    ownerUsernameByAddr = new Map(crows.map((c) => [c.flow_address, c.username]));
+  }
 
   // Stage 3 — if no edition pre-filter, fetch edition metadata for the
   // result rows in one batch. If we pre-filtered, editionMap already has it.
@@ -269,6 +300,7 @@ export async function queryMomentsGrid(opts: {
 
   const rows: MomentsGridRow[] = rawRows.map((m) => {
     const e = m.edition_id ? finalMap?.get(m.edition_id) ?? null : null;
+    const ownerAddr = m.owner_flow_address;
     return {
       moment_id: m.moment_id,
       moment_flow_id: m.moment_flow_id,
@@ -284,6 +316,8 @@ export async function queryMomentsGrid(opts: {
       player_name: e?.player_name ?? null,
       team_name: e?.team_at_moment_current_name ?? null,
       mint_count: e?.mint_count ?? null,
+      owner_flow_address: ownerAddr,
+      owner_username: ownerAddr ? ownerUsernameByAddr.get(ownerAddr) ?? null : null,
     };
   });
 

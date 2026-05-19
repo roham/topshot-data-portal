@@ -197,6 +197,7 @@ function MomentsTable({ rows }: { rows: MomentsGridRow[] }) {
             <th className="text-right py-2.5 px-3">
               <SortableHeader label="Ask" ascKey="listing_price_asc" descKey="listing_price_desc" align="right" data-testid="th-listing-price" />
             </th>
+            <th className="text-left py-2.5 px-3 text-[10px] tracking-data-label uppercase text-[var(--text-dim)]">Owner</th>
           </tr>
         </thead>
         <tbody>
@@ -237,11 +238,30 @@ function MomentsTable({ rows }: { rows: MomentsGridRow[] }) {
               <td className="py-2 px-3 text-right">
                 <Num value={r.listing_price_usd} format="usd" className="text-[var(--text)] text-[13px]" />
               </td>
+              <td className="py-2 px-3 max-w-[140px]">
+                <OwnerCell flow={r.owner_flow_address} username={r.owner_username} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function OwnerCell({ flow, username }: { flow: string | null; username: string | null }) {
+  if (!flow) return <span className="text-[var(--text-faint)]">—</span>;
+  const display = username ?? `${flow.slice(0, 4)}…${flow.slice(-4)}`;
+  const href = username ? `/u/${encodeURIComponent(username)}` : `/u/${flow}`;
+  return (
+    <Link
+      href={href}
+      className="text-[var(--text-dim)] hover:text-[var(--accent)] truncate block"
+      title={flow}
+      data-testid="moments-owner-link"
+    >
+      {display}
+    </Link>
   );
 }
 

@@ -21,11 +21,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPlayerDetail } from "@/lib/supabase/queries/player-detail";
+import { getHoldersByPlayer } from "@/lib/supabase/queries/holders";
 import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { NewDropTag } from "@/components/primitives/NewDropTag";
+import { TopHoldersPanel } from "@/components/TopHoldersPanel";
 
 export const revalidate = 60;
 
@@ -79,7 +81,13 @@ export default async function PlayerPage({
   const qRaw = typeof sp.q === "string" ? sp.q.trim() : "";
   const qLower = qRaw.toLowerCase();
 
-  const detail = await getPlayerDetail(id);
+  const [detail, holders] = await Promise.all([
+    getPlayerDetail(id),
+    getHoldersByPlayer({ player_id: id, limit: 20 }).catch((err) => {
+      console.error("[player-page] holders fetch error", err);
+      return [];
+    }),
+  ]);
   if (!detail.player) notFound();
   const p = detail.player;
 
@@ -438,6 +446,17 @@ export default async function PlayerPage({
           </p>
         )}
       </Card>
+
+      {/* ── Top holders ─────────────────────────────────────────────────────
+          Doctrine §0.2 comparable: Glassnode supply-distribution.
+          Populates from `topshot.moments.owner_flow_address` JOIN
+          `topshot.collectors`. Honest empty state until ownership ETL
+          lands a value per moment.                                          */}
+      <TopHoldersPanel
+        rows={holders}
+        entityName={p.full_name ?? `Player ${id}`}
+        entityKind="player"
+      />
 
     </div>
   );
