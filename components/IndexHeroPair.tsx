@@ -13,6 +13,7 @@
 // baskets); per-index hero owns the KPI rail + methodology footer.
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TS50IndexChart } from "@/components/TS50IndexChart";
@@ -132,7 +133,94 @@ function MiniHero({
   );
 }
 
-export async function IndexHeroPair({
+// PERF: streamed per-MiniHero rather than Promise.all-blocked. Rookies (~4s
+// cold) no longer waits for Grail (~25s cold on 1Y). Each panel renders the
+// moment its synthesizer resolves.
+async function GrailMiniHero({
+  activeWindow,
+  preserveQuery,
+}: {
+  activeWindow: TimeWindow;
+  preserveQuery?: Record<string, string | undefined>;
+}) {
+  const lookbackDays = windowToDays(activeWindow);
+  const result: GrailIndexResult | null = await getGrailIndex(lookbackDays).catch((err) => {
+    console.error("[grail-mini-hero] fetch error", err);
+    return null;
+  });
+  return (
+    <MiniHero
+      slug="grail"
+      title="GRAIL"
+      subtitle={`Vaultopolis ${result?.basket_resolved_size ?? 0} of ${result?.basket_target_size ?? 0}${result?.as_of_date ? ` · ${result.as_of_date}` : ""}`}
+      methodology="Vaultopolis-canonical Grail list (Apr 2026 ASP). Compound key in CSV is the editions.edition_id directly. Value-weighted: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing. Editions missing on date d carry forward last known value."
+      latestValue={result?.latest_index_value ?? 100}
+      pctChange={result?.series_pct_change ?? 0}
+      basketMcap={result?.basket_mcap_total_usd ?? 0}
+      daysOfHistory={result?.days_of_history ?? 0}
+      series={result?.series ?? []}
+      pillBasePath="/"
+      activeWindow={activeWindow}
+      preserveQuery={preserveQuery}
+      emptyReason={result === null ? "Grail index temporarily unavailable." : undefined}
+    />
+  );
+}
+
+async function RookiesMiniHero({
+  activeWindow,
+  preserveQuery,
+}: {
+  activeWindow: TimeWindow;
+  preserveQuery?: Record<string, string | undefined>;
+}) {
+  const lookbackDays = windowToDays(activeWindow);
+  const result: RookiesIndexResult | null = await getRookiesIndex(lookbackDays).catch((err) => {
+    console.error("[rookies-mini-hero] fetch error", err);
+    return null;
+  });
+  return (
+    <MiniHero
+      slug="rookies"
+      title="ROOKIES"
+      subtitle={`Draft class ${result?.draft_year_used ?? "—"}${result?.as_of_date ? ` · ${result.as_of_date}` : ""}`}
+      methodology={`Top editions by market cap, current draft class (${result?.draft_year_used ?? "—"}). Value-weighted. Multi-line per-rookie chart lands as the canonical view; aggregate index shown here.`}
+      latestValue={result?.latest_index_value ?? 100}
+      pctChange={result?.series_pct_change ?? 0}
+      basketMcap={result?.basket_mcap_total_usd ?? 0}
+      daysOfHistory={result?.days_of_history ?? 0}
+      series={result?.series ?? []}
+      emptyReason={
+        result === null
+          ? "Rookies index temporarily unavailable."
+          : result.draft_year_used === null
+            ? "No editions matched for current rookie draft classes (2025, 2024)."
+            : undefined
+      }
+      pillBasePath="/"
+      activeWindow={activeWindow}
+      preserveQuery={preserveQuery}
+    />
+  );
+}
+
+function MiniHeroSkeleton() {
+  return (
+    <div className="border border-[var(--border-subtle)] rounded-md bg-[var(--surface-1)]/30 p-6">
+      <div className="h-4 w-32 bg-[var(--surface-2)] rounded animate-pulse mb-3" />
+      <div className="h-3 w-52 bg-[var(--surface-2)]/60 rounded animate-pulse mb-6" />
+      <div className="grid lg:grid-cols-[200px_1fr] gap-4">
+        <div className="space-y-3">
+          <div className="h-10 w-32 bg-[var(--surface-2)] rounded animate-pulse" />
+          <div className="h-6 w-24 bg-[var(--surface-2)]/60 rounded animate-pulse" />
+        </div>
+        <div className="h-[240px] bg-[var(--surface-2)]/40 rounded animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
+export function IndexHeroPair({
   windowRaw,
   preserveQuery,
 }: {
@@ -142,58 +230,14 @@ export async function IndexHeroPair({
   preserveQuery?: Record<string, string | undefined>;
 }) {
   const { window: activeWindow } = parseTimeWindow(windowRaw, "30d");
-  const lookbackDays = windowToDays(activeWindow);
-
-  // Parallel fetch — both indices independent.
-  const [grail, rookies] = await Promise.all([
-    getGrailIndex(lookbackDays).catch((err) => {
-      console.error("[index-hero-pair] grail fetch error", err);
-      return null;
-    }),
-    getRookiesIndex(lookbackDays).catch((err) => {
-      console.error("[index-hero-pair] rookies fetch error", err);
-      return null;
-    }),
-  ]);
-
-  const grailResult: GrailIndexResult | null = grail;
-  const rookiesResult: RookiesIndexResult | null = rookies;
-
   return (
     <div className="grid lg:grid-cols-2 gap-4">
-      <MiniHero
-        slug="grail"
-        title="GRAIL"
-        subtitle={`Vaultopolis ${grailResult?.basket_resolved_size ?? 0} of ${grailResult?.basket_target_size ?? 0}${grailResult?.as_of_date ? ` · ${grailResult.as_of_date}` : ""}`}
-        methodology="Vaultopolis-canonical Grail list (Apr 2026 ASP). Compound key in CSV is the editions.edition_id directly. Value-weighted: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing. Editions missing on date d carry forward last known value."
-        latestValue={grailResult?.latest_index_value ?? 100}
-        pctChange={grailResult?.series_pct_change ?? 0}
-        basketMcap={grailResult?.basket_mcap_total_usd ?? 0}
-        daysOfHistory={grailResult?.days_of_history ?? 0}
-        series={grailResult?.series ?? []}
-        pillBasePath="/"
-        activeWindow={activeWindow}
-        preserveQuery={preserveQuery}
-      />
-      <MiniHero
-        slug="rookies"
-        title="ROOKIES"
-        subtitle={`Draft class ${rookiesResult?.draft_year_used ?? "—"}${rookiesResult?.as_of_date ? ` · ${rookiesResult.as_of_date}` : ""}`}
-        methodology={`Top editions by market cap, current draft class (${rookiesResult?.draft_year_used ?? "—"}). Value-weighted. Multi-line per-rookie chart lands as the canonical view; aggregate index shown here.`}
-        latestValue={rookiesResult?.latest_index_value ?? 100}
-        pctChange={rookiesResult?.series_pct_change ?? 0}
-        basketMcap={rookiesResult?.basket_mcap_total_usd ?? 0}
-        daysOfHistory={rookiesResult?.days_of_history ?? 0}
-        series={rookiesResult?.series ?? []}
-        emptyReason={
-          rookiesResult && rookiesResult.draft_year_used === null
-            ? "No editions matched for current rookie draft classes (2025, 2024)."
-            : undefined
-        }
-        pillBasePath="/"
-        activeWindow={activeWindow}
-        preserveQuery={preserveQuery}
-      />
+      <Suspense fallback={<MiniHeroSkeleton />}>
+        <GrailMiniHero activeWindow={activeWindow} preserveQuery={preserveQuery} />
+      </Suspense>
+      <Suspense fallback={<MiniHeroSkeleton />}>
+        <RookiesMiniHero activeWindow={activeWindow} preserveQuery={preserveQuery} />
+      </Suspense>
     </div>
   );
 }

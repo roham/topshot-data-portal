@@ -1,0 +1,16 @@
+{
+  "target": "topshot-data-portal — performance optimization sprint",
+  "status": "in_progress",
+  "flags": {
+    "security_focus": false,
+    "performance_critical": true,
+    "strict_mode": false,
+    "framework": "next.js-16-app-router"
+  },
+  "current_step": 1,
+  "current_phase": 1,
+  "completed_steps": [0],
+  "files_created": ["00-scope.md"],
+  "started_at": "2026-05-19T21:30:00Z",
+  "last_updated": "2026-05-19T21:30:00Z"
+}

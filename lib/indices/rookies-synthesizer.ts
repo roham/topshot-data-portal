@@ -6,6 +6,7 @@
 //
 // Same compute shape as ts50 / grail: value-weighted, carry-forward, normalized.
 
+import { createHash } from "node:crypto";
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
 
@@ -135,12 +136,11 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
     .toISOString()
     .slice(0, 10);
 
+  // PERF: parallel-paginate + error-bubble (see grail-synthesizer.ts perf notes).
   const allHistory: { date: string; edition_id: string; market_cap: number }[] = [];
   const PAGE = 1000;
-  for (let page = 0; page < 200; page++) {
-    const from = page * PAGE;
-    const to = from + PAGE - 1;
-    const { data } = await sb
+  const baseQuery = () =>
+    sb
       .from("market_caps")
       .select("date, edition_id, market_cap")
       .in("edition_id", basketIds)
@@ -148,46 +148,63 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
       .not("market_cap", "is", null)
       .gt("market_cap", 0)
       .order("date", { ascending: true })
-      .order("edition_id", { ascending: true })
-      .range(from, to);
-    const rows =
-      (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ??
-      [];
-    if (rows.length === 0) break;
-    for (const r of rows) {
-      allHistory.push({
-        date: r.date,
-        edition_id: r.edition_id,
-        market_cap: Number(r.market_cap) || 0,
-      });
+      .order("edition_id", { ascending: true });
+
+  const { count: histCount, error: countErr } = await baseQuery().select("*", { count: "exact", head: true });
+  if (countErr) {
+    console.error("[rookies] history count probe failed", countErr);
+    throw countErr;
+  }
+  const pageCount = Math.max(1, Math.ceil((histCount ?? 0) / PAGE));
+  const CONCURRENCY = 6;
+  for (let batchStart = 0; batchStart < pageCount; batchStart += CONCURRENCY) {
+    const batchEnd = Math.min(batchStart + CONCURRENCY, pageCount);
+    const promises = [];
+    for (let page = batchStart; page < batchEnd; page++) {
+      const from = page * PAGE;
+      const to = from + PAGE - 1;
+      promises.push(baseQuery().range(from, to));
     }
-    if (rows.length < PAGE) break;
-  }
-  if (allHistory.length === 0) return { ...EMPTY, draft_year_used: draftYear };
-
-  const byEdition = new Map<string, Map<string, number>>();
-  for (const h of allHistory) {
-    if (!byEdition.has(h.edition_id)) byEdition.set(h.edition_id, new Map());
-    byEdition.get(h.edition_id)!.set(h.date, h.market_cap);
-  }
-  const dateSet = new Set<string>();
-  for (const h of allHistory) dateSet.add(h.date);
-  const dates = Array.from(dateSet).sort();
-  if (dates.length === 0) return { ...EMPTY, draft_year_used: draftYear };
-  const seriesStartDate = dates[0];
-  const isThin = dates.length < 7;
-
-  const baseline = new Map<string, number>();
-  for (const [eid, dmap] of byEdition.entries()) {
-    const sortedDates = Array.from(dmap.keys()).sort();
-    for (const d of sortedDates) {
-      const v = dmap.get(d) ?? 0;
-      if (v > 0) {
-        baseline.set(eid, v);
-        break;
+    const results = await Promise.all(promises);
+    for (let i = 0; i < results.length; i++) {
+      const { data, error } = results[i];
+      if (error) {
+        const pageNum = batchStart + i;
+        console.error(`[rookies] history page ${pageNum} failed`, error);
+        throw error;
+      }
+      const rows =
+        (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
+      for (const r of rows) {
+        allHistory.push({
+          date: r.date,
+          edition_id: r.edition_id,
+          market_cap: Number(r.market_cap) || 0,
+        });
       }
     }
   }
+  if (allHistory.length === 0) return { ...EMPTY, draft_year_used: draftYear };
+
+  // Single forward pass: pivot + dates + baseline. allHistory is pre-sorted by query.
+  const byEdition = new Map<string, Map<string, number>>();
+  const dates: string[] = [];
+  const baseline = new Map<string, number>();
+  let prevDate = "";
+  for (const h of allHistory) {
+    if (h.date !== prevDate) {
+      dates.push(h.date);
+      prevDate = h.date;
+    }
+    if (!byEdition.has(h.edition_id)) byEdition.set(h.edition_id, new Map());
+    byEdition.get(h.edition_id)!.set(h.date, h.market_cap);
+    if (h.market_cap > 0 && !baseline.has(h.edition_id)) {
+      baseline.set(h.edition_id, h.market_cap);
+    }
+  }
+  if (dates.length === 0) return { ...EMPTY, draft_year_used: draftYear };
+  const seriesStartDate = dates[0];
+  const isThin = dates.length < 7;
 
   const weights = new Map<string, number>();
   for (const t of top) weights.set(t.edition_id, t.current_mcap / basketMcapTotal);
@@ -262,9 +279,14 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
   };
 }
 
+const SYNTHESIZER_VERSION = createHash("sha256")
+  .update(fetchInner.toString())
+  .digest("hex")
+  .slice(0, 8);
+
 export const getRookiesIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),
-    ["rookies-index-v2-full-pagination", String(lookbackDays)],
+    ["rookies-index", SYNTHESIZER_VERSION, String(lookbackDays)],
     { revalidate: 60 * 60, tags: ["rookies-index"] }
   )();
