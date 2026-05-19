@@ -130,8 +130,8 @@ export async function IndexHeroPair({ lookbackDays = 30 }: { lookbackDays?: numb
       <MiniHero
         slug="grail"
         title="GRAIL"
-        subtitle={`Vaultopolis 184 · top blue-chip editions${grailResult?.as_of_date ? ` · ${grailResult.as_of_date}` : ""}`}
-        methodology="Vaultopolis-canonical top-225 by ASP (Apr 2026), 184 matched to canonical edition_ids. Value-weighted basket: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing."
+        subtitle={`Vaultopolis ${grailResult?.basket_resolved_size ?? 0} of ${grailResult?.basket_target_size ?? 0}${grailResult?.as_of_date ? ` · ${grailResult.as_of_date}` : ""}`}
+        methodology="Vaultopolis-canonical Grail list (Apr 2026 ASP). Compound (set_id, play_id) keys resolved against the editions table. Value-weighted: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing. Editions missing on date d carry forward last known value."
         latestValue={grailResult?.latest_index_value ?? 100}
         pctChange={grailResult?.series_pct_change ?? 0}
         basketMcap={grailResult?.basket_mcap_total_usd ?? 0}
