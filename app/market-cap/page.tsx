@@ -31,6 +31,7 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 300;
+export const maxDuration = 60; // QA-RUN-2026-05-19 D2: cold cache hit timed out at 91s pre-fix
 
 function fmtUSD(n: number): string {
   if (!n) return "$0";
