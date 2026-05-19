@@ -262,23 +262,34 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   const weights = new Map<string, number>();
   for (const [eid, m] of currentMcap.entries()) weights.set(eid, m / basketMcapTotal);
 
-  // 8. Series — basket-level normalization (S&P / CL50 standard).
+  // 8. Series — basket-level normalization with BIDIRECTIONAL carry-forward.
   //
-  // Previous formulation divided EACH edition by ITS OWN baseline:
-  //     index = 100 × Σ_i w_i × (mcap_i(d) / mcap_i(d_0))
-  // That is fragile to per-edition outliers — one edition with a tiny baseline
-  // (e.g., a $0.01 lowest-ask outlier on a single day) blows up its ratio and
-  // dominates the weighted sum, producing index values like 5149 instead of ~100.
+  // Math: index_value(d) = 100 × Σ_i w_i × mcap_i(d) / Σ_i w_i × mcap_i(d_0)
   //
-  // New formulation normalizes at the BASKET level:
-  //     index = 100 × Σ_i w_i × mcap_i(d) / Σ_i w_i × mcap_i(d_0)
-  // Outliers wash out — the basket-sum at d_0 absorbs them. This is how every
-  // real-world value-weighted index (S&P 500, CL50, Russell 2000) is computed.
+  // Outlier handling (basket-level): one edition with a tiny baseline can't
+  // blow up the index — the weighted basket sum at d_0 absorbs it.
   //
-  // Carry-forward semantics preserved: editions missing on date d use last
-  // known value, so ETL gaps don't manufacture spikes/drops.
-  const lastKnown = new Map<string, number>();
-  // Per-date weighted basket sum (computed in one pass over dates × editions)
+  // Sparse-coverage handling (bidirectional fill): if edition i has no data
+  // at d_0 (e.g., a newer edition that didn't exist yet), its baseline gets
+  // the FIRST FORWARD value (back-filled). This keeps the basket fully
+  // composed at d_0 — without it, a basket where only 5% of editions had
+  // data 30d ago produces index values like 4282 because startWSum is tiny.
+  //
+  // ETL gaps: standard forward carry-forward (use last known value).
+  //
+  // This is the practical compromise for retrospective indices on a basket
+  // whose composition is fixed today but where individual editions may have
+  // entered the market at different historical times.
+  const firstObserved = new Map<string, number>(); // first positive mcap per edition
+  for (const h of allHistory) {
+    if (h.market_cap > 0 && !firstObserved.has(h.edition_id)) {
+      firstObserved.set(h.edition_id, h.market_cap);
+    }
+  }
+
+  // Forward-fill state initialized to first-observed (== backward-fill for dates
+  // before each edition's first appearance).
+  const lastKnown = new Map<string, number>(firstObserved);
   const weightedSumByDate: number[] = [];
   const rawSumByDate: number[] = [];
   for (const d of dates) {

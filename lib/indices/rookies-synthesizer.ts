@@ -205,9 +205,15 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
   const weights = new Map<string, number>();
   for (const t of top) weights.set(t.edition_id, t.current_mcap / basketMcapTotal);
 
-  // Basket-level normalization (S&P / CL50 standard) — robust to per-edition
-  // outliers. See grail-synthesizer.ts for math derivation + bug history.
-  const lastKnown = new Map<string, number>();
+  // Basket-level normalization with BIDIRECTIONAL carry-forward.
+  // See grail-synthesizer.ts for math derivation + bug history (outliers, sparse-baseline).
+  const firstObserved = new Map<string, number>();
+  for (const h of allHistory) {
+    if (h.market_cap > 0 && !firstObserved.has(h.edition_id)) {
+      firstObserved.set(h.edition_id, h.market_cap);
+    }
+  }
+  const lastKnown = new Map<string, number>(firstObserved);
   const weightedSumByDate: number[] = [];
   const rawSumByDate: number[] = [];
   for (const d of dates) {

@@ -177,16 +177,18 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
     weights.set(t.edition_id, t.current_mcap / basketMcapTotal);
   }
 
-  // ── Step 6: compute index series via BASKET-LEVEL normalization ─────────
-  // Previous formulation divided EACH edition by ITS OWN baseline:
-  //     index = 100 × Σ_i w_i × (mcap_i(d) / mcap_i(d_0))
-  // Fragile to per-edition outliers — one edition with a tiny baseline ratio'd
-  // huge produced index values like 5149 instead of ~100.
-  //
-  // New formulation (S&P / CL50 standard):
-  //     index = 100 × Σ_i w_i × mcap_i(d) / Σ_i w_i × mcap_i(d_0)
-  // Outliers wash out at the basket level. Carry-forward preserved for ETL gaps.
-  const lastKnown = new Map<string, number>();
+  // ── Step 6: index series via basket-level normalization + bidirectional fill.
+  // See grail-synthesizer.ts for full math derivation + bug history.
+  //   - Outliers wash out at basket level (vs per-edition ratios pre-fix)
+  //   - Sparse coverage at d_0 doesn't inflate index (back-fill to first observed)
+  //   - ETL gaps still use forward carry-forward
+  const firstObserved = new Map<string, number>();
+  for (const h of allHistory) {
+    if (h.market_cap > 0 && !firstObserved.has(h.edition_id)) {
+      firstObserved.set(h.edition_id, h.market_cap);
+    }
+  }
+  const lastKnown = new Map<string, number>(firstObserved);
   const weightedSumByDate: number[] = [];
   const rawSumByDate: number[] = [];
   for (const d of dates) {
