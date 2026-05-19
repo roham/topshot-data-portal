@@ -374,6 +374,8 @@ def main():
     parser.add_argument("--signature-move", default=None)
     parser.add_argument("--out-path", required=True)
     parser.add_argument("--model", default="gpt-5.5", help="OpenAI model to use. NO FALLBACK — gpt-5.5 only per Roham 2026-05-17.")
+    parser.add_argument("--seed", type=int, default=None, help="Optional OpenAI seed for reproducible voting (V8 P13).")
+    parser.add_argument("--temperature", type=float, default=None, help="Optional temperature override (V8 P13).")
     args = parser.parse_args()
 
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -391,12 +393,17 @@ def main():
 
     try:
         # NO FALLBACK — gpt-5.5 only per Roham 2026-05-17. If the model fails, the verdict fails.
-        response = client.chat.completions.create(
-            model=args.model,
-            messages=messages,
-            max_completion_tokens=16000,
-            response_format={"type": "json_object"},
-        )
+        kwargs = {
+            "model": args.model,
+            "messages": messages,
+            "max_completion_tokens": 16000,
+            "response_format": {"type": "json_object"},
+        }
+        if args.seed is not None:
+            kwargs["seed"] = args.seed
+        if args.temperature is not None:
+            kwargs["temperature"] = args.temperature
+        response = client.chat.completions.create(**kwargs)
 
         content = response.choices[0].message.content
         result = json.loads(content)
