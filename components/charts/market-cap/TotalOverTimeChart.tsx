@@ -36,15 +36,9 @@ export function TotalOverTimeChart({ rows }: { rows: McapOverTimeRow[] }) {
   if (data.length < 2) {
     return (
       <div className="flex items-center justify-center h-full p-8 text-center">
-        <div>
-          <p className="text-[12px] text-[var(--text-dim)]">
-            Only {data.length} day of mcap data available.
-          </p>
-          <p className="text-[10px] text-[var(--text-faint)] mt-2">
-            ETL began accumulating snapshots on 2026-05-13. Time-series view
-            populates after more daily snapshots accrue.
-          </p>
-        </div>
+        <p className="text-[12px] text-[var(--text-dim)]">
+          {data.length === 0 ? "No mcap snapshots in window." : "1 snapshot in window — need ≥ 2 to plot."}
+        </p>
       </div>
     );
   }

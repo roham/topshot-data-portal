@@ -42,14 +42,9 @@ export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
   if (series.length < 2) {
     return (
       <div className="flex items-center justify-center h-[320px] p-8 text-center">
-        <div>
-          <p className="text-[12px] text-[var(--text-dim)]">
-            TS50 Index accumulating snapshots — only {series.length} day available.
-          </p>
-          <p className="text-[10px] text-[var(--text-faint)] mt-2">
-            ETL writes one snapshot per UTC day. Series becomes meaningful at ≥ 7 days.
-          </p>
-        </div>
+        <p className="text-[12px] text-[var(--text-dim)]">
+          {series.length === 0 ? "No snapshots in window." : `1 snapshot in window — need ≥ 2 to plot.`}
+        </p>
       </div>
     );
   }

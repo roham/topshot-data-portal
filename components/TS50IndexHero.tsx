@@ -30,8 +30,7 @@ export async function TS50IndexHero({
         variant="inset"
       >
         <div className="p-6 text-[12px] text-[var(--text-dim)]">
-          TS50 Index hasn&apos;t accumulated enough snapshots yet. ETL writes one
-          snapshot per UTC day; the index becomes meaningful at ≥ 7 days.
+          TS50 basket has no matching market-cap rows yet.
         </div>
       </Card>
     );
@@ -87,12 +86,6 @@ export async function TS50IndexHero({
               sum of top 50 editions
             </div>
           </div>
-          {ts50.is_thin && (
-            <p className="text-[10px] text-[var(--text-faint)] font-mono leading-relaxed">
-              Series is still thin — accumulates 1 snapshot per UTC day.
-              Becomes representative at ≥ 7 days.
-            </p>
-          )}
         </div>
         {/* Chart — right side */}
         <div className="min-w-0">

@@ -35,7 +35,6 @@ interface MiniHeroProps {
   basketMcap: number;
   daysOfHistory: number;
   series: { date: string; index_value: number; basket_mcap_usd: number }[];
-  isThin: boolean;
   emptyReason?: string;
 }
 
@@ -49,15 +48,13 @@ function MiniHero({
   basketMcap,
   daysOfHistory,
   series,
-  isThin,
   emptyReason,
 }: MiniHeroProps) {
   if (series.length === 0) {
     return (
       <Card title={title} subtitle={subtitle} methodology={methodology} variant="inset">
         <div className="p-6 text-[12px] text-[var(--text-dim)]">
-          {emptyReason ??
-            `${title} hasn't accumulated enough snapshots yet. ETL writes one snapshot per UTC day; the index becomes meaningful at ≥ 7 days.`}
+          {emptyReason ?? `${title} basket has no matching market-cap rows yet.`}
         </div>
       </Card>
     );
@@ -92,7 +89,7 @@ function MiniHero({
             </div>
             <div className={`text-[12px] mt-1 font-mono tabular-nums ${deltaColor(pctChange)}`}>
               <Num value={pctChange} format="deltaPct" colorize={false} />
-              <span className="text-[var(--text-faint)] ml-2">over {daysOfHistory}d</span>
+              <span className="text-[var(--text-faint)] ml-2">{daysOfHistory}d</span>
             </div>
           </div>
           <div>
@@ -103,11 +100,6 @@ function MiniHero({
               <Num value={basketMcap} format="usdCompact" />
             </div>
           </div>
-          {isThin && (
-            <p className="text-[10px] text-[var(--text-faint)] font-mono leading-relaxed">
-              Series still thin — 1 snapshot/UTC day. Representative at ≥ 7 days.
-            </p>
-          )}
         </div>
         <div className="min-w-0">
           <TS50IndexChart series={seriesForChart} />
@@ -137,30 +129,28 @@ export async function IndexHeroPair({ lookbackDays = 30 }: { lookbackDays?: numb
     <div className="grid lg:grid-cols-2 gap-4">
       <MiniHero
         slug="grail"
-        title="Grail Index"
-        subtitle={`Blue-chip basket · ${grailResult?.days_of_history ?? 0}d history${grailResult?.as_of_date ? ` · as of ${grailResult.as_of_date}` : ""}`}
-        methodology="V1 basket: top 50 editions by current market cap among the two scarcest tiers (Legendary + Ultimate). Value-weighted, daily-grain, carry-forward on ETL gaps. Refines to the 184-edition Vaultopolis-sourced list when the (set_id, play_id) join lands."
+        title="GRAIL"
+        subtitle={`Vaultopolis 184 · top blue-chip editions${grailResult?.as_of_date ? ` · ${grailResult.as_of_date}` : ""}`}
+        methodology="Vaultopolis-canonical top-225 by ASP (Apr 2026), 184 matched to canonical edition_ids. Value-weighted basket: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing."
         latestValue={grailResult?.latest_index_value ?? 100}
         pctChange={grailResult?.series_pct_change ?? 0}
         basketMcap={grailResult?.basket_mcap_total_usd ?? 0}
         daysOfHistory={grailResult?.days_of_history ?? 0}
         series={grailResult?.series ?? []}
-        isThin={grailResult?.is_thin ?? true}
       />
       <MiniHero
         slug="rookies"
-        title="Rookies Index"
-        subtitle={`Draft class ${rookiesResult?.draft_year_used ?? "—"} · ${rookiesResult?.days_of_history ?? 0}d history${rookiesResult?.as_of_date ? ` · as of ${rookiesResult.as_of_date}` : ""}`}
-        methodology={`V1 basket: top 30 editions by current market cap among players in the rookie cohort (draft_year ${rookiesResult?.draft_year_used ?? "—"}). Value-weighted, daily-grain, carry-forward on ETL gaps.`}
+        title="ROOKIES"
+        subtitle={`Draft class ${rookiesResult?.draft_year_used ?? "—"}${rookiesResult?.as_of_date ? ` · ${rookiesResult.as_of_date}` : ""}`}
+        methodology={`Top editions by market cap, current draft class (${rookiesResult?.draft_year_used ?? "—"}). Value-weighted. Multi-line per-rookie chart lands as the canonical view; aggregate index shown here.`}
         latestValue={rookiesResult?.latest_index_value ?? 100}
         pctChange={rookiesResult?.series_pct_change ?? 0}
         basketMcap={rookiesResult?.basket_mcap_total_usd ?? 0}
         daysOfHistory={rookiesResult?.days_of_history ?? 0}
         series={rookiesResult?.series ?? []}
-        isThin={rookiesResult?.is_thin ?? true}
         emptyReason={
           rookiesResult && rookiesResult.draft_year_used === null
-            ? "No editions found for current/recent rookie draft classes (2025, 2024). Likely an ETL gap on the players.draft_year column."
+            ? "No editions matched for current rookie draft classes (2025, 2024)."
             : undefined
         }
       />
