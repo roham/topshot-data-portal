@@ -156,13 +156,29 @@ function Chart({ data }: { data: PricePoint[] }) {
             }}
           />
           <Tooltip
+            // V9 VIZ-002 — TradingView hover-crosshair signature.
+            cursor={{
+              stroke: "var(--text-faint)",
+              strokeWidth: 1,
+              strokeDasharray: "2 4",
+            }}
             contentStyle={{
-              background: "var(--surface-1)",
-              border: "1px solid var(--border-subtle)",
+              background: "var(--surface-2)",
+              border: "1px solid var(--border-strong)",
               fontSize: 11,
               borderRadius: 4,
+              padding: "6px 10px",
+              fontFamily: "var(--font-mono)",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
             }}
-            labelStyle={{ color: "var(--text-dim)" }}
+            labelStyle={{
+              color: "var(--text-faint)",
+              fontSize: 10,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              marginBottom: 2,
+            }}
+            itemStyle={{ padding: "1px 0" }}
             formatter={(v) => {
               const n = typeof v === "number" ? v : Number(v);
               return [
@@ -177,7 +193,12 @@ function Chart({ data }: { data: PricePoint[] }) {
             stroke="var(--accent)"
             strokeWidth={1.5}
             dot={{ r: 2, fill: "var(--accent)" }}
-            activeDot={{ r: 4 }}
+            activeDot={{
+              r: 4,
+              fill: "var(--accent)",
+              stroke: "var(--surface-1)",
+              strokeWidth: 2,
+            }}
             isAnimationActive={false}
           />
         </LineChart>

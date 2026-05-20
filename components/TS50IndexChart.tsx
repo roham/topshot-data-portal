@@ -86,11 +86,34 @@ export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
         />
         <ReferenceLine y={100} stroke="var(--border-subtle)" strokeDasharray="2 4" />
         <Tooltip
+          // V9 VIZ-002 — TradingView hover-crosshair signature. Cursor is a
+          // prominent vertical line (not the recharts default fill); activeDot
+          // marks the locked-y read; tooltip body shows the two values
+          // (index + basket) compactly. Pairs across Grail + Rookies + every
+          // legacy index that uses this chart primitive.
+          cursor={{
+            stroke: "var(--text-faint)",
+            strokeWidth: 1,
+            strokeDasharray: "2 4",
+          }}
           contentStyle={{
             background: "var(--surface-2)",
-            border: "1px solid var(--border-subtle)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: 4,
+            padding: "6px 10px",
             fontSize: 11,
             fontFamily: "var(--font-mono)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+          }}
+          labelStyle={{
+            color: "var(--text-faint)",
+            fontSize: 10,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            marginBottom: 2,
+          }}
+          itemStyle={{
+            padding: "1px 0",
           }}
           formatter={(value, _name, _item, _idx, payload) => {
             const bm = (payload as unknown as { basket_mcap?: number })?.basket_mcap;
@@ -110,6 +133,12 @@ export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
           stroke="#14b8a6"
           strokeWidth={2}
           fill="url(#ts50Gradient)"
+          activeDot={{
+            r: 4,
+            fill: "#14b8a6",
+            stroke: "var(--surface-1)",
+            strokeWidth: 2,
+          }}
         />
       </AreaChart>
     </ResponsiveContainer>
