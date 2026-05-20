@@ -1,0 +1,1352 @@
+[
+  {
+    "setID": 16,
+    "playID": 210,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 37,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 19,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 96,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 88,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 102,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 147,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 137,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 100,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 127,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 109,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 3,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 136,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 133,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 39,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 80,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 143,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 122,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 71,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 2,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 62,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 111,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 17,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 1,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 110,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 20,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 97,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 4,
+    "playID": 82,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 116,
+    "playID": 4094,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 5989,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6212,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6316,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6323,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6329,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 5864,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6630,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6317,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6572,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 169,
+    "playID": 6330,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 109,
+    "playID": 5299,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 103,
+    "playID": 3778,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 103,
+    "playID": 3528,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 103,
+    "playID": 3530,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 103,
+    "playID": 3784,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 103,
+    "playID": 3775,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 103,
+    "playID": 3786,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 139,
+    "playID": 4961,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 139,
+    "playID": 4963,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 139,
+    "playID": 4956,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 57,
+    "playID": 1908,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 57,
+    "playID": 1909,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 120,
+    "playID": 4287,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 4604,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 4601,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 4864,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 4865,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 5111,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 5116,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 5128,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 131,
+    "playID": 5119,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 11,
+    "playID": 151,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 23,
+    "playID": 305,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 74,
+    "playID": 2648,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 74,
+    "playID": 2837,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 10,
+    "playID": 75,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 191,
+    "playID": 6794,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 219,
+    "playID": 7408,
+    "subeditionID": 18,
+    "allowAll": false
+  },
+  {
+    "setID": 219,
+    "playID": 7408,
+    "subeditionID": 17,
+    "allowAll": false
+  },
+  {
+    "setID": 219,
+    "playID": 7416,
+    "subeditionID": 18,
+    "allowAll": false
+  },
+  {
+    "setID": 149,
+    "playID": 5370,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 153,
+    "playID": 5429,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 153,
+    "playID": 5430,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 153,
+    "playID": 5431,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 153,
+    "playID": 5428,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 153,
+    "playID": 5427,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7286,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7285,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7693,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 8094,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7876,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7359,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7532,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7284,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7694,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7533,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7875,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7358,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 211,
+    "playID": 7357,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 31,
+    "playID": 420,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 31,
+    "playID": 416,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 31,
+    "playID": 417,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 204,
+    "playID": 7161,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 187,
+    "playID": 6765,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 187,
+    "playID": 6707,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 187,
+    "playID": 6908,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 53,
+    "playID": 2444,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 53,
+    "playID": 2018,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 53,
+    "playID": 2332,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 53,
+    "playID": 2447,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 53,
+    "playID": 2453,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 53,
+    "playID": 2697,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 53,
+    "playID": 2440,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 53,
+    "playID": 2068,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 41,
+    "playID": 1462,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 41,
+    "playID": 1463,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 160,
+    "playID": 5463,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 160,
+    "playID": 5480,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 160,
+    "playID": 5584,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 160,
+    "playID": 5710,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 121,
+    "playID": 4247,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 121,
+    "playID": 4245,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 121,
+    "playID": 4256,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 117,
+    "playID": 4126,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 117,
+    "playID": 4128,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 223,
+    "playID": 7516,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 223,
+    "playID": 7516,
+    "subeditionID": 19,
+    "allowAll": false
+  },
+  {
+    "setID": 223,
+    "playID": 7518,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 223,
+    "playID": 7504,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 233,
+    "playID": 7762,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 233,
+    "playID": 7730,
+    "subeditionID": 19,
+    "allowAll": false
+  },
+  {
+    "setID": 233,
+    "playID": 7730,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 233,
+    "playID": 7726,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 110,
+    "playID": 3942,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 194,
+    "playID": 6917,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 194,
+    "playID": 6912,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 194,
+    "playID": 6916,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 206,
+    "playID": 7229,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 82,
+    "playID": 2841,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 231,
+    "playID": 8092,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 28,
+    "playID": 883,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 871,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 593,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 875,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 595,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 874,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 880,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 1310,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 28,
+    "playID": 1308,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 2,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 133,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 147,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 136,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 3,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 63,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 37,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 5,
+    "playID": 4,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 162,
+    "playID": 5619,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 197,
+    "playID": 6973,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 114,
+    "playID": 4066,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 114,
+    "playID": 7391,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 114,
+    "playID": 5302,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 13,
+    "playID": 168,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 25,
+    "playID": 346,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 13,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 118,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 133,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 61,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 111,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 136,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 62,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 64,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 144,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 134,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 127,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 88,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 102,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 145,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 137,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 8,
+    "playID": 37,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 106,
+    "playID": 3802,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 106,
+    "playID": 3809,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 106,
+    "playID": 3811,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 106,
+    "playID": 3807,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 208,
+    "playID": 7196,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 152,
+    "playID": 5370,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 152,
+    "playID": 5368,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 20,
+    "playID": 275,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 20,
+    "playID": 257,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 20,
+    "playID": 262,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 20,
+    "playID": 261,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 174,
+    "playID": 5908,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 6073,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 7537,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 5985,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 7396,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 5737,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 5860,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 7536,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 6071,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 6146,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 6563,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 6562,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 7397,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 5752,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 165,
+    "playID": 6072,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 21,
+    "playID": 263,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 147,
+    "playID": 5337,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 147,
+    "playID": 5338,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 29,
+    "playID": 572,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 135,
+    "playID": 4725,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 12,
+    "playID": 162,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 12,
+    "playID": 158,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 12,
+    "playID": 157,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 12,
+    "playID": 147,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 12,
+    "playID": 156,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 69,
+    "playID": 2663,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 100,
+    "playID": 3345,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 100,
+    "playID": 3919,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 100,
+    "playID": 7392,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 100,
+    "playID": 5304,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 61,
+    "playID": 2238,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 61,
+    "playID": 2184,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 61,
+    "playID": 2183,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 61,
+    "playID": 2243,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 134,
+    "playID": 5039,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 166,
+    "playID": 6772,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 238,
+    "playID": 8008,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 238,
+    "playID": 8011,
+    "subeditionID": 19,
+    "allowAll": false
+  },
+  {
+    "setID": 238,
+    "playID": 8011,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 238,
+    "playID": 8011,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 238,
+    "playID": 8023,
+    "subeditionID": 20,
+    "allowAll": false
+  },
+  {
+    "setID": 2,
+    "playID": 147,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 2,
+    "playID": 133,
+    "subeditionID": null,
+    "allowAll": true
+  },
+  {
+    "setID": 148,
+    "playID": 5637,
+    "subeditionID": 0,
+    "allowAll": false
+  },
+  {
+    "setID": 185,
+    "playID": 6531,
+    "subeditionID": 0,
+    "allowAll": false
+  }
+]
