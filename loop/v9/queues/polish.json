@@ -1,0 +1,58 @@
+{
+  "schema_version": "v9",
+  "track": "POLISH-EXISTING",
+  "queue": [
+    {
+      "id": "POLISH-001",
+      "title": "Surface /players as labeled entity on home, above Grail+Rookies hero",
+      "track": "POLISH-EXISTING",
+      "rw_class": "READ-WRITE",
+      "status": "open",
+      "priority": 100,
+      "created_at": "2026-05-19T21:45:00Z",
+      "updated_at": "2026-05-19T21:45:00Z",
+      "age_hours": 0,
+      "blocked_by": null,
+      "rationale": "Roham 2026-05-19 verbatim: 'very nice players page... not properly discoverable because navigation broken; highest priority to fix: home page followed by navigation.' Per Opus F1 verification: /players IS linked from TopNav.tsx line 37 (Browse lane), so the failure class is prominence/labelling on the homepage, not literal unlinkedness — POLISH-EXISTING, not DISCOVERABILITY-GAP.",
+      "end_state": "/ renders a Players-teaser tile above the existing Grail+Rookies hero pair. List shape (6-8 rows). Each row shows player name + team-color accent + 24h volume + Sparkline. Top 6-8 by 24h volume. Each row clickable to /player/[id]. Reuses existing components/primitives/{Sparkline,Card,Num,TierChip}.tsx — NO new chart-canvas component, NO new sparkline component.",
+      "comparable_primary": "PSA Set Registry canonical entity-sidebar (top players visible)",
+      "comparable_cross_domain": "Wikipedia infobox top-stats convention",
+      "signature_move": "entity-list-as-homepage-prominence reusing existing primitives",
+      "doctrine_quote": "Pillar 4 — Best-In-Class Taxonomy + Browse: the Player layer of Series→Set→Edition→Moment must have prominence on the homepage, not just navigation.",
+      "why_this_quote_applies": "The change adds a Players entity tile to the homepage's first viewport, directly enacting the Pillar-4 prominence requirement for the Player taxonomy layer.",
+      "load_bearing_file": "app/page.tsx",
+      "spot_read_target": "app/page.tsx (verify Players tile renders in first viewport above Grail+Rookies hero pair)",
+      "estimated_effort": "S",
+      "estimated_minutes": 60,
+      "added_by": "directive-v9-priority",
+      "next_iter_followups": [
+        "POLISH-002 (⌘K command palette on TopNav)",
+        "VIZ-001 (Players home tile upgrade to chart-canvas with Polymarket multi-line)"
+      ]
+    },
+    {
+      "id": "POLISH-002",
+      "title": "Command palette on TopNav with ⌘K binding + / shortcut + ? help modal",
+      "track": "POLISH-EXISTING",
+      "rw_class": "READ-WRITE",
+      "status": "open",
+      "priority": 90,
+      "created_at": "2026-05-19T21:45:00Z",
+      "updated_at": "2026-05-19T21:45:00Z",
+      "age_hours": 0,
+      "blocked_by": null,
+      "rationale": "Navigation polish — second priority Roham named after home. Current TopNav has only a /u/{value} resolver; no universal search.",
+      "end_state": "TopNav has a command palette (⌘K or / opens it) that resolves players + sets + editions + teams + usernames + addresses universally. Pressing ? opens a shortcut help modal. Keyboard-first, <200ms open latency.",
+      "comparable_primary": "TradingView / palette",
+      "comparable_cross_domain": "Linear ⌘K + Bloomberg function-code grammar",
+      "signature_move": "universal command palette with keyboard shortcuts",
+      "doctrine_quote": "Pillar 5 — Deep Empathy For The Customer: Pro Traders live inside the tool; keyboard shortcuts are mandatory.",
+      "why_this_quote_applies": "The change adds keyboard-first command palette + / shortcut binding to TopNav, directly enacting the Pillar-5 keyboard-shortcuts requirement.",
+      "load_bearing_file": "components/TopNav.tsx",
+      "spot_read_target": "components/TopNav.tsx (verify ⌘K and / both open palette; ? opens help modal)",
+      "estimated_effort": "M",
+      "estimated_minutes": 75,
+      "added_by": "directive-v9-priority"
+    }
+  ]
+}

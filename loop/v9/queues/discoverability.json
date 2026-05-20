@@ -1,0 +1,6 @@
+{
+  "schema_version": "v9",
+  "track": "DISCOVERABILITY-GAP",
+  "queue": [],
+  "note": "Strict DISCOVERABILITY-GAP rule = literally unlinked from primary nav. Discovery Auditor populates this queue when its inventory pass finds routes with verdict UNREACHABLE-FROM-PRIMARY. Iter-1 of V9 is POLISH-EXISTING (homepage doesn't prominently surface /players), not DISCOVERABILITY-GAP (/players IS linked from TopNav Browse lane). See loop/v9/CHARTER.md §12 for justification."
+}

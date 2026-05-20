@@ -1,0 +1,137 @@
+# MODEL USED: gpt-5
+
+{
+  "verdict": "NEEDS-WORK",
+  "headline": "V9 biases the loop in the right direction but over-ceremonializes, mis-scopes Iter‑1, and leaves key mechanics (firing rules, queue-block, failure paths) under-specified.",
+  "strengths": [
+    {
+      "finding": "Explicit deprioritization and structural block of NEW-COMINGSOON-CONVERSION in favor of DISCOVERABILITY and POLISH aligns with Roham’s ask.",
+      "section": "§3 Track Priority + Firing rules",
+      "weight": "high"
+    },
+    {
+      "finding": "Discovery Auditor inventories live routes and ranks proposals with comparables/signature move, which directly targets the 'existing-but-undiscoverable' gap.",
+      "section": "§4 Discovery Auditor",
+      "weight": "med"
+    },
+    {
+      "finding": "Verification demands UI evidence (multi-viewport screenshots + Playwright probe) to prevent 'build pass ≠ working UI' regressions.",
+      "section": "§3 Hard constraints #2; §3 G4/G6",
+      "weight": "high"
+    },
+    {
+      "finding": "Charter wires V9 into V8 safely via directive inbox and path-referenced prompts without rewriting the orchestrator.",
+      "section": "§1 Pattern Selection; §5 Directive inbox",
+      "weight": "med"
+    }
+  ],
+  "weaknesses": [
+    {
+      "finding": "Iter‑1 target (Players-page-as-home-hero) is scoped M (3–5h) but the budget envelope is 90 min/iter; this will almost certainly fail gating and stall.",
+      "section": "§5 Seed DISC‑001; §6 First iter target; §3 Budget envelope",
+      "weight": "high",
+      "proposed_fix": "Split into a two-iter epic: Iter‑1 (≤90 min) ships discoverability only: add persistent TopNav 'Players' entry and a minimal Home hero tile linking to /players with top 6–8 by 24h volume rendered as a simple list + mini sparklines reused from existing components; Iter‑2 upgrades to chart‑canvas hero and replacements. Encode this as DISC‑001A (discoverability) then DISC‑001B (visual hero)."
+    },
+    {
+      "finding": "DISCOVERABILITY-GAP firing rule is ambiguous and brittle for a Haiku-tier Track Selector (undefined 'TopNav primary path', unspecified 'search resolver' file, ignores footer/secondary nav/internal in-page links).",
+      "section": "§3 Firing rules",
+      "weight": "high",
+      "proposed_fix": "Make it file-path explicit and precedence-ordered: DISCOVERABILITY-GAP fires when route has page.tsx AND is absent from components/TopNav.tsx primaryItems[] AND absent from app/page.tsx above-the-fold links AND absent from components/CommandPalette/* resolvers. Add precedence: if a surface meets multiple V9 rules in one tick, prefer DISCOVERABILITY-GAP > POLISH-EXISTING > VIZ-COMPLETENESS. Add an allowlist for footer/secondary menus to count as 'linked'."
+    },
+    {
+      "finding": "Queue-block is enforced late (Doctrine stage) and references '3 V9 queues' without a concrete schema/path; a misfire at Track Selector will waste an iter before being blocked.",
+      "section": "§2 Agent Roster #11 Doctrine Checker; §3 Track Priority; §5 Directive inbox",
+      "weight": "high",
+      "proposed_fix": "Enforce block at Track Selector time: patch Haiku selector to read loop/v9/queues/{discoverability.json,polish.json,visual.json} with a declared schema {id,status,created_at}. If NEW-COMINGSOON-CONVERSION selected while either queue has status=open, refuse with rationale and auto-select the highest-priority open queue item. Keep Doctrine as a backstop, but don’t rely on it for primary enforcement."
+    },
+    {
+      "finding": "Kick-back paths are not specified per gate; 'Failure routes iter to next-priority unblocked track' is hand-wavy and assumes the orchestrator will intuit reruns.",
+      "section": "§3 Verification gates G1–G9; §2 #11 Doctrine Checker note",
+      "weight": "high",
+      "proposed_fix": "Add an explicit fail matrix: G1→rerun Track Selector; G2→rerun Discovery Auditor; G3→rerun Planner; G4→rerun Implementer; G5→return to Implementer with reviewer diffs; G6(build/tsc)→Implementer; G6(probe/screenshot/copy)→Implementer; G7→Quality Reviewer for tie-break notes; G8(queue-block)→Track Selector; G8(voice)→Implementer; G9(persona)→Planner with auto-filed tasks. Cap retries at 2 before Meta-Track takes over."
+    },
+    {
+      "finding": "CPO Persona Checker is over-scoped for per-iter gating (12-step journey includes hotkeys, live ticker, search palette) and will fail repeatedly on out-of-charter items, burning budget.",
+      "section": "§4 CPO Persona Checker; §3 G9",
+      "weight": "high",
+      "proposed_fix": "For the first two weeks of V9, restrict Persona to steps 1, 9, 11, 12 (home hero present, nav back to '/', no marketing words, mobile sanity). Mark other steps as WARN and file tasks without blocking. Run the full 12-step Persona nightly as a cron audit outside the per-iter budget."
+    },
+    {
+      "finding": "Discovery Auditor and Planner overlap; both read app/ and produce proposals. The extra stage adds ceremony and burns a dispatch under tight 8-dispatch/iter cap.",
+      "section": "§2 #3 Discovery Auditor; §2 #4 Planner",
+      "weight": "med",
+      "proposed_fix": "Merge Discovery Auditor into Planner on all but the first DISCOVERABILITY-GAP iter of the day. Or keep Auditor but constrain its output to a machine-readable inventory JSON consumed by the Planner to avoid duplicative 'top-5 proposals' authoring."
+    },
+    {
+      "finding": "Nine gates plus 3 Judges are likely to exceed the $15/token and 90-min envelope; many checks duplicate each other (Reviewers vs Judges vs Persona vs Deterministic Verifier).",
+      "section": "§3 G1–G9; §2 #9 Cross-Vendor Judge ×3; §3 Budget",
+      "weight": "med",
+      "proposed_fix": "For RW iters, collapse Map-Reduce Judges to a single cross-vendor judge or make Judges conditional on any reviewer FAIL. Move Persona out of the gate chain (see above) or make it non-blocking WARN for now. This frees budget for implementation."
+    },
+    {
+      "finding": "Voice-audit grep only inspects the git diff and a short, ad-hoc phrase list, missing pre-existing marketing words and UI-sourced text.",
+      "section": "§2 #11 Doctrine Checker (voice-audit grep); §3 G6 copy-audit mention",
+      "weight": "med",
+      "proposed_fix": "Expand to repo-wide, case-insensitive regex with an allowlist, and add a DOM-level Playwright text scan on changed pages. Store banned-terms.yml and pass it to both Deterministic Verifier (copy-audit) and Doctrine Checker to ensure parity."
+    },
+    {
+      "finding": "No plan for state migration of V8 queues/state to the 3 new V9 queues; risk of orphaning backlog and duplicating efforts.",
+      "section": "§1 Pattern Selection; §5 Directive inbox (init queues)",
+      "weight": "med",
+      "proposed_fix": "Ship a one-time migrator: loop/v9/tools/migrate_v8_queues.ts that maps V8 backlog items to {DISCOVERABILITY|POLISH|VIZ} with deterministic rules and writes them into loop/v9/queues/*.json with schema_version: 'v9'. Log a migration report."
+    },
+    {
+      "finding": "READ-WRITE single-threading for POLISH/DISCOVERABILITY/VIZ without explicit queue fairness risks starvation if DISCOVERABILITY never empties.",
+      "section": "§3 Hard constraints #6; §3 Track Priority",
+      "weight": "low",
+      "proposed_fix": "Adopt 3:1 scheduling: for every 3 DISCOVERABILITY iters, run 1 POLISH if its queue has age > 72h. Encode in Track Selector with queue aging."
+    }
+  ],
+  "hidden_risks": [
+    {
+      "risk": "Directive inbox activation races with the cron tick; partial adoption can run a V8 selector with V9 gates, causing spurious FAILs.",
+      "likelihood": "med",
+      "blast_radius": "iter",
+      "mitigation": "Introduce an atomic activation flag file loop/v9/ACTIVE. Orchestrator reads it once per tick; activation writes queues/prompts and ACTIVE in a single commit; the loop only switches when ACTIVE is present."
+    },
+    {
+      "risk": "Schema drift between v8 state and v9 state paths results in tools (deterministic verifier, cost gates) looking in the wrong iteration directory.",
+      "likelihood": "med",
+      "blast_radius": "charter",
+      "mitigation": "Version every state file with schema_version: 'v9' and update all scripts to read loop/*/state by globbing the highest version. Add a CI check that fails if any tool references loop/v8/state during V9."
+    },
+    {
+      "risk": "Cost gate abort at $12 combined with 3× Judges + Persona pushes Implementer late, causing repeated half-iters without code changes.",
+      "likelihood": "high",
+      "blast_radius": "loop",
+      "mitigation": "Make Judges conditional on reviewer disagreement; cap Persona to WARN (non-blocking) initially; reserve 40% of token budget for Implementer by enforcing stage budgets."
+    },
+    {
+      "risk": "Roham lacks a fast override to force-run NAV/HOME if queues stall behind mis-tagging.",
+      "likelihood": "med",
+      "blast_radius": "iter",
+      "mitigation": "Expose /admin override that writes next-iter forced-track.json {track:'DISCOVERABILITY-GAP',queue_item:'DISC-001A'} which the Track Selector must honor once."
+    },
+    {
+      "risk": "Persona Checker Playwright steps target features not present; persistent FAILs flood the next-iter task ledger and drown priority signals.",
+      "likelihood": "high",
+      "blast_radius": "loop",
+      "mitigation": "Gate Persona to charter scope (home+nav) initially and rate-limit auto-filed tasks per iter; overflow to a backlog file not injected into the immediate queues."
+    }
+  ],
+  "iter1_assessment": {
+    "appropriate_scope": "no",
+    "rationale": "Seed DISC‑001 requires chart-canvas hero with multi-line trend and clickable rows; effort M (3–5h) exceeds the 90‑min cap. Without downscoping, the Implementer will fail G4–G6 repeatedly."
+  },
+  "must_fix_before_ship": [
+    "Downscope Iter‑1 to a pure discoverability slice (TopNav link + minimal Home tile to /players) and defer the full chart-canvas hero to Iter‑2.",
+    "Tighten and make file-path explicit the DISCOVERABILITY-GAP firing rule; add precedence and clarify what counts as 'linked'.",
+    "Move queue-block enforcement into the Track Selector (with declared queue schemas) and keep Doctrine as a backstop.",
+    "Define explicit kick-back mapping per gate (G1–G9) and cap retries before Meta-Track engagement.",
+    "Constrain CPO Persona Checker to home/nav checks for per-iter runs; make the rest WARN-only and run nightly.",
+    "Reduce verification overhead: collapse Judges to conditional or single-judge and prevent Persona from blocking initial iters.",
+    "Add a V8→V9 queue migration tool and version all new state/queue files with schema_version: 'v9'.",
+    "Expand voice-audit to repo-wide, case-insensitive banned terms with an allowlist and a DOM scan."
+  ],
+  "would_recommend_shipping": "with_fixes"
+}

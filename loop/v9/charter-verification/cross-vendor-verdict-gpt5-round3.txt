@@ -1,0 +1,84 @@
+# ROUND 3 MODEL: gpt-5
+
+{
+  "verdict_round3": "PASS",
+  "convergence_reached": "yes",
+  "headline_round3": "All prior ship‑blockers are closed with concrete specs (migration, queues, auditor scope, persona gating, doctrine checks, judges/cost), leaving only minor non‑blocking glue items.",
+  "concession_audit": [
+    {
+      "concession_id": "V8→V9 migration — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "Tool path, mapping rules, outputs, and the MIGRATED flag gating activation are explicitly specified. Minor note: when a mapping is 'tentative', ensure the script sets status:'blocked' and/or blocked_by:'manual_review' to prevent accidental dispatch."
+    },
+    {
+      "concession_id": "Queue file schema — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "On‑disk paths, schema_version:'v9', required fields, statuses, and a CI validator script with a JSON Schema are all defined. This removes prior brittleness in early enforcement."
+    },
+    {
+      "concession_id": "banned-terms.yml + DOM scan — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "Single source of truth wired into both Doctrine and Deterministic Verifier; a one‑time baseline repo‑wide + DOM audit is scheduled as a POLISH task. The allowlist is present to avoid false positives in docs. Solid."
+    },
+    {
+      "concession_id": "Doctrine 'quote‑matches‑change' validation — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "Commit template adds 'Why this quote applies' and the checker cross‑reads touched files for semantic relevance. This closes the prior loophole of generic quotes passing the gate."
+    },
+    {
+      "concession_id": "Discovery Auditor → inventory‑only — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "Auditor now emits a machine‑readable inventory JSON with linkage evidence; ranking and proposals move to Planner. This preserves role separation while removing duplication."
+    },
+    {
+      "concession_id": "Search resolver path — CONCEDED (configurable + fallback)",
+      "substantive": "yes",
+      "audit_note": "Config file lists resolver candidates and fallback globs, reducing path brittleness as the command palette evolves."
+    },
+    {
+      "concession_id": "M2 — filename audit before rename — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "A codemod/grep plan is defined, but the conservative decision to keep the '00b-' prefix initially avoids accidental script breakage."
+    },
+    {
+      "concession_id": "Cron tick reentrancy lock — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "LOCK file format, expiry behavior, and deferral logging are specified. Prevents overlapping iters from trampling state."
+    },
+    {
+      "concession_id": "Judge escalation triggers — CONCEDED",
+      "substantive": "yes",
+      "audit_note": "Default Haiku ×3 with explicit escalation triggers (reviewer disagreement, viz probe anomalies, doctrine/arch touches, Meta‑Track) and cost envelope are clear. This satisfies budget concerns without weakening cross‑vendor voting."
+    },
+    {
+      "concession_id": "M1 ordering — CONFIRMED in final §6",
+      "substantive": "yes",
+      "audit_note": "Iter‑1 home tile → Iter‑2 ⌘K nav → Iter‑3 hero upgrade concretely align with 'home then navigation' and right‑size to the 90‑min budget."
+    }
+  ],
+  "residual_concerns": [
+    {
+      "concern": "V8 charter’s stale verify script path (v7 reference) fix was previously conceded but not explicitly restated here with the exact change and CI guard.",
+      "weight": "med",
+      "blocking_for_ship": "no"
+    },
+    {
+      "concern": "DISCOVERABILITY exemptions file was referenced earlier (discoverability‑exemptions.json) but no schema/path was restated; ensure footer/secondary links and intentional exemptions are honored to avoid false positives.",
+      "weight": "low",
+      "blocking_for_ship": "no"
+    },
+    {
+      "concern": "Deterministic Verifier escalation hook 'viz_nuance_warning' is referenced in judge triggers; confirm the verifier actually emits this flag or rename the trigger key to match the implemented output.",
+      "weight": "low",
+      "blocking_for_ship": "no"
+    },
+    {
+      "concern": "Track Selector early queue‑block enforcement (A3) was accepted in round‑2; ensure the patched prompt/code is committed alongside the new queue schema so enforcement actually happens at selection time.",
+      "weight": "low",
+      "blocking_for_ship": "no"
+    }
+  ],
+  "would_recommend_shipping_round3": "yes",
+  "must_fix_remaining_round3": [],
+  "ship_signoff": "Proceed to activate V9: commit the migration tool and run it to generate loop/v9/queues/*.json and write loop/v9/MIGRATED; add banned-terms.yml, the queue schema + CI validator, the Discovery Auditor inventory output wiring, the Track Selector config for search resolver paths, the doctrine quote‑matches‑change check, the LOCK handling, and the judge escalation triggers. Then flip loop/v9/ACTIVE in the same commit that seeds DISC-001A (Players home tile) and verifies early queue‑block enforcement is live. Schedule the baseline voice‑audit POLISH iter within the first two cycles. Optionally, in the same pass, fix the V8 charter’s stale verify script path and add a CI guard; and define the discoverability‑exemptions.json schema to keep the selector precise. Engage /thoth-prompter:agent to start the loop."
+}

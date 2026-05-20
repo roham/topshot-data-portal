@@ -1,0 +1,36 @@
+# Discoverability classifier inputs — read by Track Selector + Discovery Auditor.
+# Configurable so resolver paths can evolve without prompt edits.
+
+search_resolver_paths:
+  # Primary candidates — check in order
+  - components/SearchResolver.tsx
+  - components/CommandPalette/index.tsx
+  - components/CommandMenu/index.tsx
+  - components/TopNav.tsx  # current /u/ resolver lives inline here
+
+fallback_globs:
+  # If all primary paths empty for a route, fall back to globs
+  - components/**/*Search*.{ts,tsx}
+  - components/**/*Command*.{ts,tsx}
+  - components/**/*Palette*.{ts,tsx}
+
+topnav_path: components/TopNav.tsx
+homepage_path: app/page.tsx
+footer_path: app/layout.tsx  # site footer lives here
+
+# Labels considered "generic non-entity" — a route surfaced ONLY under
+# these labels in TopNav routes to REACHABLE-UNDER-GENERIC-LABEL (POLISH-EXISTING),
+# not REACHABLE-PROMINENT.
+generic_labels:
+  - Browse
+  - More
+  - Explore
+  - Other
+  - Misc
+  - Index
+  - Catalog
+  - Directory
+
+# Routes that should be excluded from DISCOVERABILITY-GAP work entirely.
+# These live in discoverability-exemptions.json for runtime mutability.
+exemptions_path: loop/v9/config/discoverability-exemptions.json

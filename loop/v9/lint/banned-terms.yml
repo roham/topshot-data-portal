@@ -1,0 +1,77 @@
+# Voice doctrine enforcement — Bloomberg, not Coinbase.
+# Loaded by:
+#   - loop/v9/prompts/doctrine-checker-patch.md (per-iter diff grep)
+#   - loop/v8/scripts/verify-deterministic.sh (copy-audit step)
+#   - loop/v9/scripts/baseline-voice-audit.sh (one-time repo-wide cleanup iter)
+#
+# Single source of truth. Both Doctrine Checker AND Deterministic Verifier
+# read from here — no drift between tools.
+
+version: 1
+last_updated: 2026-05-19
+
+banned:
+  # Marketing exclamations
+  - pattern: "explore!"
+    rationale: "marketing exclamation; instruments don't shout"
+    severity: error
+  - pattern: "discover!"
+    severity: error
+  - pattern: "trending now"
+    rationale: "marketing copy; use named comparable instead"
+    severity: error
+  - pattern: "trending today"
+    severity: error
+  - pattern: "what's hot"
+    severity: error
+
+  # Apologetic absence (use honest absence + methodology link instead)
+  - pattern: "coming soon"
+    rationale: "no ComingSoon on shipped pages; show honest absence with methodology link"
+    severity: error
+    case_insensitive: true
+  - pattern: "still computing"
+    severity: error
+    case_insensitive: true
+  - pattern: "data not yet available"
+    severity: error
+    case_insensitive: true
+  - pattern: ">=\\s*7\\s*days"
+    rationale: "from V8-era apologetic snapshot copy — strip per HANDOVER-topshot-portal-visual-sprint-2026-05-19.md commit 2e3904a"
+    severity: error
+
+  # Self-claimed superlatives (warn-severity; cite a comparable instead)
+  - pattern: "(?i)\\bbest[- ]in[- ]class\\b"
+    rationale: "we cite Card Ladder / Bloomberg as best-in-class; never claim it about ourselves"
+    severity: warn
+  - pattern: "(?i)\\bworld[- ]class\\b"
+    severity: warn
+  - pattern: "(?i)\\bcutting[- ]edge\\b"
+    severity: warn
+  - pattern: "(?i)\\bstate[- ]of[- ]the[- ]art\\b"
+    severity: warn
+
+  # AI-tells / generic enthusiasm (warn)
+  - pattern: "(?i)\\bawesome\\b"
+    severity: warn
+  - pattern: "(?i)\\bamazing\\b"
+    severity: warn
+  - pattern: "(?i)\\bincredible\\b"
+    severity: warn
+  - pattern: "(?i)\\bbeautiful\\b"
+    rationale: "design adjectives belong in comparables not in product copy"
+    severity: warn
+  - pattern: "(?i)\\bseamless(ly)?\\b"
+    severity: warn
+  - pattern: "(?i)\\bunlock\\b"
+    rationale: "marketing verb; use 'access' or describe the actual action"
+    severity: warn
+
+allowlist:
+  # Files where banned terms appear as critique/quoted context, not product copy
+  - file_glob: "research/**/*.md"
+  - file_glob: ".full-review/**"
+  - file_glob: "loop/**/*.md"  # charter + prompts can quote banned terms in negative examples
+  - file_glob: "loop/v9/lint/banned-terms.yml"  # this file itself
+  - file_glob: "kaaos-knowledge/**"
+  - file_glob: "**/HANDOVER-*.md"

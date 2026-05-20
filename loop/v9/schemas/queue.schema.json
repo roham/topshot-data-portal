@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/roham/topshot-data-portal/loop/v9/schemas/queue.schema.json",
+  "title": "V9 Queue Schema",
+  "type": "object",
+  "required": ["schema_version", "track", "queue"],
+  "properties": {
+    "schema_version": { "const": "v9" },
+    "track": {
+      "enum": ["DISCOVERABILITY-GAP", "POLISH-EXISTING", "VIZ-COMPLETENESS"]
+    },
+    "queue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "title", "track", "rw_class", "status", "priority",
+          "created_at", "updated_at", "rationale", "end_state",
+          "comparable_primary", "comparable_cross_domain", "signature_move",
+          "doctrine_quote", "why_this_quote_applies",
+          "load_bearing_file", "spot_read_target",
+          "estimated_effort", "estimated_minutes"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(DISC|POLISH|VIZ)-[0-9]{3}[A-Z]?$" },
+          "title": { "type": "string", "minLength": 10 },
+          "track": { "enum": ["DISCOVERABILITY-GAP", "POLISH-EXISTING", "VIZ-COMPLETENESS"] },
+          "rw_class": { "enum": ["READ-WRITE"] },
+          "status": { "enum": ["open", "in_progress", "done", "blocked", "retired"] },
+          "priority": { "type": "integer", "minimum": 0, "maximum": 1000 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "age_hours": { "type": "number", "minimum": 0 },
+          "blocked_by": { "type": ["string", "null"] },
+          "rationale": { "type": "string", "minLength": 20 },
+          "end_state": { "type": "string", "minLength": 30 },
+          "comparable_primary": { "type": "string", "minLength": 5 },
+          "comparable_cross_domain": { "type": "string", "minLength": 5 },
+          "signature_move": { "type": "string", "minLength": 10 },
+          "doctrine_quote": { "type": "string", "minLength": 20 },
+          "why_this_quote_applies": { "type": "string", "minLength": 20 },
+          "load_bearing_file": { "type": "string" },
+          "spot_read_target": { "type": "string" },
+          "estimated_effort": { "enum": ["S", "M", "L"] },
+          "estimated_minutes": { "type": "integer", "minimum": 5, "maximum": 90 },
+          "added_by": { "type": "string" },
+          "next_iter_followups": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "note": { "type": "string" }
+  }
+}

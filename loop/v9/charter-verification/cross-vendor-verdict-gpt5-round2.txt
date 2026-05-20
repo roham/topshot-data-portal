@@ -1,0 +1,193 @@
+# ROUND 2 MODEL: gpt-5
+
+{
+  "verdict_round2": "NEEDS-WORK",
+  "verdict_delta_from_round1": "improved",
+  "headline_round2": "V9 tightens scope, firing rules, gating, and activation; remaining ship-blockers are queue schema/migration, doctrine-quote semantics, voice-audit parity, and Auditor/Planner duplication burden.",
+  "conceded_findings": [
+    {
+      "original_finding": "Iter‑1 target is over-scoped vs 90‑min budget; split into discoverability slice first, hero second.",
+      "conceded_because": "A1 accepts and concretely splits DISC‑001 into DISC‑001A (≤60m) and DISC‑001B, aligning with §3 Budget and avoiding stall.",
+      "new_recommendation_if_any": "Adopt M1’s refinement to place DISC‑001A as a home tile above the hero pair to honor 'home then nav'."
+    },
+    {
+      "original_finding": "DISCOVERABILITY‑GAP firing rule is ambiguous for Haiku-tier; make file‑path explicit and add precedence.",
+      "conceded_because": "A2 provides a precise, testable rule with explicit greps against components/TopNav.tsx, app/page.tsx, components/SearchResolver.tsx, and an exemptions file, plus explicit precedence. This is stronger than the original ask.",
+      "new_recommendation_if_any": "None."
+    },
+    {
+      "original_finding": "Queue‑block is enforced too late at Doctrine; move primary enforcement to Track Selector with declared queues.",
+      "conceded_because": "A3 moves primary enforcement into the Track Selector (Sonnet→Haiku boundary) and retains Doctrine as backstop (§2 #11, §3 Track Priority).",
+      "new_recommendation_if_any": "Ensure queue file schema is declared (see held finding)."
+    },
+    {
+      "original_finding": "CPO Persona Checker is over‑scoped for per‑iter gating; restrict to home/nav/mobile and run full audit nightly.",
+      "conceded_because": "A4 limits per‑iter Persona to steps 1, 11, 12 (§4 CPO Persona; §3 G9) and moves the full 12‑step run to a nightly WARN‑only audit.",
+      "new_recommendation_if_any": "None."
+    },
+    {
+      "original_finding": "Directive inbox activation can race the cron; add an atomic activation flag.",
+      "conceded_because": "A5 adds loop/v9/ACTIVE written with prompts+queues in a single commit (§5 Directive inbox), removing the race.",
+      "new_recommendation_if_any": "None."
+    },
+    {
+      "original_finding": "Kick‑back paths per gate are underspecified; add an explicit fail matrix and retry caps.",
+      "conceded_because": "A6 adds a concrete G1–G9 fail→action table with retry caps, aligning with §3 Gates.",
+      "new_recommendation_if_any": "None."
+    },
+    {
+      "original_finding": "Reduce verification overhead by collapsing Judges to single or conditional.",
+      "conceded_because": "P1’s alternative (Haiku‑tier ×3, run once at iter end, prompt caching, escalate to full gpt‑5 only for high‑stakes) preserves cross‑vendor independence while addressing cost. This satisfies the budget concern without weakening the core voting verifier.",
+      "new_recommendation_if_any": "Document the escalation triggers (reviewer disagreement or doctrine/architectural changes) in §3 G7."
+    },
+    {
+      "original_finding": "READ‑WRITE fairness (3:1) to avoid starvation.",
+      "conceded_because": "P2 is persuasive: DISCOVERABILITY backlog is small and likely to drain quickly; premature scheduling adds complexity without evidence.",
+      "new_recommendation_if_any": "Add a conditional fairness switch: if POLISH queue age median > 72h after 15 iters, enable 3:1. Non‑blocking for ship."
+    }
+  ],
+  "held_findings": [
+    {
+      "original_finding": "Discovery Auditor and Planner overlap; the extra stage adds ceremony and burns a dispatch under an 8‑dispatch cap.",
+      "still_holding_because": "P3’s separation is valid, but duplication remains in outputs: both stages producing proposals/prioritization creates avoidable token/time spend and cognitive drift. Under §3 Budget (8 subagents, $15 cap), flattening outputs matters in production.",
+      "refined_position": "Keep roles separate (accepting P3), but constrain Discovery Auditor (§4) to produce only a machine‑readable inventory JSON and linkage statuses. Move all ranking/top‑N proposals to Planner (§2 #4). This preserves decomposition learning while removing duplication."
+    },
+    {
+      "original_finding": "Queue schemas are undefined beyond '3 V9 queues'; risk of drift and fragile early enforcement.",
+      "still_holding_because": "A3 moves enforcement earlier but does not declare the on‑disk schema/paths. Without schema_version, status, and timestamps, Track Selector logic and aging will be brittle.",
+      "refined_position": "Define loop/v9/queues/{discoverability.json,polish.json,visual.json} with schema_version:'v9', fields {id,title,track,status:['open'|'in_progress'|'done'],priority:int,created_at,updated_at,age_hours,blocked_by?:string}. Add a JSON schema and CI check."
+    },
+    {
+      "original_finding": "V8→V9 queue/state migration is missing; backlog orphaning risk.",
+      "still_holding_because": "No response to the migration tool ask; existing V8 items will be invisible to V9 queues (§1 Pattern Selection; §5 Directive inbox).",
+      "refined_position": "Ship loop/v9/tools/migrate_v8_queues.ts to map V8 backlog to {DISCOVERABILITY|POLISH|VIZ}, write schema_version:'v9', and emit a migration report. Add a one‑time gate to prevent V9 activation until migration completes."
+    },
+    {
+      "original_finding": "Voice‑audit grep only on git diff and an ad‑hoc phrase list risks drift between Doctrine Checker and Deterministic Verifier and misses DOM‑level strings.",
+      "still_holding_because": "P4 defers repo‑wide/DOM scan to a one‑time polish. That’s acceptable, but parity across tools is still required to avoid false positives/negatives.",
+      "refined_position": "Create a single banned-terms.yml consumed by both Doctrine Checker (§2 #11) and Deterministic Verifier (§3 G6 copy‑audit). For the baseline one‑time polish iter, add a DOM text scan on changed and high‑traffic pages; per‑iter remains diff‑only."
+    },
+    {
+      "original_finding": "Schema/version drift risk in state file paths between V8 and V9 can break tools.",
+      "still_holding_because": "A5 solves activation race, but there’s no confirmation of schema_version tagging or CI to block tools from reading loop/v8/state during V9.",
+      "refined_position": "Version every new state file with schema_version:'v9' and update scripts to glob highest-version. Add a CI check failing any reference to loop/v8/state when loop/v9/ACTIVE is present."
+    }
+  ],
+  "author_pushback_assessment": [
+    {
+      "author_position": "A1",
+      "verifier_response": "concede",
+      "rationale": "Splitting DISC‑001 resolves the time/budget contradiction in §3 Budget and aligns with the DISCOVERABILITY‑first charter."
+    },
+    {
+      "author_position": "A2",
+      "verifier_response": "concede",
+      "rationale": "The concrete grep‑based rule and exemptions file exceed our requested specificity and remove Haiku ambiguity (§3 Firing rules)."
+    },
+    {
+      "author_position": "A3",
+      "verifier_response": "concede",
+      "rationale": "Primary enforcement at selection minimizes wasted iters while keeping Doctrine as defense‑in‑depth (§2 #11, §3 Track Priority)."
+    },
+    {
+      "author_position": "A4",
+      "verifier_response": "concede",
+      "rationale": "Per‑iter Persona narrowed to steps 1/11/12 eliminates systemic false FAILs while preserving doctrine checks where they matter (§4 CPO Persona; §3 G9)."
+    },
+    {
+      "author_position": "A5",
+      "verifier_response": "concede",
+      "rationale": "Atomic activation flag eliminates partial‑state runs on cron tick boundaries (§5 Directive inbox)."
+    },
+    {
+      "author_position": "A6",
+      "verifier_response": "concede",
+      "rationale": "The explicit G1–G9 fail matrix with retry caps provides predictable recovery paths and bounds cost (§3 Gates)."
+    },
+    {
+      "author_position": "P1",
+      "verifier_response": "concede",
+      "rationale": "Haiku‑tier ×3 judges + prompt caching, with escalation to full gpt‑5 only for reviewer disagreement or doctrine/architecture changes, preserves cross‑vendor independence while materially reducing token spend. Document triggers in §3 G7."
+    },
+    {
+      "author_position": "P2",
+      "verifier_response": "concede",
+      "rationale": "Given the small upper bound on undiscoverable routes, fairness scheduling can be deferred until/if starvation is observed."
+    },
+    {
+      "author_position": "P3",
+      "verifier_response": "hold",
+      "rationale": "Accept separation of concerns, but insist on eliminating output duplication: Auditor should emit inventory; Planner should rank/propose. This preserves the V4 learning without burning dispatch/tokens."
+    },
+    {
+      "author_position": "P4",
+      "verifier_response": "refine",
+      "rationale": "Accept diff‑only per‑iter plus a one‑time baseline cleanup. To avoid tool drift, mandate a shared banned-terms.yml used by both Doctrine and the Deterministic Verifier, and perform a DOM‑level scan during the baseline iter."
+    },
+    {
+      "author_position": "M1",
+      "verifier_response": "concede",
+      "rationale": "Reordering to 'home tile (iter‑1) → ⌘K nav (iter‑2) → hero upgrade (iter‑3)' aligns directly with Roham’s 'home page followed by navigation' priority (§6 First iter target)."
+    },
+    {
+      "author_position": "M2",
+      "verifier_response": "refine",
+      "rationale": "Dropping numeric prefixes from conditional stage files is fine if all tools glob by names rather than numeric order. Add a quick audit to Deterministic Verifier and any CI to ensure no reliance on '00b-*' exists before renaming."
+    },
+    {
+      "author_position": "M3",
+      "verifier_response": "concede",
+      "rationale": "The v7 script path referenced in the V8 charter is a correctness bug. Must fix via move or symlink; add a CI check to forbid stale path references."
+    },
+    {
+      "author_position": "M4",
+      "verifier_response": "refine",
+      "rationale": "Agree the Doctrine Checker must validate 'quote matches change' (not just presence). Implement by requiring a 'Why this quote applies' line in commit messages and an LLM check that maps the cited doctrine clause to touched files/components; fail on mismatch."
+    }
+  ],
+  "newly_surfaced_concerns": [
+    {
+      "concern": "Search resolver path brittleness in DISCOVERABILITY‑GAP firing rule (components/SearchResolver.tsx may evolve).",
+      "weight": "med",
+      "recommendation": "Make the resolver path configurable in Track Selector prompt (try components/SearchResolver.tsx, components/CommandPalette/*, components/CommandMenu/*), and fall back to a repo‑wide grep for 'CommandPalette' hrefs."
+    },
+    {
+      "concern": "Changing discovery-audit filename (dropping '00b-') could break Deterministic Verifier or CI scripts that assume numeric prefixes.",
+      "weight": "med",
+      "recommendation": "Before renaming, run a codemod/grep across scripts to confirm no numeric dependency. If any exists, either retain '00b-' or update scripts in the same commit."
+    },
+    {
+      "concern": "Cron tick at 25 min with 90‑min per‑iter cap requires reentrancy; overlapping iters could trample state.",
+      "weight": "low",
+      "recommendation": "Ensure Orchestrator locks the current iter (e.g., loop/v9/LOCK with pid/timestamp) and defers new dispatch if an iter is in progress."
+    },
+    {
+      "concern": "Haiku‑tier judges reduce cost but may weaken defect detection on nuanced visual/data‑viz issues.",
+      "weight": "low",
+      "recommendation": "Add an automatic escalation to full gpt‑5 judges when the Deterministic Verifier flags probe/screenshot issues or when Quality Reviewer attaches a 'viz nuance' flag."
+    }
+  ],
+  "would_recommend_shipping_round2": "with_fixes",
+  "must_fix_remaining": [
+    "Adopt M1 ordering explicitly in §5 Seed and §6: Iter‑1 DISC‑001A = Players home tile above hero pair; Iter‑2 = ⌘K nav polish; Iter‑3 = Players chart‑canvas hero upgrade.",
+    "Define queue file schema and paths: loop/v9/queues/{discoverability.json,polish.json,visual.json} with schema_version:'v9' and fields {id,title,track,status,priority,created_at,updated_at,age_hours,blocked_by?}. Add JSON schema + CI.",
+    "Ship V8→V9 migration tool (loop/v9/tools/migrate_v8_queues.ts) and block V9 activation until migration completes; include a migration report artifact.",
+    "Create banned-terms.yml and wire both Doctrine Checker (§2 #11) and Deterministic Verifier (§3 G6 copy‑audit) to it; schedule one POLISH‑EXISTING baseline iter to run a repo‑wide and DOM‑level scan and clean pre‑existing violations.",
+    "Implement Doctrine Checker 'quote‑matches‑change' validation: require a 'Why this quote applies' line in commit messages and verify doctrinal relevance to touched files; fail on mismatch.",
+    "Resolve M3: fix V8 charter’s verify script path (move to loop/v8/scripts/verify‑via‑openai.py or add a symlink) and add CI to catch stale references.",
+    "Avoid Auditor/Planner duplication: constrain Discovery Auditor output to machine‑readable inventory JSON and linkage statuses; move proposal ranking/top‑N to Planner to reduce dispatch/token overhead.",
+    "Make the search resolver path configurable in the Track Selector’s DISCOVERABILITY‑GAP rule and add a fallback glob to avoid future path drift.",
+    "Before changing discovery‑audit filename (dropping '00b-'), audit and update scripts that rely on numeric prefixes; perform rename and script updates in a single commit or retain the prefix."
+  ],
+  "round3_needed": "yes",
+  "round3_questions_if_yes": [
+    "Confirm the exact queue JSON schema (fields, statuses) and on‑disk paths; will you add schema_version:'v9' and CI validation?",
+    "Will you ship the V8→V9 migration tool and block V9 activation until it runs successfully? If so, what mapping rules will you apply from V8 backlog to the three V9 queues?",
+    "Can you commit to a single banned-terms.yml consumed by both Doctrine Checker and Deterministic Verifier, and schedule a one‑time POLISH iter to run a repo‑wide + DOM‑level scan?",
+    "For Doctrine 'quote‑matches‑change', will you add a required 'Why this quote applies' line in commit messages and an LLM check against the touched files? If not, what alternative verification will you use?",
+    "Do you agree to constrain Discovery Auditor output to pure inventory + linkage status and move all ranking/proposals to Planner to avoid duplication?",
+    "Will you codify M1 ordering explicitly in §5/§6 and update the directive inbox seed to place the Players home tile above the current hero pair?",
+    "Before renaming discovery-audit.md (dropping '00b-'), have you audited Deterministic Verifier/CI scripts for numeric filename assumptions, and will you update them in the same commit?",
+    "Will you document the judge escalation triggers (reviewer disagreement or doctrine/architectural changes) in §3 G7 and implement an automatic escalation when Deterministic Verifier flags probe/screenshot issues?"
+  ]
+}

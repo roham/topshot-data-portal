@@ -1,0 +1,71 @@
+# Persona Checker expected-state manifest — read by nightly walks (Opus F2 fix).
+# Steps with status: not_ready return SKIP (not FAIL) — prevents alert fatigue
+# from features that haven't shipped yet.
+#
+# Implementer protocol: when an iter delivers the feature for a step,
+# the iter's plan template MUST include "update persona-expected-state.yml
+# step_<N>.status to ready" as one of the 5-field dispatch contract items.
+# Doctrine Checker fails the iter if this update is missing for shipped features.
+
+version: 1
+last_updated: 2026-05-19
+
+steps:
+  step_1:
+    status: ready
+    description: "Land on / — page renders cleanly, no marketing"
+    owner: shipped-pre-v9
+  step_2:
+    status: not_ready
+    description: "Press / opens search palette"
+    owner: queued POLISH-002
+    expected_iter: 2
+  step_3:
+    status: not_ready
+    description: "Autocomplete shows player results with avatar+team-color+volume"
+    owner: queued POLISH-002 (depends on palette infra)
+    expected_iter: 2-4
+  step_4:
+    status: not_ready
+    description: "Enter routes to /player/[id]"
+    owner: queued POLISH-002
+    expected_iter: 2
+  step_5:
+    status: partial
+    description: "Player page renders Wikipedia-infobox + editions matrix"
+    owner: /players + /player/[id] exist; matrix shape needs polish
+    expected_iter: 5-7
+  step_6:
+    status: partial
+    description: "Click cell routes to /edition/[id]"
+    owner: /edition/[id] exists; cell-click wiring needs verification
+    expected_iter: 5-7
+  step_7:
+    status: not_ready
+    description: "Edition page depth chart + serial-vs-price scatter + parallel-aware + hover-crosshair"
+    owner: VIZ-COMPLETENESS work; multiple iters
+    expected_iter: 8-15
+  step_8:
+    status: not_ready
+    description: "? opens shortcut help modal"
+    owner: queued POLISH-002
+    expected_iter: 2
+  step_9:
+    status: not_ready
+    description: "g h routes to / quickly with no full reload"
+    owner: queued POLISH-002 (keyboard shortcut infra)
+    expected_iter: 2-3
+  step_10:
+    status: not_ready
+    description: "Live ticker on home pulses with new transactions"
+    owner: /feed exists but not surfaced on / as ticker
+    expected_iter: 6-10
+  step_11:
+    status: ready
+    description: "No ComingSoon, no 404, no marketing on shipped surfaces"
+    owner: shipped-pre-v9 + V9 enforcement via banned-terms.yml
+  step_12:
+    status: partial
+    description: "Mobile sanity at 375x812 — tables don't overflow, nav responsive"
+    owner: tables overflow on most surfaces; needs POLISH-EXISTING audit
+    expected_iter: 4-8 (mobile audit iter)
