@@ -20,7 +20,6 @@ import { SupabaseHomepageStrip } from "@/components/SupabaseHomepageStrip";
 import { LegacyCascadeSkeleton } from "@/components/HomepageSkeletons";
 import { TS50IndexHero } from "@/components/TS50IndexHero";
 import { IndexHeroPair, IndexHeroPairSkeleton } from "@/components/IndexHeroPair";
-import { PlayersHero } from "@/components/PlayersHero";
 
 // Window-level cache for the Supabase strip + the snapshot-derived legacy
 // cascade. Page-level revalidate runs every 60s so window switches hit a
@@ -1227,10 +1226,6 @@ export default async function Home({
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
-      {/* V9 iter-1 POLISH-001 — Players-as-home-prominence.
-          Surfaces /players directory as labeled entity in first viewport.
-          PSA Set Registry signature: ranked entity-sidebar. */}
-      <PlayersHero />
       {/* Doctrine §0.1 graph-first landing.
           Single time-window control (TopNav) drives both heroes + the
           aggregate strip below. */}

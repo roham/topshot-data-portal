@@ -96,53 +96,6 @@ export function colorsForAbbr(abbr: string): TeamColors | undefined {
   return TEAM_COLORS[abbr.toUpperCase()];
 }
 
-// Full team name → abbreviation. Source: NBA.com canonical names cross-checked
-// against the Top Shot players MV (mv_player_market_cap.last_known_team_full_name).
-// Includes historical variants where Top Shot data carries legacy team names.
-const TEAM_FULL_NAME_TO_ABBR: Record<string, string> = {
-  "Atlanta Hawks": "ATL",
-  "Boston Celtics": "BOS",
-  "Brooklyn Nets": "BKN",
-  "Charlotte Hornets": "CHA",
-  "Chicago Bulls": "CHI",
-  "Cleveland Cavaliers": "CLE",
-  "Dallas Mavericks": "DAL",
-  "Denver Nuggets": "DEN",
-  "Detroit Pistons": "DET",
-  "Golden State Warriors": "GSW",
-  "Houston Rockets": "HOU",
-  "Indiana Pacers": "IND",
-  "LA Clippers": "LAC",
-  "Los Angeles Clippers": "LAC",
-  "Los Angeles Lakers": "LAL",
-  "Memphis Grizzlies": "MEM",
-  "Miami Heat": "MIA",
-  "Milwaukee Bucks": "MIL",
-  "Minnesota Timberwolves": "MIN",
-  "New Orleans Pelicans": "NOP",
-  "New York Knicks": "NYK",
-  "Oklahoma City Thunder": "OKC",
-  "Orlando Magic": "ORL",
-  "Philadelphia 76ers": "PHI",
-  "Phoenix Suns": "PHX",
-  "Portland Trail Blazers": "POR",
-  "Sacramento Kings": "SAC",
-  "San Antonio Spurs": "SAS",
-  "Toronto Raptors": "TOR",
-  "Utah Jazz": "UTA",
-  "Washington Wizards": "WAS",
-};
-
-export function teamFullNameToAbbr(fullName: string | null | undefined): string | undefined {
-  if (!fullName) return undefined;
-  return TEAM_FULL_NAME_TO_ABBR[fullName.trim()];
-}
-
-export function colorsForTeamFullName(fullName: string | null | undefined): TeamColors | undefined {
-  const abbr = teamFullNameToAbbr(fullName);
-  return abbr ? TEAM_COLORS[abbr] : undefined;
-}
-
 // Official NBA CDN paths. Use these — never substitute synthesized art.
 export const NBA_HEADSHOT = (playerId: number | string) =>
   `https://cdn.nba.com/headshots/nba/latest/1040x760/${playerId}.png`;
