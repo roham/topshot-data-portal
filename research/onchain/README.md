@@ -8,15 +8,21 @@
 
 ## Snapshot 2026-05-20
 
-- **On-chain whitelist count: 220** (via `getWhitelistEditionCount()`)
-- Unique setIDs covered: 62
-- Top sets by play count: set 4 Holo MMXX-S1 (27 plays), set 8 Cosmic-S1 (16), set 165 (14), set 211 (13), set 169 (10)
+- **On-chain edition count: 225** when expanded at the contract's true keying granularity `(setID, playID, subeditionID)`.
+- `getWhitelistEditionCount()` returns 220 — but it counts `(setID, playID)` PAIRS, not subedition-expanded triples.
+- 4 pairs have multiple specific subedition variants in their `EditionRule.allowedSubeditions` dict:
+  - `(238, 8011)` → subs `[19, 20, 0]` (3 variants)
+  - `(219, 7408)` → subs `[18, 17]` (2 variants)
+  - `(223, 7516)` → subs `[20, 19]` (2 variants)
+  - `(233, 7730)` → subs `[19, 20]` (2 variants)
+- 216 pairs use the "allow-all" convention (empty `allowedSubeditions` + `allowNoSubedition=false` → accept every subedition variant of that pair)
+- Total: 216 × 1 + 3 + 2 + 2 + 2 = **225** ✓ (matches litepaper target)
+- Unique setIDs: 62. Top sets: 4 Holo MMXX-S1 (27 plays), 8 Cosmic-S1 (16), 165 (14), 211 (13), 169 (10).
 
-Litepaper target: 225 (top by asp_180d with filters). Gap: 5 editions pending addition.
+## Files
 
-## File: grail-whitelist-onchain-pairs-2026-05-20.json
-
-Array of `[setID, playID]` uint32 tuples. 220 entries.
+- `grail-whitelist-onchain-pairs-2026-05-20.json` — 220 `(setID, playID)` uint32 pair tuples
+- `grail-whitelist-onchain-triples-2026-05-20.json` — 225 `(setID, playID, subeditionID, allowAll)` records (the authoritative whitelist as the contract intends it)
 
 ## Open: uint32 ↔ UUID mapping
 
