@@ -16,10 +16,9 @@ steps:
     description: "Land on / — page renders cleanly, no marketing"
     owner: shipped-pre-v9
   step_2:
-    status: not_ready
+    status: ready
     description: "Press / opens search palette"
-    owner: queued POLISH-002
-    expected_iter: 2
+    owner: shipped iter-2 POLISH-002
   step_3:
     status: not_ready
     description: "Autocomplete shows player results with avatar+team-color+volume"
@@ -46,15 +45,13 @@ steps:
     owner: VIZ-COMPLETENESS work; multiple iters
     expected_iter: 8-15
   step_8:
-    status: not_ready
-    description: "? opens shortcut help modal"
-    owner: queued POLISH-002
-    expected_iter: 2
+    status: ready
+    description: "? opens palette in help mode (or shows grammar)"
+    owner: shipped iter-2 POLISH-002
   step_9:
-    status: not_ready
-    description: "g h routes to / quickly with no full reload"
-    owner: queued POLISH-002 (keyboard shortcut infra)
-    expected_iter: 2-3
+    status: ready
+    description: "g h routes to / via Linear-style two-stroke (also g i, g e, g c, g m)"
+    owner: shipped iter-2 POLISH-002
   step_10:
     status: not_ready
     description: "Live ticker on home pulses with new transactions"

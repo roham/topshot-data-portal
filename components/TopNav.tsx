@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { TimeWindowSelector } from "./global/TimeWindowSelector";
 
@@ -77,31 +77,26 @@ const TABS = [
   },
 ];
 
-// Command bar — placeholder for ⌘K. For now: a username/flow-address resolver
-// that submits to /u/{value}. Richer search (player/set/edition/team) lands
-// in a subsequent iter.
-function SearchResolver() {
-  const router = useRouter();
-  const [v, setV] = useState("");
+// Command bar trigger button — opens the CommandPalette (mounted globally in
+// app/layout.tsx) via the `cmdk-open` custom event. Keyboard-first users hit /
+// or ⌘K directly; mouse users get this clickable affordance.
+//
+// The palette resolves: user/u, player/p, team/t, set/s, edition/e, moment/m,
+// index/i, compare/vs, movers, watching, methodology, briefing, indices,
+// editions, collectors, home. Press ? in the palette (or Shift+? anywhere)
+// for the full grammar.
+function SearchResolverButton() {
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const trimmed = v.trim();
-        if (!trimmed) return;
-        router.push(`/u/${encodeURIComponent(trimmed)}`);
-        setV("");
-      }}
-      className="hidden md:flex items-center"
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new CustomEvent("cmdk-open"))}
+      className="hidden md:flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded text-[11px] px-2.5 py-1 w-[240px] hover:border-[var(--border-strong)] font-mono text-[var(--text-faint)] tracking-tight"
+      aria-label="Open command palette"
     >
-      <input
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        placeholder="username · address · player →"
-        className="bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded text-[11px] px-2.5 py-1 w-[240px] focus:border-[var(--border-strong)] outline-none font-mono"
-        spellCheck={false}
-      />
-    </form>
+      <span className="text-[var(--text-faint)]">▶</span>
+      <span className="flex-1 text-left truncate">function code · ?, player, set …</span>
+      <kbd className="text-[10px] text-[var(--text-faint)] tracking-data-label">/ ⌘K</kbd>
+    </button>
   );
 }
 
@@ -135,11 +130,8 @@ export function TopNav({ freshness }: { freshness?: ReactNode } = {}) {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <SearchResolver />
+          <SearchResolverButton />
           <TimeWindowSelector />
-          <kbd className="hidden lg:inline px-1.5 py-0.5 border border-[var(--border-subtle)] rounded text-[10px] font-mono text-[var(--text-dim)]">
-            / or ⌘K
-          </kbd>
           {freshness ?? (
             <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-faint)] font-mono">
               <span className="pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--up)] inline-block" />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { TopNav } from "@/components/TopNav";
 import { EtlFreshnessBadge } from "@/components/EtlFreshnessBadge";
+import { CommandPalette } from "@/components/CommandPalette";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Suspense>
             }
           />
+          <CommandPalette />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-[var(--border-subtle)] text-[10px] text-[var(--text-faint)] py-3 mt-12 font-mono">
             <div className="max-w-[1440px] mx-auto px-4 flex items-center gap-4">

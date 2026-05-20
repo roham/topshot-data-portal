@@ -170,14 +170,34 @@ export function CommandPalette() {
           setOpen(true);
           return;
         }
+        // ? global shortcut → open palette pre-populated with `?` to trigger help mode.
+        // Use Shift+? rather than `?` alone to avoid input-focus collisions.
+        if (e.key === "?") {
+          e.preventDefault();
+          setInput("?");
+          setOpen(true);
+          return;
+        }
       }
 
       if (open && e.key === "Escape") {
         setOpen(false);
       }
     }
+    // Custom event channel — TopNav button (and any future trigger) dispatches
+    // `cmdk-open` to open the palette without keyboard. Optional detail.input
+    // pre-populates the search (e.g. `?` for help mode).
+    function onOpen(e: Event) {
+      const detail = (e as CustomEvent).detail as { input?: string } | undefined;
+      if (detail?.input != null) setInput(detail.input);
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("cmdk-open", onOpen as EventListener);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("cmdk-open", onOpen as EventListener);
+    };
   }, [open, gPending, router]);
 
   const { suggestions, helpMode } = useMemo(() => buildSuggestions(input), [input]);
