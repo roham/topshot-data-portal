@@ -57,8 +57,8 @@ if ! command -v node >/dev/null 2>&1; then
   echo "[V9 G10] node missing — degraded mode (basic check only, exit 0)"
   exit 0
 fi
-if ! node -e "require('playwright/package.json')" >/dev/null 2>&1; then
-  echo "[V9 G10] playwright not installed — degraded mode (basic check only, exit 0). Install via 'npm install playwright && npx playwright install chromium' on daemon for full coverage."
+if ! node -e "require('playwright')" >/dev/null 2>&1; then
+  echo "[V9 G10] playwright not loadable — degraded mode (basic check only, exit 0). Install via 'npm install playwright && npx playwright install chromium' on daemon for full coverage."
   exit 0
 fi
 
