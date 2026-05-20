@@ -86,6 +86,14 @@ async function parseGrailBasket(): Promise<string[]> {
 }
 
 async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
+  // V9 iter-5 cache-bust: production was serving a 7-day truncated series on
+  // ?w=30d (chart shows 04-16 to 04-22 only) despite the underlying market_caps
+  // query returning all 4412 rows / 30 unique dates correctly. Local replica
+  // of this synthesizer produces the full 30-day series. The discrepancy points
+  // to a stale unstable_cache entry on Vercel from an earlier deploy where the
+  // synthesizer hit a transient pagination/timeout failure and cached the
+  // partial result. Touching fetchInner's source rotates SYNTHESIZER_VERSION
+  // (sha256 of fetchInner.toString()) → new cache key → cold compute.
   const sb = getSupabaseServerAnon();
   if (!sb) return EMPTY;
 
