@@ -45,11 +45,15 @@ export interface GrailIndexResult {
   latest_index_value: number;
   series_pct_change: number;
   days_of_history: number;
-  /** Editions parsed from the CSV (deduped on set_id+play_id) */
+  /** Total rows in the Vaultopolis canonical CSV (the published target — currently 225). */
+  basket_canonical_count: number;
+  /** Rows in the canonical CSV that had a non-empty edition_id (match_confidence != "none"). */
+  basket_matched_count: number;
+  /** Editions parsed from the CSV (deduped on set_id+play_id). Multiple supply tiers can collapse to one entry. */
   basket_target_size: number;
-  /** Editions actually resolved against the editions table */
+  /** Editions actually resolved against the editions table. */
   basket_resolved_size: number;
-  /** Editions in the basket that have ≥ 1 mcap snapshot in the window */
+  /** Editions in the basket that have ≥ 1 mcap snapshot in the window. */
   basket_active_size: number;
 }
 
@@ -62,27 +66,54 @@ const EMPTY: GrailIndexResult = {
   latest_index_value: 100,
   series_pct_change: 0,
   days_of_history: 0,
+  basket_canonical_count: 0,
+  basket_matched_count: 0,
   basket_target_size: 0,
   basket_resolved_size: 0,
   basket_active_size: 0,
 };
 
-/** Parse the Vaultopolis canonical CSV → deduped edition_ids.
+interface GrailBasketParse {
+  /** Total non-blank rows in the canonical CSV (the published target). */
+  canonicalCount: number;
+  /** Rows that had a non-empty compound edition_id (match_confidence != "none"). */
+  matchedCount: number;
+  /** Unique edition_ids after deduplication (multiple supply tiers can collapse to one). */
+  uniqueIds: string[];
+}
+
+/** Parse the Vaultopolis canonical CSV → counts + deduped edition_ids.
  *  Column 6 of the CSV is the compound {set_id}+{play_id} string, which IS
- *  the editions.edition_id key (verified against schema 2026-05-19). */
-async function parseGrailBasket(): Promise<string[]> {
+ *  the editions.edition_id key (verified against schema 2026-05-19).
+ *
+ *  Returns three counts so the UI can be honest about the gap between the
+ *  canonical list size (225) and what we actually resolve (~166):
+ *    canonicalCount  → CSV rows total (the Vaultopolis-published target)
+ *    matchedCount    → rows with a non-empty edition_id (match_confidence != none)
+ *    uniqueIds       → set of distinct edition_ids (matchedCount - same-edition dedup)
+ *  Gap: canonicalCount - matchedCount = unresolved-against-editions-table rows
+ *       (currently 41: 2025 rookies + specific veteran parallels not yet in the
+ *       editions table). Tracked as a follow-up data-engineering task.
+ *  Gap: matchedCount - uniqueIds.length = supply-tier collapses (correct behavior —
+ *       same edition listed multiple times at different supply rarities).
+ */
+async function parseGrailBasket(): Promise<GrailBasketParse> {
   const path = join(process.cwd(), CSV_RELATIVE_PATH);
   const text = await readFile(path, "utf-8");
   const lines = text.split("\n").slice(1); // drop header
   const ids = new Set<string>();
+  let canonicalCount = 0;
+  let matchedCount = 0;
   for (const line of lines) {
     if (!line.trim()) continue;
+    canonicalCount += 1;
     const cols = line.split(",");
     const editionId = cols[5]?.trim();
     if (!editionId || !editionId.includes("+")) continue;
+    matchedCount += 1;
     ids.add(editionId);
   }
-  return Array.from(ids);
+  return { canonicalCount, matchedCount, uniqueIds: Array.from(ids) };
 }
 
 async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
@@ -90,14 +121,19 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (!sb) return EMPTY;
 
   // 1. Parse canonical basket — column 6 IS the editions.edition_id directly.
-  let basketEditionIds: string[] = [];
+  //    Returns three counts: canonicalCount (CSV rows total, the published 225),
+  //    matchedCount (rows with non-empty edition_id), uniqueIds (deduped to set+play).
+  let parsed: GrailBasketParse;
   try {
-    basketEditionIds = await parseGrailBasket();
+    parsed = await parseGrailBasket();
   } catch (err) {
     console.error("[grail] CSV parse failed", err);
     return EMPTY;
   }
-  if (basketEditionIds.length === 0) return EMPTY;
+  const { canonicalCount, matchedCount, uniqueIds: basketEditionIds } = parsed;
+  if (basketEditionIds.length === 0) {
+    return { ...EMPTY, basket_canonical_count: canonicalCount, basket_matched_count: matchedCount };
+  }
 
   // 2. Pull edition metadata for those ids (player_name, tier_name) for the
   //    constituents table. set_name lives on the `sets` table; we fetch it
@@ -122,7 +158,12 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   for (const e of edLookup) editionIdToMeta.set(e.edition_id, e);
   const editionIds = basketEditionIds.filter((id) => editionIdToMeta.has(id));
   if (editionIds.length === 0) {
-    return { ...EMPTY, basket_target_size: basketEditionIds.length };
+    return {
+      ...EMPTY,
+      basket_canonical_count: canonicalCount,
+      basket_matched_count: matchedCount,
+      basket_target_size: basketEditionIds.length,
+    };
   }
 
   // 3. Latest snapshot date
@@ -136,6 +177,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (!asOfDate) {
     return {
       ...EMPTY,
+      basket_canonical_count: canonicalCount,
+      basket_matched_count: matchedCount,
       basket_target_size: basketEditionIds.length,
       basket_resolved_size: editionIds.length,
     };
@@ -160,6 +203,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (basketMcapTotal <= 0) {
     return {
       ...EMPTY,
+      basket_canonical_count: canonicalCount,
+      basket_matched_count: matchedCount,
       basket_target_size: basketEditionIds.length,
       basket_resolved_size: editionIds.length,
       as_of_date: asOfDate,
@@ -231,6 +276,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (allHistory.length === 0) {
     return {
       ...EMPTY,
+      basket_canonical_count: canonicalCount,
+      basket_matched_count: matchedCount,
       basket_target_size: basketEditionIds.length,
       basket_resolved_size: editionIds.length,
       as_of_date: asOfDate,
@@ -253,6 +300,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   if (dates.length === 0) {
     return {
       ...EMPTY,
+      basket_canonical_count: canonicalCount,
+      basket_matched_count: matchedCount,
       basket_target_size: basketEditionIds.length,
       basket_resolved_size: editionIds.length,
       as_of_date: asOfDate,
@@ -386,6 +435,8 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     latest_index_value: latestIndexValue,
     series_pct_change: seriesPctChange,
     days_of_history: dates.length,
+    basket_canonical_count: canonicalCount,
+    basket_matched_count: matchedCount,
     basket_target_size: basketEditionIds.length,
     basket_resolved_size: editionIds.length,
     basket_active_size: byEdition.size,

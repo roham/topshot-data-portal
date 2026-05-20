@@ -132,8 +132,8 @@ async function GrailMiniHero({
     <MiniHero
       slug="grail"
       title="GRAIL"
-      subtitle={`Vaultopolis ${result?.basket_resolved_size ?? 0} of ${result?.basket_target_size ?? 0}${result?.as_of_date ? ` · ${result.as_of_date}` : ""}`}
-      methodology="Vaultopolis-canonical Grail list (Apr 2026 ASP). Compound key in CSV is the editions.edition_id directly. Value-weighted: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing. Editions missing on date d carry forward last known value."
+      subtitle={`Vaultopolis ${result?.basket_resolved_size ?? 0} of ${result?.basket_canonical_count ?? 0}${result?.as_of_date ? ` · ${result.as_of_date}` : ""}`}
+      methodology={`Vaultopolis-canonical Grail list (Apr 2026 ASP, ${result?.basket_canonical_count ?? 225} entries). ${result?.basket_matched_count ?? 0} of ${result?.basket_canonical_count ?? 0} entries resolved to compound edition_id; ${(result?.basket_matched_count ?? 0) - (result?.basket_target_size ?? 0)} collapsed via supply-tier dedup; ${(result?.basket_canonical_count ?? 0) - (result?.basket_matched_count ?? 0)} unmatched (recent rookies + specific veteran parallels pending editions-table ingest). Value-weighted: w_i = mcap_i / Σ mcap_j, normalized 100 = series start. Snapshot-vs-snapshot, no smoothing. Editions missing on date d carry forward last known value.`}
       latestValue={result?.latest_index_value ?? 100}
       pctChange={result?.series_pct_change ?? 0}
       basketMcap={result?.basket_mcap_total_usd ?? 0}
