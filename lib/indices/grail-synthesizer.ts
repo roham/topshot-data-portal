@@ -86,14 +86,6 @@ async function parseGrailBasket(): Promise<string[]> {
 }
 
 async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
-  // V9 iter-5 cache-bust: production was serving a 7-day truncated series on
-  // ?w=30d (chart shows 04-16 to 04-22 only) despite the underlying market_caps
-  // query returning all 4412 rows / 30 unique dates correctly. Local replica
-  // of this synthesizer produces the full 30-day series. The discrepancy points
-  // to a stale unstable_cache entry on Vercel from an earlier deploy where the
-  // synthesizer hit a transient pagination/timeout failure and cached the
-  // partial result. Touching fetchInner's source rotates SYNTHESIZER_VERSION
-  // (sha256 of fetchInner.toString()) → new cache key → cold compute.
   const sb = getSupabaseServerAnon();
   if (!sb) return EMPTY;
 
@@ -405,9 +397,15 @@ const SYNTHESIZER_VERSION = createHash("sha256")
   .digest("hex")
   .slice(0, 8);
 
+// V9 iter-5 — explicit cache-key suffix to bust stale 7d-on-30d production
+// cache entries. The SHA-based SYNTHESIZER_VERSION rotates when fetchInner's
+// source changes, BUT prod-minified comments don't affect the toString output —
+// only real code changes do. Explicit "v9-iter5" suffix forces a fresh cache
+// slot regardless of minifier behavior. Bump on future cache-stuck incidents.
+const CACHE_KEY_SUFFIX = "v9-iter5-2026-05-19";
 export const getGrailIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),
-    ["grail-index", SYNTHESIZER_VERSION, String(lookbackDays)],
+    ["grail-index", SYNTHESIZER_VERSION, CACHE_KEY_SUFFIX, String(lookbackDays)],
     { revalidate: 60 * 60, tags: ["grail-index"] }
   )();
