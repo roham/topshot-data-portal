@@ -173,12 +173,27 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     .toISOString()
     .slice(0, 10);
 
-  // PERF: probe count, then parallel-paginate with bounded concurrency.
-  // Previous strictly-sequential loop took ~25s for 1Y; this drops to ~5-7s.
-  // Error bubbling (vs silent break-on-empty) prevents the cached-truncated-series
-  // class of bugs that caused the artificial chart drops.
+  // V9 iter-5 CORRECTIVE — fetch-until-empty pagination.
+  //
+  // Prior pattern: probe count via `select("*", { count: "exact", head: true })`
+  // then parallel-paginate based on Math.ceil(histCount / PAGE). The probe
+  // looks correct locally (returns 4412 / 5 pages for 30D Grail) but in
+  // production the count probe can return `null` under serverless function
+  // pressure (timeout, cold-start, concurrency limits). The fallback
+  // `Math.max(1, Math.ceil(0/PAGE))=1` silently degrades to a single-page
+  // fetch — exactly 1000 rows = ~6 days × 166 editions = the 7-day chart
+  // truncation Roham observed on prod.
+  //
+  // New pattern: sequential pagination with break-on-short-page. Each page
+  // fetches PAGE rows; if a page returns fewer than PAGE rows, we know that's
+  // the last page. Bounded by MAX_PAGES (60) to prevent runaway under data
+  // pathology. ~3x slower than count-then-parallel under happy path (~5
+  // sequential round-trips vs 1 batched), but correct under all conditions.
+  // 30D Grail (~5 pages × ~800ms RTT = ~4s) comfortably under the page's
+  // maxDuration=60 budget.
   const allHistory: { date: string; edition_id: string; market_cap: number }[] = [];
   const PAGE = 1000;
+  const MAX_PAGES = 60;
   const baseQuery = () =>
     sb
       .from("market_caps")
@@ -190,41 +205,28 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
       .order("date", { ascending: true })
       .order("edition_id", { ascending: true });
 
-  const { count: histCount, error: countErr } = await baseQuery().select("*", { count: "exact", head: true });
-  if (countErr) {
-    console.error("[grail] history count probe failed", countErr);
-    throw countErr;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE;
+    const to = from + PAGE - 1;
+    const { data, error } = await baseQuery().range(from, to);
+    if (error) {
+      console.error(`[grail] history page ${page} failed`, error);
+      throw error;
+    }
+    const rows =
+      (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
+    for (const r of rows) {
+      allHistory.push({
+        date: r.date,
+        edition_id: r.edition_id,
+        market_cap: Number(r.market_cap) || 0,
+      });
+    }
+    // Break when page returned fewer than PAGE rows — that's the last page.
+    if (rows.length < PAGE) break;
   }
-  const pageCount = Math.max(1, Math.ceil((histCount ?? 0) / PAGE));
-
-  // Concurrency = 6 — Supabase pooler comfortably absorbs that without backpressure.
-  const CONCURRENCY = 6;
-  for (let batchStart = 0; batchStart < pageCount; batchStart += CONCURRENCY) {
-    const batchEnd = Math.min(batchStart + CONCURRENCY, pageCount);
-    const promises = [];
-    for (let page = batchStart; page < batchEnd; page++) {
-      const from = page * PAGE;
-      const to = from + PAGE - 1;
-      promises.push(baseQuery().range(from, to));
-    }
-    const results = await Promise.all(promises);
-    for (let i = 0; i < results.length; i++) {
-      const { data, error } = results[i];
-      if (error) {
-        const pageNum = batchStart + i;
-        console.error(`[grail] history page ${pageNum} failed`, error);
-        throw error;
-      }
-      const rows =
-        (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
-      for (const r of rows) {
-        allHistory.push({
-          date: r.date,
-          edition_id: r.edition_id,
-          market_cap: Number(r.market_cap) || 0,
-        });
-      }
-    }
+  if (allHistory.length >= MAX_PAGES * PAGE) {
+    console.warn(`[grail] MAX_PAGES=${MAX_PAGES} hit; series may be truncated. lookbackDays=${lookbackDays}`);
   }
   if (allHistory.length === 0) {
     return {
