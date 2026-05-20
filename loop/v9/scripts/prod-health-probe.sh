@@ -20,34 +20,22 @@ TIMEOUT=30
 
 echo "[V9 G10 prod-health] Probing $PROD_URL for iter $ITER"
 
-# Step 1 — HTTP 200 + sane body size.
-# Vercel SSR responses use Transfer-Encoding: chunked (no Content-Length header),
-# so we measure body length directly via curl + wc -c.
+# Step 1 — HTTP 200 + sane content-length
 HTTP_STATUS=$(curl -sI -o /dev/null -w "%{http_code}" --max-time $TIMEOUT "$PROD_URL" || echo "000")
 if [ "$HTTP_STATUS" != "200" ]; then
   echo "[V9 G10 FAIL] / returned HTTP $HTTP_STATUS"
   exit 1
 fi
-BODY_LEN=$(curl -s --max-time $TIMEOUT "$PROD_URL" | wc -c | tr -d ' ')
-if [ -z "$BODY_LEN" ] || [ "$BODY_LEN" -lt 5000 ]; then
-  echo "[V9 G10 FAIL] / body suspiciously small: ${BODY_LEN:-empty} bytes"
+CONTENT_LEN=$(curl -sI --max-time $TIMEOUT "$PROD_URL" | awk '/^[Cc]ontent-[Ll]ength:/ {print $2}' | tr -d '\r')
+if [ -z "$CONTENT_LEN" ] || [ "$CONTENT_LEN" -lt 1000 ]; then
+  echo "[V9 G10 FAIL] / content-length suspiciously small: ${CONTENT_LEN:-empty}"
   exit 1
 fi
-echo "[V9 G10] HTTP 200, body $BODY_LEN bytes — basic check passed"
+echo "[V9 G10] HTTP 200, content-length $CONTENT_LEN — basic check passed"
 
-# Step 2 — Playwright JS-error + affordance check.
-# Graceful degrade: if node OR playwright module is missing in the calling
-# environment, exit 0 after the basic HTTP+body check. The auto-revert path
-# MUST only fire on real production failures, NOT on probe-script infrastructure
-# gaps. Per Opus F6 design — the probe must distinguish "page broken" from
-# "probe can't run." Daemon environments install playwright; local Mac and
-# CI runners that don't have it get degraded coverage, not false auto-reverts.
+# Step 2 — Playwright JS-error + affordance check
 if ! command -v node >/dev/null 2>&1; then
-  echo "[V9 G10] node missing — degraded mode (basic check only)"
-  exit 0
-fi
-if ! node -e "require('playwright')" >/dev/null 2>&1; then
-  echo "[V9 G10] playwright module not installed in current env — degraded mode (basic check only). Install via 'npm install playwright && npx playwright install chromium' for full coverage."
+  echo "[V9 G10] node missing — degraded mode, basic check only"
   exit 0
 fi
 
