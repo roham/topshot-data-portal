@@ -150,39 +150,31 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
       .order("date", { ascending: true })
       .order("edition_id", { ascending: true });
 
-  const { count: histCount, error: countErr } = await baseQuery().select("*", { count: "exact", head: true });
-  if (countErr) {
-    console.error("[rookies] history count probe failed", countErr);
-    throw countErr;
+  // V9 iter-5 CORRECTIVE — fetch-until-empty pagination (see grail-synthesizer for full
+  // diagnosis). The prior count-probe-then-parallel-paginate pattern silently degraded to
+  // single-page (1000 rows) when count probe returned null under serverless pressure.
+  const MAX_PAGES = 60;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE;
+    const to = from + PAGE - 1;
+    const { data, error } = await baseQuery().range(from, to);
+    if (error) {
+      console.error(`[rookies] history page ${page} failed`, error);
+      throw error;
+    }
+    const rows =
+      (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
+    for (const r of rows) {
+      allHistory.push({
+        date: r.date,
+        edition_id: r.edition_id,
+        market_cap: Number(r.market_cap) || 0,
+      });
+    }
+    if (rows.length < PAGE) break;
   }
-  const pageCount = Math.max(1, Math.ceil((histCount ?? 0) / PAGE));
-  const CONCURRENCY = 6;
-  for (let batchStart = 0; batchStart < pageCount; batchStart += CONCURRENCY) {
-    const batchEnd = Math.min(batchStart + CONCURRENCY, pageCount);
-    const promises = [];
-    for (let page = batchStart; page < batchEnd; page++) {
-      const from = page * PAGE;
-      const to = from + PAGE - 1;
-      promises.push(baseQuery().range(from, to));
-    }
-    const results = await Promise.all(promises);
-    for (let i = 0; i < results.length; i++) {
-      const { data, error } = results[i];
-      if (error) {
-        const pageNum = batchStart + i;
-        console.error(`[rookies] history page ${pageNum} failed`, error);
-        throw error;
-      }
-      const rows =
-        (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
-      for (const r of rows) {
-        allHistory.push({
-          date: r.date,
-          edition_id: r.edition_id,
-          market_cap: Number(r.market_cap) || 0,
-        });
-      }
-    }
+  if (allHistory.length >= MAX_PAGES * PAGE) {
+    console.warn(`[rookies] MAX_PAGES=${MAX_PAGES} hit; series may be truncated. lookbackDays=${lookbackDays}`);
   }
   if (allHistory.length === 0) return { ...EMPTY, draft_year_used: draftYear };
 
