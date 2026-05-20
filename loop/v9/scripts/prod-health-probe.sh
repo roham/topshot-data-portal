@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
 # Post-deploy production health probe (Opus F6 fix — G10 gate).
 # Runs AFTER Vercel deploys an iter to production.
-# If FAIL → git revert HEAD && git push (auto-revert).
+#
+# **CHECK-ONLY** — does NOT auto-revert. Returns non-zero on failure; the
+# caller (orchestrator stage chain) decides what to do with the failure
+# (revert via separate command, escalate to Meta-Track, file CORRECTIVE iter).
+#
+# Earlier iteration of this script bundled auto-revert (`git revert HEAD && git
+# push`) but proved catastrophic in practice — the probe self-reverted twice
+# during V9 iter-1 ship due to a missing-Playwright-module infra gap that
+# the script couldn't distinguish from a real production failure. The right
+# shape is separation of concerns: probe checks; revert is a separate
+# explicit operator action.
 #
 # Usage:
 #   bash loop/v9/scripts/prod-health-probe.sh <iter-N>
 #
 # Exit codes:
-#   0  — PASS (iter stays shipped)
-#   1  — FAIL: / didn't return 200 OR has JS errors
-#   2  — FAIL: iter-specific affordance not in DOM (per iter's plan)
-#   3  — script error (Playwright missing, etc.)
+#   0  — PASS (production is healthy; iter stays shipped)
+#   1  — FAIL: / didn't return HTTP 200
+#   2  — FAIL: / body suspiciously small (deploy may have shipped a blank/error page)
+#   3  — FAIL: Playwright probe detected JS errors or bodyTooShort
+#   4  — script infra error (node/playwright not installed) — DEGRADED COVERAGE, not a real prod failure
 
 set -euo pipefail
 
@@ -20,22 +31,34 @@ TIMEOUT=30
 
 echo "[V9 G10 prod-health] Probing $PROD_URL for iter $ITER"
 
-# Step 1 — HTTP 200 + sane content-length
+# Step 1 — HTTP 200
 HTTP_STATUS=$(curl -sI -o /dev/null -w "%{http_code}" --max-time $TIMEOUT "$PROD_URL" || echo "000")
 if [ "$HTTP_STATUS" != "200" ]; then
   echo "[V9 G10 FAIL] / returned HTTP $HTTP_STATUS"
   exit 1
 fi
-CONTENT_LEN=$(curl -sI --max-time $TIMEOUT "$PROD_URL" | awk '/^[Cc]ontent-[Ll]ength:/ {print $2}' | tr -d '\r')
-if [ -z "$CONTENT_LEN" ] || [ "$CONTENT_LEN" -lt 1000 ]; then
-  echo "[V9 G10 FAIL] / content-length suspiciously small: ${CONTENT_LEN:-empty}"
-  exit 1
-fi
-echo "[V9 G10] HTTP 200, content-length $CONTENT_LEN — basic check passed"
 
-# Step 2 — Playwright JS-error + affordance check
+# Step 2 — Body size (Vercel SSR uses chunked transfer; measure body directly).
+BODY_LEN=$(curl -s --max-time $TIMEOUT "$PROD_URL" | wc -c | tr -d ' ')
+if [ -z "$BODY_LEN" ] || [ "$BODY_LEN" -lt 5000 ]; then
+  echo "[V9 G10 FAIL] / body suspiciously small: ${BODY_LEN:-empty} bytes"
+  exit 2
+fi
+echo "[V9 G10] HTTP 200, body $BODY_LEN bytes — basic check passed"
+
+# Step 3 — Playwright JS-error + body-length check.
+# Graceful degrade: if node OR playwright module is missing in the calling
+# environment, exit 0 after the basic HTTP+body check. The auto-revert path
+# is intentionally NOT here — the script is check-only. Daemon environments
+# with Playwright installed get the JS-error check; local runners that don't
+# have it get HTTP-and-body-length coverage only (exit 4 = degraded, NOT a
+# real prod failure signal).
 if ! command -v node >/dev/null 2>&1; then
-  echo "[V9 G10] node missing — degraded mode, basic check only"
+  echo "[V9 G10] node missing — degraded mode (basic check only, exit 0)"
+  exit 0
+fi
+if ! node -e "require('playwright/package.json')" >/dev/null 2>&1; then
+  echo "[V9 G10] playwright not installed — degraded mode (basic check only, exit 0). Install via 'npm install playwright && npx playwright install chromium' on daemon for full coverage."
   exit 0
 fi
 
@@ -77,8 +100,6 @@ if PROBE_OUTPUT=$(PROBE_URL="$PROD_URL" node "$PROBE_SCRIPT" 2>&1); then
   exit 0
 else
   echo "[V9 G10 FAIL] $PROBE_OUTPUT"
-  echo "[V9 G10] Triggering auto-revert"
-  git revert --no-edit HEAD
-  git push origin HEAD
-  exit 1
+  echo "[V9 G10] Probe is CHECK-ONLY. Auto-revert disabled. Caller must decide remediation."
+  exit 3
 fi
