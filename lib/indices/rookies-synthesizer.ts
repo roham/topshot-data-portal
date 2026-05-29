@@ -9,10 +9,10 @@
 import { createHash } from "node:crypto";
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
+import { CURRENT_ROOKIE_YEAR } from "@/lib/indices/rookie-years";
 
 const BASKET_SIZE = 30;
 const MAX_LOOKBACK_DAYS = 365;
-const ROOKIE_DRAFT_YEARS = ["2025", "2024"] as const;
 
 export interface RookiesSeriesPoint {
   date: string;
@@ -55,9 +55,12 @@ const EMPTY: RookiesIndexResult = {
   draft_year_used: null,
 };
 
-async function fetchRookieIds(sb: NonNullable<ReturnType<typeof getSupabaseServerAnon>>) {
-  // Find a draft year that actually has matching editions in market_caps.
-  for (const yr of ROOKIE_DRAFT_YEARS) {
+async function fetchRookieIds(
+  sb: NonNullable<ReturnType<typeof getSupabaseServerAnon>>,
+  years: string[],
+) {
+  // Find a draft year (from the requested list) that has matching editions.
+  for (const yr of years) {
     const { data: players } = await sb
       .from("players")
       .select("player_id")
@@ -83,7 +86,7 @@ async function fetchRookieIds(sb: NonNullable<ReturnType<typeof getSupabaseServe
   return { editionIds: [] as string[], draftYear: null as string | null };
 }
 
-async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
+async function fetchInner(lookbackDays: number, requestedYear: string): Promise<RookiesIndexResult> {
   const sb = getSupabaseServerAnon();
   if (!sb) return EMPTY;
 
@@ -97,15 +100,25 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
   const asOfDate = (latestRow as { date: string } | null)?.date ?? null;
   if (!asOfDate) return EMPTY;
 
-  const { editionIds: rookieEditionIds, draftYear } = await fetchRookieIds(sb);
-  if (rookieEditionIds.length === 0) return EMPTY;
+  const { editionIds: rookieEditionIds, draftYear } = await fetchRookieIds(sb, [requestedYear]);
+  if (rookieEditionIds.length === 0) return { ...EMPTY, draft_year_used: null };
 
-  // Top N by mcap among rookie editions
+  // Top N by mcap among rookie editions.
+  //
+  // CHUNK must stay small: edition_id is a compound `uuid+uuid` (~75 chars
+  // url-encoded). PostgREST `.in()` serializes to a GET query string, and a
+  // chunk of 500 IDs (~37KB) blows past the gateway's URI-length limit — the
+  // request fails and supabase-js returns `{ data: null, error }`. The bug
+  // this replaces swallowed that error and silently yielded an empty basket
+  // (rookies had 279 editions → over the limit → empty; grail's smaller
+  // basket squeaked under it, which is why grail worked and rookies didn't).
+  // 100 IDs ≈ 7.5KB, comfortably under any reasonable limit. We surface the
+  // error instead of swallowing it.
   const candidatePool: { edition_id: string; current_mcap: number }[] = [];
-  const CHUNK = 500;
+  const CHUNK = 100;
   for (let i = 0; i < rookieEditionIds.length; i += CHUNK) {
     const chunk = rookieEditionIds.slice(i, i + CHUNK);
-    const { data: capRows } = await sb
+    const { data: capRows, error } = await sb
       .from("market_caps")
       .select("edition_id, market_cap")
       .eq("date", asOfDate)
@@ -114,6 +127,10 @@ async function fetchInner(lookbackDays: number): Promise<RookiesIndexResult> {
       .gt("market_cap", 0)
       .order("market_cap", { ascending: false })
       .limit(BASKET_SIZE);
+    if (error) {
+      console.error(`[rookies] candidate-pool chunk ${i} failed`, error);
+      throw error;
+    }
     for (const r of ((capRows as { edition_id: string; market_cap: number | string }[] | null) ?? [])) {
       candidatePool.push({
         edition_id: r.edition_id,
@@ -308,9 +325,12 @@ const SYNTHESIZER_VERSION = createHash("sha256")
   .digest("hex")
   .slice(0, 8);
 
-export const getRookiesIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
+export const getRookiesIndex = (
+  lookbackDays = MAX_LOOKBACK_DAYS,
+  draftYear: string = CURRENT_ROOKIE_YEAR,
+) =>
   unstable_cache(
-    () => fetchInner(lookbackDays),
-    ["rookies-index", SYNTHESIZER_VERSION, String(lookbackDays)],
+    () => fetchInner(lookbackDays, draftYear),
+    ["rookies-index", SYNTHESIZER_VERSION, String(lookbackDays), draftYear],
     { revalidate: 60 * 60, tags: ["rookies-index"] }
   )();

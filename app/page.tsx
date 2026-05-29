@@ -1218,10 +1218,11 @@ async function loadDepthCaption(): Promise<string> {
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: Promise<{ w?: string }>;
+  searchParams?: Promise<{ w?: string; ry?: string }>;
 }) {
   // Single ?w= controls all graphs AND tables across the portal.
   // The TopNav's TimeWindowSelector is the canonical UI affordance.
+  // ?ry= is the ROOKIES draft-year filter (defaults to current season).
   const sp = (await searchParams) ?? {};
   const rawWindow = sp.w;
 
@@ -1235,7 +1236,7 @@ export default async function Home({
           Single time-window control (TopNav) drives both heroes + the
           aggregate strip below. */}
       <Suspense fallback={<IndexHeroPairSkeleton />}>
-        <IndexHeroPair windowRaw={rawWindow} />
+        <IndexHeroPair windowRaw={rawWindow} rookieYearRaw={sp.ry} />
       </Suspense>
       <SupabaseHomepageStrip rawWindow={rawWindow} />
       <Suspense fallback={<LegacyCascadeSkeleton />}>

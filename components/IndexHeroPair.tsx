@@ -23,7 +23,10 @@ import {
 } from "@/components/global/window-types";
 import { getGrailIndex, type GrailIndexResult } from "@/lib/indices/grail-synthesizer";
 import { getRookiesIndex, type RookiesIndexResult } from "@/lib/indices/rookies-synthesizer";
+import { parseRookieYear } from "@/lib/indices/rookie-years";
+import { RookieYearSelect } from "@/components/RookieYearSelect";
 import type { TS50SeriesPoint } from "@/lib/indices/ts50-synthesizer";
+import type { ReactNode } from "react";
 
 function deltaColor(pct: number): string {
   if (pct > 0) return "text-[var(--up)]";
@@ -42,6 +45,8 @@ interface MiniHeroProps {
   daysOfHistory: number;
   series: { date: string; index_value: number; basket_mcap_usd: number }[];
   emptyReason?: string;
+  /** Optional control (e.g. year filter) rendered in the pane header. */
+  controls?: ReactNode;
 }
 
 function MiniHero({
@@ -55,10 +60,17 @@ function MiniHero({
   daysOfHistory,
   series,
   emptyReason,
+  controls,
 }: MiniHeroProps) {
   if (series.length === 0) {
     return (
-      <Card title={title} subtitle={subtitle} methodology={methodology} variant="inset">
+      <Card
+        title={title}
+        subtitle={subtitle}
+        methodology={methodology}
+        variant="inset"
+        right={controls}
+      >
         <div className="p-6 text-[12px] text-[var(--text-dim)]">
           {emptyReason ?? `${title} basket has no matching market-cap rows yet.`}
         </div>
@@ -76,12 +88,15 @@ function MiniHero({
       methodology={methodology}
       variant="inset"
       right={
-        <Link
-          href={`/indices/${slug}`}
-          className="text-[11px] text-[var(--accent)] hover:underline font-mono whitespace-nowrap"
-        >
-          basket →
-        </Link>
+        <div className="flex items-center gap-2">
+          {controls}
+          <Link
+            href={`/indices/${slug}`}
+            className="text-[11px] text-[var(--accent)] hover:underline font-mono whitespace-nowrap"
+          >
+            basket →
+          </Link>
+        </div>
       }
     >
       <div className="grid lg:grid-cols-[200px_1fr] gap-4 p-3">
@@ -146,11 +161,13 @@ async function GrailMiniHero({
 
 async function RookiesMiniHero({
   activeWindow,
+  draftYear,
 }: {
   activeWindow: TimeWindow;
+  draftYear: string;
 }) {
   const lookbackDays = windowToDays(activeWindow);
-  const result: RookiesIndexResult | null = await getRookiesIndex(lookbackDays).catch((err) => {
+  const result: RookiesIndexResult | null = await getRookiesIndex(lookbackDays, draftYear).catch((err) => {
     console.error("[rookies-mini-hero] fetch error", err);
     return null;
   });
@@ -158,7 +175,8 @@ async function RookiesMiniHero({
     <MiniHero
       slug="rookies"
       title="ROOKIES"
-      subtitle={`Draft class ${result?.draft_year_used ?? "—"}${result?.as_of_date ? ` · ${result.as_of_date}` : ""}`}
+      controls={<RookieYearSelect />}
+      subtitle={`Draft class ${result?.draft_year_used ?? draftYear}${result?.as_of_date ? ` · ${result.as_of_date}` : ""}`}
       methodology={`Top editions by market cap, current draft class (${result?.draft_year_used ?? "—"}). Value-weighted. Multi-line per-rookie chart lands as the canonical view; aggregate index shown here.`}
       latestValue={result?.latest_index_value ?? 100}
       pctChange={result?.series_pct_change ?? 0}
@@ -169,7 +187,7 @@ async function RookiesMiniHero({
         result === null
           ? "Rookies index temporarily unavailable."
           : result.draft_year_used === null
-            ? "No editions matched for current rookie draft classes (2025, 2024)."
+            ? `No market-cap-bearing editions matched the ${draftYear} draft class.`
             : undefined
       }
     />
@@ -194,18 +212,22 @@ function MiniHeroSkeleton() {
 
 export function IndexHeroPair({
   windowRaw,
+  rookieYearRaw,
 }: {
   /** Raw `w` searchParam value from the page (the global time window). */
   windowRaw?: string | string[];
+  /** Raw `ry` searchParam value — the selected rookie draft year. */
+  rookieYearRaw?: string | string[];
 }) {
   const { window: activeWindow } = parseTimeWindow(windowRaw, "30d");
+  const draftYear = parseRookieYear(rookieYearRaw);
   return (
     <div className="grid lg:grid-cols-2 gap-4">
       <Suspense fallback={<MiniHeroSkeleton />}>
         <GrailMiniHero activeWindow={activeWindow} />
       </Suspense>
-      <Suspense fallback={<MiniHeroSkeleton />}>
-        <RookiesMiniHero activeWindow={activeWindow} />
+      <Suspense key={draftYear} fallback={<MiniHeroSkeleton />}>
+        <RookiesMiniHero activeWindow={activeWindow} draftYear={draftYear} />
       </Suspense>
     </div>
   );

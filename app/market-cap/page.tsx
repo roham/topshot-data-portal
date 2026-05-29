@@ -17,7 +17,7 @@ import { ByParallelChart } from "@/components/charts/market-cap/ByParallelChart"
 import { TopSetsChart } from "@/components/charts/market-cap/TopSetsChart";
 import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
 import { TotalOverTimeChart } from "@/components/charts/market-cap/TotalOverTimeChart";
-import { TS50IndexHero } from "@/components/TS50IndexHero";
+import { IndexHeroPair } from "@/components/IndexHeroPair";
 import { MoversCardGrid } from "@/components/charts/market-cap/MoversCardGrid";
 import { ConcentrationChart } from "@/components/charts/market-cap/ConcentrationChart";
 import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
@@ -44,7 +44,7 @@ function fmtUSD(n: number): string {
 export default async function MarketCapPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mcap?: string; mw?: string }>;
+  searchParams: Promise<{ mcap?: string; mw?: string; w?: string; ry?: string }>;
 }) {
   const sp = await searchParams;
   const formula = parseMcapFormula(sp.mcap);
@@ -94,11 +94,12 @@ export default async function MarketCapPage({
         <McapFormulaToggle />
       </div>
 
-      {/* TS50 Composite Index hero — doctrine §0.1 CL50 signature move ported.
-          365D lookback (will look thin until ETL accumulates more snapshots;
-          honest absence handled inside the component). */}
+      {/* Headline indices — GRAIL (blue-chip) + ROOKIES (rookie market), the two
+          baskets Roham named as the relevant cuts (TS50 retired from the hero
+          2026-05-28). Each pane streams independently via internal Suspense;
+          honest-absence handled inside IndexHeroPair. Window from global `w`. */}
       <div className="mb-4">
-        <TS50IndexHero lookbackDays={365} />
+        <IndexHeroPair windowRaw={sp.w} rookieYearRaw={sp.ry} />
       </div>
 
       {/* KPI strip — 4 tiles, info-dense without being a table. Reactive to formula. */}
