@@ -81,6 +81,14 @@ function MiniHero({
   // TS50IndexChart accepts TS50SeriesPoint shape; ours is structurally identical.
   const seriesForChart: TS50SeriesPoint[] = series;
 
+  // Dollar-based % change over the window (first vs last non-zero basket mcap).
+  // We show the real $ basket, not the normalized index — the index rebases to
+  // 100 per window so its shape/value isn't comparable across windows, and here
+  // it was manufacturing moves the dollars don't show.
+  const firstUsd = series.find((p) => p.basket_mcap_usd > 0)?.basket_mcap_usd ?? 0;
+  const lastUsd = [...series].reverse().find((p) => p.basket_mcap_usd > 0)?.basket_mcap_usd ?? 0;
+  const pctDollar = firstUsd > 0 ? ((lastUsd - firstUsd) / firstUsd) * 100 : 0;
+
   return (
     <Card
       title={title}
@@ -103,27 +111,19 @@ function MiniHero({
         <div className="space-y-3 lg:border-r lg:border-[var(--border-subtle)] lg:pr-4">
           <div>
             <div className="text-[10px] tracking-data-label uppercase text-[var(--text-faint)] font-mono">
-              Index
+              Basket market cap
             </div>
-            <div className="text-[32px] leading-none font-semibold tabular-nums tracking-tight">
-              {latestValue.toFixed(2)}
-            </div>
-            <div className={`text-[12px] mt-1 font-mono tabular-nums ${deltaColor(pctChange)}`}>
-              <Num value={pctChange} format="deltaPct" colorize={false} />
-              <span className="text-[var(--text-faint)] ml-2">{daysOfHistory}d</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] tracking-data-label uppercase text-[var(--text-faint)] font-mono">
-              Basket mcap
-            </div>
-            <div className="text-[16px] leading-none font-semibold tabular-nums">
+            <div className="text-[30px] leading-none font-semibold tabular-nums tracking-tight">
               <Num value={basketMcap} format="usdCompact" />
+            </div>
+            <div className={`text-[12px] mt-1 font-mono tabular-nums ${deltaColor(pctDollar)}`}>
+              <Num value={pctDollar} format="deltaPct" colorize={false} />
+              <span className="text-[var(--text-faint)] ml-2">{daysOfHistory}d</span>
             </div>
           </div>
         </div>
         <div className="min-w-0">
-          <TS50IndexChart series={seriesForChart} />
+          <TS50IndexChart series={seriesForChart} currency />
         </div>
       </div>
     </Card>

@@ -38,7 +38,18 @@ function fmtDate(d: string): string {
   return d.slice(5);
 }
 
-export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
+// `currency` plots the real dollar basket market cap (basket_mcap_usd) instead
+// of the normalized index. Dollars are the native, comparable unit for a
+// market-cap page — an index rebases to 100 per window, so the same data shows
+// a different shape at 30D vs 6M and the value is abstract. Index mode is kept
+// for legacy index pages that still want the normalized line.
+export function TS50IndexChart({
+  series,
+  currency = false,
+}: {
+  series: TS50SeriesPoint[];
+  currency?: boolean;
+}) {
   if (series.length < 2) {
     return (
       <div className="flex items-center justify-center h-[320px] p-8 text-center">
@@ -52,15 +63,16 @@ export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
   const data = series.map((p) => ({
     date: fmtDate(p.date),
     rawDate: p.date,
+    value: currency ? p.basket_mcap_usd : p.index_value,
     index_value: p.index_value,
     basket_mcap: p.basket_mcap_usd,
   }));
 
   // Find y-axis bounds with some padding
-  const values = data.map((d) => d.index_value);
+  const values = data.map((d) => d.value);
   const minV = Math.min(...values);
   const maxV = Math.max(...values);
-  const padding = Math.max((maxV - minV) * 0.1, 0.5);
+  const padding = Math.max((maxV - minV) * 0.1, currency ? maxV * 0.02 : 0.5);
 
   return (
     <ResponsiveContainer width="100%" height={320}>
@@ -79,12 +91,14 @@ export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
         />
         <YAxis
           domain={[minV - padding, maxV + padding]}
-          tickFormatter={(v) => v.toFixed(1)}
+          tickFormatter={(v) => (currency ? fmtCompact(v) : v.toFixed(1))}
           stroke="var(--text-faint)"
           tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }}
-          width={42}
+          width={currency ? 52 : 42}
         />
-        <ReferenceLine y={100} stroke="var(--border-subtle)" strokeDasharray="2 4" />
+        {!currency && (
+          <ReferenceLine y={100} stroke="var(--border-subtle)" strokeDasharray="2 4" />
+        )}
         <Tooltip
           // V9 VIZ-002 — TradingView hover-crosshair signature. Cursor is a
           // prominent vertical line (not the recharts default fill); activeDot
@@ -116,6 +130,9 @@ export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
             padding: "1px 0",
           }}
           formatter={(value, _name, _item, _idx, payload) => {
+            if (currency) {
+              return [fmtCompact(Number(value)), "Market cap"];
+            }
             const bm = (payload as unknown as { basket_mcap?: number })?.basket_mcap;
             return [
               `${Number(value).toFixed(2)}`,
@@ -129,7 +146,7 @@ export function TS50IndexChart({ series }: { series: TS50SeriesPoint[] }) {
         />
         <Area
           type="monotone"
-          dataKey="index_value"
+          dataKey="value"
           stroke="#14b8a6"
           strokeWidth={2}
           fill="url(#ts50Gradient)"

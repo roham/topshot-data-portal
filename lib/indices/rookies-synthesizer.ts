@@ -267,12 +267,38 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
     weightedSumByDate.push(wSum);
     rawSumByDate.push(rawSum);
   }
+  // Honest dollar series: daily sum of the basket's actual market cap — raw
+  // dollars, NO weighting, NO normalization (that's what broke the index).
+  // Per-edition carry-forward of the last-known value across days an edition's
+  // snapshot is missing, seeded with its first-observed value so day 0 isn't
+  // artificially low. A missing snapshot shouldn't make the basket dip; an
+  // edition that traded yesterday still exists today. This is what the hero
+  // plots, so a 30d view is exactly the tail of the 6m view and the chart's
+  // last point equals the headline. (index_value retained for /indices pages.)
+  const firstSeenUsd = new Map<string, number>();
+  for (const h of allHistory) {
+    if (h.market_cap > 0 && !firstSeenUsd.has(h.edition_id)) firstSeenUsd.set(h.edition_id, h.market_cap);
+  }
+  const editionIds = [...byEdition.keys()];
+  const lastKnownUsd = new Map(firstSeenUsd);
+  const dailyRaw = new Map<string, number>();
+  for (const d of dates) {
+    let sum = 0;
+    for (const e of editionIds) {
+      const today = byEdition.get(e)?.get(d);
+      if (today != null && today > 0) lastKnownUsd.set(e, today);
+      const use = lastKnownUsd.get(e);
+      if (use && use > 0) sum += use;
+    }
+    dailyRaw.set(d, sum);
+  }
   const startWSum = weightedSumByDate[0] || 0;
   const series: RookiesSeriesPoint[] = dates.map((d, i) => ({
     date: d,
     index_value: startWSum > 0 ? 100 * (weightedSumByDate[i] / startWSum) : 0,
-    basket_mcap_usd: rawSumByDate[i],
+    basket_mcap_usd: dailyRaw.get(d) ?? 0,
   }));
+  const latestDailyRaw = dailyRaw.get(dates[dates.length - 1]) ?? basketMcapTotal;
   const latestIndexValue = series[series.length - 1]?.index_value ?? 100;
   const seriesPctChange =
     series.length >= 2 && series[0].index_value > 0
@@ -311,7 +337,7 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
     constituents,
     as_of_date: asOfDate,
     series_start_date: seriesStartDate,
-    basket_mcap_total_usd: basketMcapTotal,
+    basket_mcap_total_usd: latestDailyRaw,
     latest_index_value: latestIndexValue,
     series_pct_change: seriesPctChange,
     days_of_history: dates.length,
