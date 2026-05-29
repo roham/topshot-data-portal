@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { TopNav } from "@/components/TopNav";
 import { EtlFreshnessBadge } from "@/components/EtlFreshnessBadge";
 import { CommandPalette } from "@/components/CommandPalette";
+import { WindowTransitionProvider } from "@/components/global/WindowTransition";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)] antialiased">
         <Providers>
+          <WindowTransitionProvider>
           <TopNav
             freshness={
               <Suspense fallback={null}>
@@ -45,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/methodology" className="hover:text-[var(--text)] tracking-data-label">methodology</Link>
             </div>
           </footer>
+          </WindowTransitionProvider>
         </Providers>
       </body>
     </html>

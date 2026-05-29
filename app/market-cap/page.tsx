@@ -32,6 +32,7 @@ import { ConcentrationChart } from "@/components/charts/market-cap/Concentration
 import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
 import { MoverWindowToggle } from "@/components/market-cap/MoverWindowToggle";
 import { MarketCapBodySkeleton } from "@/components/market-cap/MarketCapSkeleton";
+import { WindowPendingVeil } from "@/components/global/WindowPendingVeil";
 import { parseMcapFormula, type McapFormula } from "@/lib/market-cap/mcap-formula";
 import { parseTimeWindow, windowToDays, WINDOW_SPECS, type TimeWindow } from "@/components/global/window-types";
 
@@ -80,21 +81,25 @@ export default async function MarketCapPage({
         <McapFormulaToggle />
       </div>
 
-      {/* Hero — keyed on window so it shows its skeleton during a change */}
-      <div className="mb-4">
-        <Suspense key={`hero-${window}`} fallback={<IndexHeroPairSkeleton />}>
-          <IndexHeroPair windowRaw={sp.w} rookieYearRaw={sp.ry} />
-        </Suspense>
-      </div>
+      {/* The whole graph area dims + shimmers on every window change (veil),
+          AND shows skeletons on genuinely slow/uncached loads (keyed Suspense). */}
+      <WindowPendingVeil>
+        {/* Hero — keyed on window so it shows its skeleton during a change */}
+        <div className="mb-4">
+          <Suspense key={`hero-${window}`} fallback={<IndexHeroPairSkeleton />}>
+            <IndexHeroPair windowRaw={sp.w} rookieYearRaw={sp.ry} />
+          </Suspense>
+        </div>
 
-      {/* Body — keyed on window+formula+mover-window; all panels shimmer
-          together on a change, then the fresh data streams in and fades up. */}
-      <Suspense
-        key={`body-${window}-${formula}-${sp.mw ?? "30"}`}
-        fallback={<MarketCapBodySkeleton />}
-      >
-        <MarketCapBody window={window} formula={formula} moverWindowRaw={sp.mw} />
-      </Suspense>
+        {/* Body — keyed on window+formula+mover-window; panels shimmer together
+            on a change, then the fresh data streams in and fades up. */}
+        <Suspense
+          key={`body-${window}-${formula}-${sp.mw ?? "30"}`}
+          fallback={<MarketCapBodySkeleton />}
+        >
+          <MarketCapBody window={window} formula={formula} moverWindowRaw={sp.mw} />
+        </Suspense>
+      </WindowPendingVeil>
 
       {/* Methodology footer — static, instant */}
       <div className="mt-6 border-t border-[var(--border-subtle)] pt-4">

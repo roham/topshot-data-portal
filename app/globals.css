@@ -115,3 +115,14 @@ html { scrollbar-color: rgba(255, 255, 255, 0.12) var(--bg); scrollbar-width: th
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* shimmer sweep over the graph area while a window change is pending */
+.window-veil-shimmer {
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--accent) 14%, transparent) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: window-veil-sweep 1.1s ease-in-out infinite;
+}
+@keyframes window-veil-sweep {
+  0%   { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}

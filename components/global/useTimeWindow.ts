@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
 import { useQueryState, parseAsStringEnum } from "nuqs";
+import { useWindowTransition } from "./WindowTransition";
 import {
   TIME_WINDOWS,
   DEFAULT_WINDOW,
@@ -40,7 +40,9 @@ function parserFor(def: TimeWindow) {
 export function useTimeWindow(
   defaultWindow: TimeWindow = DEFAULT_WINDOW,
 ): [TimeWindow, (next: TimeWindow) => void, boolean] {
-  const [isPending, startTransition] = useTransition();
+  // Shared transition so the whole graph area (via WindowPendingVeil) reacts to
+  // the same pending state the selector creates.
+  const { isPending, startTransition } = useWindowTransition();
   const [value, setValue] = useQueryState(
     "w",
     parserFor(defaultWindow).withOptions({ shallow: false, startTransition }),
