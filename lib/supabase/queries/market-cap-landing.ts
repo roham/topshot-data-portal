@@ -134,12 +134,12 @@ const arr = (v: unknown): Record<string, unknown>[] =>
   Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
 const str = (v: unknown): string | null => (v == null ? null : String(v));
 
-async function _getMarketCapLanding(): Promise<MarketCapLanding> {
+async function _getMarketCapLanding(windowDays: number): Promise<MarketCapLanding> {
   const sb = getSupabaseServerAnon();
   if (!sb) return EMPTY;
 
   try {
-    const { data, error } = await sb.rpc("market_cap_landing");
+    const { data, error } = await sb.rpc("market_cap_landing", { window_days: windowDays });
     if (error || !data) {
       console.error("market-cap-landing rpc failed:", error);
       return EMPTY;
@@ -234,8 +234,11 @@ async function _getMarketCapLanding(): Promise<MarketCapLanding> {
   }
 }
 
-export const getMarketCapLanding = unstable_cache(
-  _getMarketCapLanding,
-  ["market-cap-landing-rpc-v1"],
-  { revalidate: 300, tags: ["market-cap-landing"] },
-);
+// Cached per window so a window you've already viewed snaps back instantly
+// (stale-while-fast); only the first visit to a window pays the RPC round-trip.
+export const getMarketCapLanding = (windowDays = 30): Promise<MarketCapLanding> =>
+  unstable_cache(
+    () => _getMarketCapLanding(windowDays),
+    ["market-cap-landing-rpc-v2", String(windowDays)],
+    { revalidate: 300, tags: ["market-cap-landing"] },
+  )();

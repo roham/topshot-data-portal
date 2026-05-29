@@ -9,8 +9,25 @@
 -- |pct|>1) / concentration(7 cutoffs) / topPlayers(200, floor + avg-sale) / totals.
 --
 -- SECURITY DEFINER + granted to anon so the cookie-free page client can call it.
+--
+-- window_days drives the time-keyed cuts (totalOverTime range + movers lo/hi
+-- bound). Snapshot composition cuts (byTier/byParallel/bySet/byTeam/topPlayers/
+-- concentration) are always "as of latest" — independent of window by design.
 
-CREATE OR REPLACE FUNCTION topshot.market_cap_landing()
+-- Daily-totals rollup so the over-time series is a ~730-row read instead of a
+-- millions-of-rows GROUP BY (1y was 13s / ALL was 30s scanning per-edition rows;
+-- this makes every window sub-second). ETL should
+--   REFRESH MATERIALIZED VIEW CONCURRENTLY topshot.mv_market_cap_daily_totals;
+-- after each market_caps load. Unique index on date enables CONCURRENTLY.
+CREATE MATERIALIZED VIEW IF NOT EXISTS topshot.mv_market_cap_daily_totals AS
+  SELECT date, SUM(market_cap) AS total_mcap, COUNT(*)::int AS edition_count
+  FROM topshot.market_caps WHERE market_cap > 0 GROUP BY date;
+CREATE UNIQUE INDEX IF NOT EXISTS mv_mcdt_date ON topshot.mv_market_cap_daily_totals (date);
+
+DROP FUNCTION IF EXISTS topshot.market_cap_landing();
+DROP FUNCTION IF EXISTS topshot.market_cap_landing(int);
+
+CREATE OR REPLACE FUNCTION topshot.market_cap_landing(window_days int DEFAULT 30)
 RETURNS jsonb
 LANGUAGE sql
 STABLE
@@ -24,7 +41,8 @@ bounds AS (
   SELECT
     (SELECT d FROM latest) AS hi,
     (SELECT min(date) FROM market_caps
-       WHERE date >= (SELECT d FROM latest) - INTERVAL '30 days' AND market_cap > 0) AS lo
+       WHERE date >= (SELECT d FROM latest) - (window_days || ' days')::interval
+         AND market_cap > 0) AS lo
 ),
 -- latest-date editions with positive mcap, joined to edition dims + player/team
 lm AS (
@@ -73,10 +91,10 @@ by_team AS (
   GROUP BY 1 ORDER BY total_mcap DESC LIMIT 30
 ),
 over_time AS (
-  SELECT date::text AS date, SUM(market_cap) AS total_mcap, COUNT(*)::int AS edition_count
-  FROM market_caps
-  WHERE date >= (SELECT lo FROM bounds) AND market_cap > 0
-  GROUP BY date ORDER BY date
+  SELECT date::text AS date, total_mcap, edition_count
+  FROM mv_market_cap_daily_totals
+  WHERE date >= (SELECT lo FROM bounds)
+  ORDER BY date
 ),
 -- per-player earliest (lo) vs latest (hi) mcap within the window
 mover_raw AS (
@@ -176,5 +194,7 @@ SELECT jsonb_build_object(
 );
 $$;
 
-REVOKE ALL ON FUNCTION topshot.market_cap_landing() FROM public;
-GRANT EXECUTE ON FUNCTION topshot.market_cap_landing() TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION topshot.market_cap_landing(int) FROM public;
+GRANT EXECUTE ON FUNCTION topshot.market_cap_landing(int) TO anon, authenticated, service_role;
+
+REFRESH MATERIALIZED VIEW topshot.mv_market_cap_daily_totals;

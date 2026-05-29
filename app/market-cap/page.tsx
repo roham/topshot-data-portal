@@ -5,8 +5,17 @@
 //   P9: scope cut to market cap visualizations only
 //   §0.1: landing-page canon = Polymarket + OTM + Card Ladder Pro
 //
-// Roham 2026-05-17 19:00Z verbatim: "You just load it, and it's just a bunch of graphs."
+// Roham 2026-05-17 19:00Z: "You just load it, and it's just a bunch of graphs."
+//
+// Time-window UX (2026-05-28): the global ?w= window drives the ENTIRE page.
+// The shell (title, toggle, methodology) renders instantly; the hero + body
+// each sit in a <Suspense> boundary KEYED ON THE WINDOW, so changing the
+// window remounts them → every panel shows a shimmer skeleton (no layout
+// shift) → fresh data streams in and fades up. The TimeWindowSelector runs the
+// nav in a transition, so a top progress bar appears the instant you click.
+// Each window's data is cached, so a window you've seen snaps back instantly.
 
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getMarketCapLanding, type PlayerMcapRow } from "@/lib/supabase/queries/market-cap-landing";
 import { getPlayerMovers, parseMoverWindow } from "@/lib/supabase/queries/player-movers";
@@ -17,12 +26,14 @@ import { ByParallelChart } from "@/components/charts/market-cap/ByParallelChart"
 import { TopSetsChart } from "@/components/charts/market-cap/TopSetsChart";
 import { ByTeamTreemap } from "@/components/charts/market-cap/ByTeamTreemap";
 import { TotalOverTimeChart } from "@/components/charts/market-cap/TotalOverTimeChart";
-import { IndexHeroPair } from "@/components/IndexHeroPair";
+import { IndexHeroPair, IndexHeroPairSkeleton } from "@/components/IndexHeroPair";
 import { MoversCardGrid } from "@/components/charts/market-cap/MoversCardGrid";
 import { ConcentrationChart } from "@/components/charts/market-cap/ConcentrationChart";
 import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
 import { MoverWindowToggle } from "@/components/market-cap/MoverWindowToggle";
-import { parseMcapFormula } from "@/lib/market-cap/mcap-formula";
+import { MarketCapBodySkeleton } from "@/components/market-cap/MarketCapSkeleton";
+import { parseMcapFormula, type McapFormula } from "@/lib/market-cap/mcap-formula";
+import { parseTimeWindow, windowToDays, WINDOW_SPECS, type TimeWindow } from "@/components/global/window-types";
 
 export const metadata: Metadata = {
   title: "Market Cap · TS·PORTAL",
@@ -31,7 +42,7 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 300;
-export const maxDuration = 60; // QA-RUN-2026-05-19 D2: cold cache hit timed out at 91s pre-fix
+export const maxDuration = 60;
 
 function fmtUSD(n: number): string {
   if (!n) return "$0";
@@ -47,36 +58,13 @@ export default async function MarketCapPage({
   searchParams: Promise<{ mcap?: string; mw?: string; w?: string; ry?: string }>;
 }) {
   const sp = await searchParams;
+  const { window } = parseTimeWindow(sp.w);
   const formula = parseMcapFormula(sp.mcap);
-  const moverWindow = parseMoverWindow(sp.mw);
-  const [data, movers] = await Promise.all([
-    getMarketCapLanding(),
-    getPlayerMovers(moverWindow),
-  ]);
-
-  // Choose mcap source per formula. Re-rank top players for avg-sale view.
-  const topPlayersRanked: PlayerMcapRow[] =
-    formula === "avg_sale"
-      ? [...data.topPlayers]
-          .sort((a, b) => b.avg_sale_market_cap_usd - a.avg_sale_market_cap_usd)
-          .slice(0, 20)
-      : data.topPlayers.slice(0, 20);
-
-  const topPlayer = topPlayersRanked[0];
-  const topTier = data.byTier[0];
-  const topSet = data.topSets[0];
-  const topTeam = data.byTeam[0];
-
-  const headlineTotal = formula === "avg_sale" ? data.totalAvgSaleMcap : data.totalMcap;
-  const headlineConcShare =
-    formula === "avg_sale" ? data.top10ShareAvgSalePct : data.top10SharePct;
-  const concentrationRows =
-    formula === "avg_sale" ? data.concentrationAvgSale : data.concentration;
   const formulaLabel = formula === "avg_sale" ? "avg sale (30d) × circulation" : "lowest ask × circulation";
 
   return (
     <main className="mx-auto max-w-[1700px] px-4 py-4">
-      {/* Header strip — tight, no marketing copy, no hero */}
+      {/* Header strip — instant shell, never blocks on data */}
       <div className="mb-3 flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1
@@ -85,214 +73,30 @@ export default async function MarketCapPage({
           >
             Market Cap
           </h1>
-          {data.asOfDate && (
-            <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
-              snapshot as of {data.asOfDate} · {formulaLabel}
-            </p>
-          )}
+          <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
+            {WINDOW_SPECS[window].label} window · {formulaLabel}
+          </p>
         </div>
         <McapFormulaToggle />
       </div>
 
-      {/* Headline indices — GRAIL (blue-chip) + ROOKIES (rookie market), the two
-          baskets Roham named as the relevant cuts (TS50 retired from the hero
-          2026-05-28). Each pane streams independently via internal Suspense;
-          honest-absence handled inside IndexHeroPair. Window from global `w`. */}
+      {/* Hero — keyed on window so it shows its skeleton during a change */}
       <div className="mb-4">
-        <IndexHeroPair windowRaw={sp.w} rookieYearRaw={sp.ry} />
+        <Suspense key={`hero-${window}`} fallback={<IndexHeroPairSkeleton />}>
+          <IndexHeroPair windowRaw={sp.w} rookieYearRaw={sp.ry} />
+        </Suspense>
       </div>
 
-      {/* KPI strip — 4 tiles, info-dense without being a table. Reactive to formula. */}
-      {data.totalMcap > 0 && (
-        <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
-            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">
-              {formula === "avg_sale" ? "Avg-sale market cap" : "Floor market cap"}
-            </p>
-            <p className="text-[18px] font-semibold mt-1 tabular-nums">{fmtUSD(headlineTotal)}</p>
-            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">
-              {formula === "avg_sale"
-                ? `vs ${fmtUSD(data.totalMcap)} on lowest-ask basis`
-                : `${fmtUSD(data.playerAttributedMcap)} attributed · ${fmtUSD(data.totalMcap - data.playerAttributedMcap)} unattributed`}
-            </p>
-          </div>
-          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
-            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Active editions</p>
-            <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.totalEditions.toLocaleString()}</p>
-            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">non-zero mcap on {data.asOfDate}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
-            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Players</p>
-            <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.playerCount.toLocaleString()}</p>
-            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">with attributable market cap</p>
-          </div>
-          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
-            <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Top-10 concentration</p>
-            <p className="text-[18px] font-semibold mt-1 tabular-nums">{headlineConcShare.toFixed(1)}%</p>
-            <p className="text-[10px] text-[var(--text-dim)] mt-0.5">
-              by {formula === "avg_sale" ? "avg-sale" : "floor"} mcap
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Body — keyed on window+formula+mover-window; all panels shimmer
+          together on a change, then the fresh data streams in and fades up. */}
+      <Suspense
+        key={`body-${window}-${formula}-${sp.mw ?? "30"}`}
+        fallback={<MarketCapBodySkeleton />}
+      >
+        <MarketCapBody window={window} formula={formula} moverWindowRaw={sp.mw} />
+      </Suspense>
 
-      {data.totalMcap === 0 ? (
-        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-12 text-center">
-          <p className="text-[14px] text-[var(--text-dim)]">
-            No market cap data available.
-          </p>
-          <p className="text-[11px] text-[var(--text-faint)] mt-2">
-            topshot.market_caps is empty for the latest date. ETL may be running.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Row 1 — the two info-richest charts: ranking + composition */}
-          <ChartCard
-            title="Top 20 players"
-            subtitle={`ranked by ${formula === "avg_sale" ? "30d avg-sale" : "floor"} market cap`}
-            asOf={data.asOfDate ?? undefined}
-            testId="chart-top-players"
-            href="/players"
-            caption={
-              topPlayer
-                ? `${topPlayer.player_name ?? topPlayer.player_id} leads at ${fmtUSD(formula === "avg_sale" ? topPlayer.avg_sale_market_cap_usd : topPlayer.total_market_cap_usd)} across ${topPlayer.edition_count} editions.`
-                : "No player data."
-            }
-            methodology={
-              formula === "avg_sale"
-                ? "Avg sale price × total circulation, per player. Sourced from topshot.mv_player_30d_volume joined to mv_player_market_cap. Avoids floor-cap artifacts from vanity 1-of-1 asks; reflects what the market actually transacted at."
-                : "topshot.mv_player_market_cap ranked by total_market_cap_usd descending. Floor formula: circulation × lowest_ask per edition. Doctrine canonical. Color gradient = rank."
-            }
-          >
-            <TopPlayersChart rows={topPlayersRanked} formula={formula} />
-          </ChartCard>
-
-          <ChartCard
-            title="Market cap by tier"
-            subtitle="Common / Rare / Legendary / Ultimate / Fandom"
-            asOf={data.asOfDate ?? undefined}
-            testId="chart-by-tier"
-            href="#by-tier-drill"
-            caption={
-              topTier
-                ? `${topTier.tier_name} leads at ${fmtUSD(topTier.total_mcap)} across ${topTier.edition_count.toLocaleString()} editions.`
-                : "No tier data."
-            }
-            methodology="Market cap split by tier on the latest snapshot. Color: Common slate, Rare cyan, Legendary violet, Ultimate coral, Fandom gold."
-          >
-            <ByTierChart rows={data.byTier} />
-          </ChartCard>
-
-          {/* Row 2 — by parallel & top sets */}
-          <ChartCard
-            title="Market cap by parallel"
-            subtitle="Base + 22 named parallels"
-            asOf={data.asOfDate ?? undefined}
-            testId="chart-by-parallel"
-            href="/parallels"
-            caption={
-              data.byParallel.length > 1 && data.byParallel.some((p) => p.parallel_id != null && p.parallel_id > 0)
-                ? `${data.byParallel[0].parallel_name} dominates at ${fmtUSD(data.byParallel[0].total_mcap)}.`
-                : `All ${data.totalEditions.toLocaleString()} editions in our DB resolve to Base parallel. Named parallels (Diamond, Anthology, etc.) live in Top Shot as sibling editions our ETL doesn't yet pull — sibling-edition fill is open work.`
-            }
-            methodology="Market cap split across 22 named parallels plus Base. Each parallel is its own market."
-          >
-            <ByParallelChart rows={data.byParallel} />
-          </ChartCard>
-
-          <ChartCard
-            title="Top 20 sets"
-            subtitle="by total market cap · color = series"
-            asOf={data.asOfDate ?? undefined}
-            testId="chart-top-sets"
-            href="/sets"
-            caption={
-              topSet
-                ? `${topSet.set_name}${topSet.series_number != null ? ` (Series ${topSet.series_number})` : ""} leads at ${fmtUSD(topSet.total_mcap)}.`
-                : "No set data."
-            }
-            methodology="Top sets by total market cap on the latest snapshot. Color: series 1 violet → series 8 cyan."
-          >
-            <TopSetsChart rows={data.topSets} />
-          </ChartCard>
-
-          {/* Row 3 — full-width treemap: team mcap */}
-          <ChartCard
-            title="Market cap by team"
-            subtitle="top 30 teams · sized proportional to total mcap"
-            asOf={data.asOfDate ?? undefined}
-            wide
-            testId="chart-by-team"
-            href="#by-team-drill"
-            caption={
-              topTeam
-                ? `${topTeam.team_name} leads at ${fmtUSD(topTeam.total_mcap)} across ${topTeam.player_count} players.`
-                : "No team data."
-            }
-            methodology="Per-team aggregate market cap. Tile area is proportional to total team mcap."
-          >
-            <ByTeamTreemap rows={data.byTeam} />
-          </ChartCard>
-
-          {/* Row 4 — macro context: total over time + concentration (paired half-widths) */}
-          <ChartCard
-            title="Total market cap"
-            subtitle="across all editions, daily snapshots"
-            asOf={data.asOfDate ?? undefined}
-            testId="chart-total-over-time"
-            href="#total-drill"
-            caption={
-              data.totalOverTime.length >= 2
-                ? `${fmtUSD(data.totalOverTime[data.totalOverTime.length - 1].total_mcap)} across ${data.totalOverTime[data.totalOverTime.length - 1].edition_count.toLocaleString()} editions on ${data.totalOverTime[data.totalOverTime.length - 1].date}.`
-                : `${data.totalOverTime.length} day(s) of mcap snapshots — more accrue daily.`
-            }
-            methodology="Daily total market cap across all editions. History deepens with each refresh."
-          >
-            <TotalOverTimeChart rows={data.totalOverTime} />
-          </ChartCard>
-
-          <ChartCard
-            title="Market cap concentration"
-            subtitle={`cumulative share · ${formula === "avg_sale" ? "avg-sale" : "floor"} basis · log scale`}
-            asOf={data.asOfDate ?? undefined}
-            testId="chart-concentration"
-            href="/players"
-            caption={`Top 10 players hold ${headlineConcShare.toFixed(1)}% of ${formula === "avg_sale" ? "avg-sale" : "floor"}-attributed mcap.`}
-            methodology="Sum of top-N mcap divided by total. Log-scale x-axis from 10 to 1000."
-          >
-            <ConcentrationChart rows={concentrationRows} />
-          </ChartCard>
-
-        </div>
-      )}
-
-      {/* Row 5 — full-width: meme-coin-style movers section.
-          Per Roham 2026-05-17 20:45Z: "top movers section highlighting
-          biggest changes over last 15/30/90 days. Color coded the way
-          a meme coin tracking site would show." */}
-      {data.totalMcap > 0 && (
-        <section id="movers" className="mt-6">
-          <div className="mb-3 flex items-end justify-between gap-4 flex-wrap">
-            <div>
-              <h2 className="text-[16px] font-semibold tracking-tight text-[var(--text)]">
-                Top movers
-              </h2>
-              <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
-                avg sale price · {moverWindow}d recent vs prior · ≥5 tx both windows · {movers.gainers.length + movers.losers.length} players
-              </p>
-            </div>
-            <MoverWindowToggle />
-          </div>
-          <MoversCardGrid
-            gainers={movers.gainers}
-            losers={movers.losers}
-            window_days={moverWindow}
-          />
-        </section>
-      )}
-
-      {/* Methodology footer — small, signature-move comparable note */}
+      {/* Methodology footer — static, instant */}
       <div className="mt-6 border-t border-[var(--border-subtle)] pt-4">
         <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mb-2">
           Methodology
@@ -314,5 +118,223 @@ export default async function MarketCapPage({
         </div>
       </div>
     </main>
+  );
+}
+
+// ── Data-bearing body. Fetched below the Suspense boundary so the shell paints
+//    instantly and this whole block is what shimmers + streams on a window change.
+async function MarketCapBody({
+  window,
+  formula,
+  moverWindowRaw,
+}: {
+  window: TimeWindow;
+  formula: McapFormula;
+  moverWindowRaw?: string;
+}) {
+  const moverWindow = parseMoverWindow(moverWindowRaw);
+  const [data, movers] = await Promise.all([
+    getMarketCapLanding(windowToDays(window)),
+    getPlayerMovers(moverWindow),
+  ]);
+
+  // Choose mcap source per formula. Re-rank top players for avg-sale view.
+  const topPlayersRanked: PlayerMcapRow[] =
+    formula === "avg_sale"
+      ? [...data.topPlayers]
+          .sort((a, b) => b.avg_sale_market_cap_usd - a.avg_sale_market_cap_usd)
+          .slice(0, 20)
+      : data.topPlayers.slice(0, 20);
+
+  const topPlayer = topPlayersRanked[0];
+  const topTier = data.byTier[0];
+  const topSet = data.topSets[0];
+  const topTeam = data.byTeam[0];
+
+  const headlineTotal = formula === "avg_sale" ? data.totalAvgSaleMcap : data.totalMcap;
+  const headlineConcShare =
+    formula === "avg_sale" ? data.top10ShareAvgSalePct : data.top10SharePct;
+  const concentrationRows =
+    formula === "avg_sale" ? data.concentrationAvgSale : data.concentration;
+
+  if (data.totalMcap === 0) {
+    return (
+      <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-12 text-center">
+        <p className="text-[14px] text-[var(--text-dim)]">No market cap data available.</p>
+        <p className="text-[11px] text-[var(--text-faint)] mt-2">
+          topshot.market_caps is empty for the latest date. ETL may be running.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel-fade-in">
+      {/* KPI strip — 4 tiles, reactive to formula. */}
+      <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+          <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">
+            {formula === "avg_sale" ? "Avg-sale market cap" : "Floor market cap"}
+          </p>
+          <p className="text-[18px] font-semibold mt-1 tabular-nums">{fmtUSD(headlineTotal)}</p>
+          <p className="text-[10px] text-[var(--text-dim)] mt-0.5">
+            {formula === "avg_sale"
+              ? `vs ${fmtUSD(data.totalMcap)} on lowest-ask basis`
+              : `${fmtUSD(data.playerAttributedMcap)} attributed · ${fmtUSD(data.totalMcap - data.playerAttributedMcap)} unattributed`}
+          </p>
+        </div>
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+          <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Active editions</p>
+          <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.totalEditions.toLocaleString()}</p>
+          <p className="text-[10px] text-[var(--text-dim)] mt-0.5">non-zero mcap on {data.asOfDate}</p>
+        </div>
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+          <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Players</p>
+          <p className="text-[18px] font-semibold mt-1 tabular-nums">{data.playerCount.toLocaleString()}</p>
+          <p className="text-[10px] text-[var(--text-dim)] mt-0.5">with attributable market cap</p>
+        </div>
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+          <p className="text-[9px] text-[var(--text-faint)] tracking-data-label uppercase">Top-10 concentration</p>
+          <p className="text-[18px] font-semibold mt-1 tabular-nums">{headlineConcShare.toFixed(1)}%</p>
+          <p className="text-[10px] text-[var(--text-dim)] mt-0.5">
+            by {formula === "avg_sale" ? "avg-sale" : "floor"} mcap
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Row 1 — ranking + composition */}
+        <ChartCard
+          title="Top 20 players"
+          subtitle={`ranked by ${formula === "avg_sale" ? "30d avg-sale" : "floor"} market cap`}
+          asOf={data.asOfDate ?? undefined}
+          testId="chart-top-players"
+          href="/players"
+          caption={
+            topPlayer
+              ? `${topPlayer.player_name ?? topPlayer.player_id} leads at ${fmtUSD(formula === "avg_sale" ? topPlayer.avg_sale_market_cap_usd : topPlayer.total_market_cap_usd)} across ${topPlayer.edition_count} editions.`
+              : "No player data."
+          }
+          methodology={
+            formula === "avg_sale"
+              ? "Avg sale price × total circulation, per player. Sourced from topshot.mv_player_30d_volume joined to mv_player_market_cap. Avoids floor-cap artifacts from vanity 1-of-1 asks; reflects what the market actually transacted at."
+              : "topshot.mv_player_market_cap ranked by total_market_cap_usd descending. Floor formula: circulation × lowest_ask per edition. Doctrine canonical. Color gradient = rank."
+          }
+        >
+          <TopPlayersChart rows={topPlayersRanked} formula={formula} />
+        </ChartCard>
+
+        <ChartCard
+          title="Market cap by tier"
+          subtitle="Common / Rare / Legendary / Ultimate / Fandom"
+          asOf={data.asOfDate ?? undefined}
+          testId="chart-by-tier"
+          href="#by-tier-drill"
+          caption={
+            topTier
+              ? `${topTier.tier_name} leads at ${fmtUSD(topTier.total_mcap)} across ${topTier.edition_count.toLocaleString()} editions.`
+              : "No tier data."
+          }
+          methodology="Market cap split by tier on the latest snapshot. Color: Common slate, Rare cyan, Legendary violet, Ultimate coral, Fandom gold."
+        >
+          <ByTierChart rows={data.byTier} />
+        </ChartCard>
+
+        {/* Row 2 — by parallel & top sets */}
+        <ChartCard
+          title="Market cap by parallel"
+          subtitle="Base + 22 named parallels"
+          asOf={data.asOfDate ?? undefined}
+          testId="chart-by-parallel"
+          href="/parallels"
+          caption={
+            data.byParallel.length > 1 && data.byParallel.some((p) => p.parallel_id != null && p.parallel_id > 0)
+              ? `${data.byParallel[0].parallel_name} dominates at ${fmtUSD(data.byParallel[0].total_mcap)}.`
+              : `All ${data.totalEditions.toLocaleString()} editions in our DB resolve to Base parallel. Named parallels (Diamond, Anthology, etc.) live in Top Shot as sibling editions our ETL doesn't yet pull — sibling-edition fill is open work.`
+          }
+          methodology="Market cap split across 22 named parallels plus Base. Each parallel is its own market."
+        >
+          <ByParallelChart rows={data.byParallel} />
+        </ChartCard>
+
+        <ChartCard
+          title="Top 20 sets"
+          subtitle="by total market cap · color = series"
+          asOf={data.asOfDate ?? undefined}
+          testId="chart-top-sets"
+          href="/sets"
+          caption={
+            topSet
+              ? `${topSet.set_name}${topSet.series_number != null ? ` (Series ${topSet.series_number})` : ""} leads at ${fmtUSD(topSet.total_mcap)}.`
+              : "No set data."
+          }
+          methodology="Top sets by total market cap on the latest snapshot. Color: series 1 violet → series 8 cyan."
+        >
+          <TopSetsChart rows={data.topSets} />
+        </ChartCard>
+
+        {/* Row 3 — full-width treemap: team mcap */}
+        <ChartCard
+          title="Market cap by team"
+          subtitle="top 30 teams · sized proportional to total mcap"
+          asOf={data.asOfDate ?? undefined}
+          wide
+          testId="chart-by-team"
+          href="#by-team-drill"
+          caption={
+            topTeam
+              ? `${topTeam.team_name} leads at ${fmtUSD(topTeam.total_mcap)} across ${topTeam.player_count} players.`
+              : "No team data."
+          }
+          methodology="Per-team aggregate market cap. Tile area is proportional to total team mcap."
+        >
+          <ByTeamTreemap rows={data.byTeam} />
+        </ChartCard>
+
+        {/* Row 4 — macro context: total over time + concentration */}
+        <ChartCard
+          title="Total market cap"
+          subtitle={`across all editions · ${WINDOW_SPECS[window].label} of daily snapshots`}
+          asOf={data.asOfDate ?? undefined}
+          testId="chart-total-over-time"
+          href="#total-drill"
+          caption={
+            data.totalOverTime.length >= 2
+              ? `${fmtUSD(data.totalOverTime[data.totalOverTime.length - 1].total_mcap)} across ${data.totalOverTime[data.totalOverTime.length - 1].edition_count.toLocaleString()} editions on ${data.totalOverTime[data.totalOverTime.length - 1].date}.`
+              : `${data.totalOverTime.length} day(s) of mcap snapshots — more accrue daily.`
+          }
+          methodology="Daily total market cap across all editions, over the selected window. History deepens with each refresh."
+        >
+          <TotalOverTimeChart rows={data.totalOverTime} />
+        </ChartCard>
+
+        <ChartCard
+          title="Market cap concentration"
+          subtitle={`cumulative share · ${formula === "avg_sale" ? "avg-sale" : "floor"} basis · log scale`}
+          asOf={data.asOfDate ?? undefined}
+          testId="chart-concentration"
+          href="/players"
+          caption={`Top 10 players hold ${headlineConcShare.toFixed(1)}% of ${formula === "avg_sale" ? "avg-sale" : "floor"}-attributed mcap.`}
+          methodology="Sum of top-N mcap divided by total. Log-scale x-axis from 10 to 1000."
+        >
+          <ConcentrationChart rows={concentrationRows} />
+        </ChartCard>
+      </div>
+
+      {/* Row 5 — full-width movers. Per Roham 2026-05-17 20:45Z: meme-coin-style
+          top movers, color coded. */}
+      <section id="movers" className="mt-6">
+        <div className="mb-3 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-[16px] font-semibold tracking-tight text-[var(--text)]">Top movers</h2>
+            <p className="text-[10px] text-[var(--text-faint)] tracking-data-label uppercase mt-0.5">
+              avg sale price · {moverWindow}d recent vs prior · ≥5 tx both windows · {movers.gainers.length + movers.losers.length} players
+            </p>
+          </div>
+          <MoverWindowToggle />
+        </div>
+        <MoversCardGrid gainers={movers.gainers} losers={movers.losers} window_days={moverWindow} />
+      </section>
+    </div>
   );
 }
