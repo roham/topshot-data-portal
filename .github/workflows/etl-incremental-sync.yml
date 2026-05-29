@@ -2,7 +2,9 @@ name: etl-incremental-sync
 
 on:
   schedule:
-    - cron: "*/15 * * * *"  # every 15 minutes
+    - cron: "0 9 * * *"  # once daily at 09:00 UTC — market_caps is daily-granular,
+                         # so the old 15-min cadence just re-pulled the same day.
+                         # Manual runs still available via workflow_dispatch.
   workflow_dispatch: {}
 
 permissions:
