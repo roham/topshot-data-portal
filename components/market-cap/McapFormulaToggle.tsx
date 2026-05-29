@@ -38,7 +38,7 @@ export function McapFormulaToggle() {
     <div
       role="radiogroup"
       aria-label="Market cap formula"
-      className="inline-flex items-center bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded overflow-hidden"
+      className="inline-flex items-center gap-0.5 bg-[var(--surface-1)] rounded-lg p-1"
     >
       {FORMULAS.map((f) => {
         const a = f === current;
@@ -52,9 +52,9 @@ export function McapFormulaToggle() {
             role="radio"
             aria-checked={a}
             title={LABELS[f].sub}
-            className={`px-3 py-1.5 text-[11px] font-mono tracking-data-label transition-colors ${
+            className={`px-3 py-1.5 text-[11px] font-mono tracking-data-label rounded-md transition-colors duration-150 ${
               a
-                ? "bg-[var(--surface-3)] text-[var(--text)]"
+                ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold"
                 : "text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]"
             }`}
           >

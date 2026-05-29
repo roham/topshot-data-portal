@@ -90,7 +90,7 @@ function SearchResolverButton() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent("cmdk-open"))}
-      className="hidden md:flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded text-[11px] px-2.5 py-1 w-[240px] hover:border-[var(--border-strong)] font-mono text-[var(--text-faint)] tracking-tight"
+      className="hidden md:flex items-center gap-2 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-lg text-[11px] px-3 py-1.5 w-[260px] hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] transition-colors font-mono text-[var(--text-faint)] tracking-tight"
       aria-label="Open command palette"
     >
       <span className="text-[var(--text-faint)]">▶</span>
@@ -118,9 +118,9 @@ export function TopNav({ freshness }: { freshness?: ReactNode } = {}) {
                 key={t.href}
                 href={t.href}
                 className={cn(
-                  "px-3 py-1.5 text-[12.5px] rounded-md transition-colors duration-150",
+                  "px-3.5 py-1.5 text-[13px] rounded-lg transition-colors duration-150",
                   active
-                    ? "bg-[var(--surface-2)] text-[var(--text)] font-medium"
+                    ? "bg-[var(--accent)]/12 text-[var(--accent)] font-semibold"
                     : "text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-[var(--surface-1)]"
                 )}
               >

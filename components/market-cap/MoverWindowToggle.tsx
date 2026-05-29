@@ -30,7 +30,7 @@ export function MoverWindowToggle() {
     <div
       role="radiogroup"
       aria-label="Movers window"
-      className="inline-flex items-center bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded overflow-hidden"
+      className="inline-flex items-center gap-0.5 bg-[var(--surface-1)] rounded-lg p-1"
     >
       {WINDOWS.map((w) => {
         const a = w === current;
@@ -42,9 +42,9 @@ export function MoverWindowToggle() {
             prefetch={false}
             role="radio"
             aria-checked={a}
-            className={`px-2.5 py-1 text-[11px] font-mono tracking-data-label transition-colors ${
+            className={`px-2.5 py-1 text-[11px] font-mono tracking-data-label rounded-md transition-colors duration-150 ${
               a
-                ? "bg-[var(--surface-3)] text-[var(--text)]"
+                ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold"
                 : "text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]"
             }`}
           >

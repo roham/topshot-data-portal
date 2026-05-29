@@ -65,8 +65,8 @@ function SelectorShell({
       )}
       <div
         className={cn(
-          "inline-flex items-center bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded overflow-hidden transition-opacity",
-          isPending && "opacity-80",
+          "inline-flex items-center gap-0.5 bg-[var(--surface-1)] rounded-lg p-1 transition-opacity",
+          isPending && "opacity-90",
         )}
         role="radiogroup"
         aria-label="Time window"
@@ -83,9 +83,9 @@ function SelectorShell({
               onClick={onSelect ? () => onSelect(w) : undefined}
               disabled={!onSelect}
               className={cn(
-                "px-2 py-1 text-[10px] tracking-data-label font-mono transition-colors",
+                "px-2.5 py-1 text-[11px] tracking-data-label font-mono rounded-md transition-colors duration-150",
                 isActive
-                  ? "bg-[var(--surface-3)] text-[var(--text)]"
+                  ? "bg-[var(--accent)]/15 text-[var(--accent)] font-semibold"
                   : "text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]",
                 isLoadingTarget && "pulse-dot",
               )}
