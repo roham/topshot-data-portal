@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parallels + Avg sale</title>
+<style>
+  :root{
+    --bg:#0a0b0e; --surface:#14161b; --surface2:#1b1e24; --border:#262a32;
+    --text:#eef1f5; --dim:#9aa1ac; --faint:#5f6671;
+    --teal:#2dd4bf; --up:#34d399; --down:#f87171; --amber:#f5b14b; --violet:#a78bfa; --blue:#60a5fa;
+    --omega:#f5c84b; --galactic:#b794f6;
+    --mono:"JetBrains Mono",ui-monospace,monospace; --sans:Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1500px;margin:0 auto;padding:24px 22px 60px}
+  .mono{font-family:var(--mono)} .tnum{font-variant-numeric:tabular-nums}
+  .up{color:var(--up)} .down{color:var(--down)} .dim{color:var(--dim)} .faint{color:var(--faint)}
+  .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  h1{font-size:22px;font-weight:680;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:13px;margin-top:6px;max-width:760px;line-height:1.5}
+  .chip{font-family:var(--mono);font-size:9px;letter-spacing:.05em;padding:2px 7px;border-radius:4px;font-weight:700;white-space:nowrap}
+  .c-com{background:rgba(154,161,172,.18);color:#c4cad3} .c-rare{background:rgba(96,165,250,.18);color:var(--blue)}
+  .c-leg{background:rgba(167,139,250,.2);color:var(--violet)} .c-ult{background:rgba(245,177,75,.2);color:var(--amber)}
+  .p-base{background:rgba(154,161,172,.12);color:var(--dim)}
+  .p-prem{background:rgba(96,165,250,.16);color:var(--blue)}
+  .p-elite{background:linear-gradient(135deg,rgba(183,148,246,.28),rgba(183,148,246,.12));color:var(--galactic);border:1px solid rgba(183,148,246,.4)}
+  .p-crown{background:linear-gradient(135deg,rgba(245,200,75,.28),rgba(245,200,75,.12));color:var(--omega);border:1px solid rgba(245,200,75,.4)}
+  .liq{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+  .ldot{width:6px;height:6px;border-radius:50%} .ldot.hi{background:var(--up)} .ldot.mid{background:var(--amber)} .ldot.lo{background:var(--faint)}
+
+  .shead{margin:30px 0 13px} .shead h2{font-size:16px;font-weight:650}
+  .shead p{font-size:11.5px;color:var(--faint);margin-top:3px}
+
+  /* class explainer */
+  .classes{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .cl{border:1px solid var(--border);border-radius:13px;padding:14px 16px;background:var(--surface)}
+  .cl .ct{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.05em}
+  .cl .names{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.6}
+  .cl .meta{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:10px;border-top:1px solid var(--border);padding-top:9px}
+
+  /* layout: table + ladder */
+  .split{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .seg{display:inline-flex;gap:3px;background:var(--surface);border-radius:9px;padding:4px}
+  .seg span{font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:6px;color:var(--dim);cursor:pointer}
+  .seg .on{background:rgba(45,212,191,.15);color:var(--teal);font-weight:600}
+  .toolbar .sp{flex:1} .note{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .tbl{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface)}
+  .tr{display:grid;grid-template-columns:1fr 84px 116px 70px 92px 132px 120px;align-items:center;border-bottom:1px solid rgba(38,42,50,.55)}
+  .tr:last-child{border-bottom:0}
+  .tr.h{background:var(--surface2)}
+  .tr.h .c{font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:11px 9px}
+  .tr.h .c.r{text-align:right}
+  .tr:not(.h){cursor:pointer} .tr:not(.h):hover{background:var(--surface2)}
+  .c{padding:11px 9px;font-size:12px} .c.r{text-align:right;font-family:var(--mono)}
+  .mom{display:flex;align-items:center;gap:10px}
+  .thumb{width:34px;height:34px;border-radius:7px;flex-shrink:0;background:linear-gradient(150deg,#243b55,#0f2027)}
+  .mom .pl{font-weight:600;font-size:12px} .mom .sb{font-size:9.5px;color:var(--faint);font-family:var(--mono);margin-top:2px}
+  .floor{font-weight:600;font-size:12.5px}
+  .avg .a{font-weight:600} .avg .s{font-size:9px;color:var(--faint)} .avg .none{color:var(--faint);font-weight:400}
+
+  /* parallel ladder */
+  .ladder{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px 18px}
+  .ladder h3{font-size:13px;font-weight:620} .ladder .lh{font-size:10.5px;color:var(--faint);margin-bottom:14px}
+  .rung{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .rbar{flex:1;height:30px;border-radius:7px;display:flex;align-items:center;padding:0 11px;justify-content:space-between}
+  .rbar .rp{font-family:var(--mono);font-size:11px;font-weight:600} .rbar .rc{font-family:var(--mono);font-size:9.5px;opacity:.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Parallels &amp; pricing — the model</h1>
+  <p class="sub">Two fixes: surface <b>avg sale alongside low ask</b>, and tame <b>22 drifting parallel names</b> by grouping them into scarcity classes derived from data — not from the name.</p>
+
+  <!-- PARALLEL CLASSES -->
+  <div class="shead"><h2>22 names → 4 scarcity classes</h2><p>Classes derived from circulation + premium-to-base, era-aware. The specific name stays visible as a badge; you filter and read by class.</p></div>
+  <div class="classes">
+    <div class="cl"><div class="ct" style="color:var(--dim)">BASE</div><div class="names">Base · Standard · (no parallel)</div><div class="meta">10K–60K mints · 1× floor</div></div>
+    <div class="cl"><div class="ct" style="color:var(--blue)">PREMIUM</div><div class="names">Diamond · Holo · Explosion · Pulsar · Metallic…</div><div class="meta">300–999 mints · 2–4× floor</div></div>
+    <div class="cl"><div class="ct" style="color:var(--galactic)">ELITE</div><div class="names">Galactic · Anthology · Throwback · Diced…</div><div class="meta">5–99 mints · 6–15× floor</div></div>
+    <div class="cl"><div class="ct" style="color:var(--omega)">CROWN</div><div class="names">Omega · Genesis · 1-of-1 tier</div><div class="meta">1–5 mints · 15×+ floor</div></div>
+  </div>
+  <p class="note" style="margin-top:11px">↳ Each name links to an <b style="color:var(--dim)">encyclopedic glossary</b>: what it meant in which season, its rarity, its history. Names drift; the class + the data don't.</p>
+
+  <!-- TABLE with avg sale -->
+  <div class="shead"><h2>Editions — low ask + avg sale</h2><p>Filter by parallel class. Avg sale (30d) sits beside floor, with sample count and a last-sale fallback when trades are thin.</p></div>
+  <div class="split">
+    <div>
+      <div class="toolbar">
+        <div class="seg"><span class="on">All parallels</span><span style="color:var(--omega)">Crown</span><span style="color:var(--galactic)">Elite</span><span style="color:var(--blue)">Premium</span><span>Base</span></div>
+        <div class="sp"></div><span class="note">142 editions · low ask ↓</span>
+      </div>
+      <div class="tbl">
+        <div class="tr h"><div class="c">Moment</div><div class="c">Tier</div><div class="c">Parallel</div><div class="c r">Circ</div><div class="c r">Low ask</div><div class="c r">Avg sale 30d</div><div class="c r">Last traded</div></div>
+        <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Block vs MIA</div><div class="sb">Cosmic · S3</div></div></div><div class="c"><span class="chip c-ult">ULT</span></div><div class="c"><span class="chip p-crown">OMEGA</span></div><div class="c r dim">/1</div><div class="c r floor">$420,000</div><div class="c r avg"><span class="none">— last $420K</span><div class="s">2 sales / yr</div></div><div class="c r"><span class="liq"><span class="ldot lo"></span>63d</span></div></div>
+        <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Driving Dunk vs BOS</div><div class="sb">Metallic Gold · S2</div></div></div><div class="c"><span class="chip c-leg">LEG</span></div><div class="c"><span class="chip p-elite">GALACTIC</span></div><div class="c r dim">/5</div><div class="c r floor">$88,000</div><div class="c r avg"><span class="a">$81,200</span><div class="s">6 sales</div></div><div class="c r"><span class="liq"><span class="ldot mid"></span>9d</span></div></div>
+        <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Block vs MIA</div><div class="sb">Cosmic · S3</div></div></div><div class="c"><span class="chip c-ult">ULT</span></div><div class="c"><span class="chip p-base">Base</span></div><div class="c r dim">/15</div><div class="c r floor">$94,000</div><div class="c r avg"><span class="a">$89,500</span><div class="s">14 sales</div></div><div class="c r"><span class="liq"><span class="ldot hi"></span>2d</span></div></div>
+        <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">No-Look Pass vs GSW</div><div class="sb">Cosmic · S3</div></div></div><div class="c"><span class="chip c-leg">LEG</span></div><div class="c"><span class="chip p-base">Base</span></div><div class="c r dim">/49</div><div class="c r floor">$18,400</div><div class="c r avg"><span class="a">$16,900</span><div class="s">11 sales</div></div><div class="c r"><span class="liq"><span class="ldot hi"></span>today</span></div></div>
+        <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Step-Back Three</div><div class="sb">Base Set · S4</div></div></div><div class="c"><span class="chip c-rare">RARE</span></div><div class="c"><span class="chip p-prem">DIAMOND</span></div><div class="c r dim">/99</div><div class="c r floor">$3,900</div><div class="c r avg"><span class="a">$3,650</span><div class="s">5 sales</div></div><div class="c r"><span class="liq"><span class="ldot mid"></span>6d</span></div></div>
+        <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Pull-Up Jumper</div><div class="sb">Base Set · S4</div></div></div><div class="c"><span class="chip c-com">COM</span></div><div class="c"><span class="chip p-base">Base</span></div><div class="c r dim">/12,000</div><div class="c r floor">$24</div><div class="c r avg"><span class="a">$31</span><div class="s">240 sales</div></div><div class="c r"><span class="liq"><span class="ldot hi"></span>2h</span></div></div>
+      </div>
+      <p class="note" style="margin-top:10px">↳ Note row 1: low ask <b style="color:var(--text)">$420K</b> but no 30d sales → we show <b style="color:var(--text)">last sale</b>, not a fabricated average. Row 6: avg sale <span class="up">$31</span> &gt; ask <span class="dim">$24</span> — the spread is the signal.</p>
+    </div>
+
+    <!-- parallel ladder for one moment -->
+    <div class="ladder">
+      <h3>Parallel ladder</h3>
+      <div class="lh">Block vs MIA · the variants that exist, by floor</div>
+      <div class="rung"><span class="chip p-crown" style="width:64px;text-align:center">OMEGA</span><div class="rbar" style="background:linear-gradient(90deg,rgba(245,200,75,.22),rgba(245,200,75,.06));border:1px solid rgba(245,200,75,.3)"><span class="rp">$420K</span><span class="rc">/1</span></div></div>
+      <div class="rung"><span class="chip p-elite" style="width:64px;text-align:center">GALACTIC</span><div class="rbar" style="background:linear-gradient(90deg,rgba(183,148,246,.2),rgba(183,148,246,.05));border:1px solid rgba(183,148,246,.28)"><span class="rp">$120K</span><span class="rc">/5</span></div></div>
+      <div class="rung"><span class="chip p-base" style="width:64px;text-align:center">Base</span><div class="rbar" style="background:rgba(154,161,172,.1);border:1px solid var(--border)"><span class="rp">$94K</span><span class="rc">/15</span></div></div>
+      <p class="note" style="margin-top:12px;line-height:1.5">For any moment you see only the parallels that exist for <i>it</i> — not all 22. Omega commands <b style="color:var(--omega)">4.5×</b> the base floor here.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>State of the Market — B v2</title>
+<style>
+  :root{
+    --bg:#0a0b0e; --surface:#14161b; --surface2:#1b1e24; --border:#262a32;
+    --text:#eef1f5; --dim:#9aa1ac; --faint:#5f6671;
+    --teal:#2dd4bf; --up:#34d399; --down:#f87171; --amber:#f5b14b; --violet:#a78bfa; --blue:#60a5fa;
+    --mono:"JetBrains Mono",ui-monospace,monospace; --sans:Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1500px;margin:0 auto;padding:0 22px 60px}
+  .mono{font-family:var(--mono)} .tnum{font-variant-numeric:tabular-nums}
+  .up{color:var(--up)} .down{color:var(--down)} .dim{color:var(--dim)} .faint{color:var(--faint)}
+  .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+  .ticker{border-bottom:1px solid var(--border);background:#0c0e12;overflow:hidden;white-space:nowrap}
+  .ticker .row{display:inline-flex;gap:30px;padding:7px 22px;animation:scroll 38s linear infinite;font-family:var(--mono);font-size:11.5px}
+  .ticker .it{color:var(--dim)} .ticker b{color:var(--text);font-weight:600}
+  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* hero — featured index */
+  .hero{display:grid;grid-template-columns:360px 1fr;gap:32px;padding:30px 0 26px}
+  .eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--up);box-shadow:0 0 8px var(--up);animation:pulse 2.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  .feat-name{font-size:13px;font-family:var(--mono);letter-spacing:.12em;color:var(--teal);font-weight:600}
+  .bignum{font-size:58px;line-height:1;font-weight:680;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:6px}
+  .delta{font-family:var(--mono);font-size:15px;margin-top:10px}
+  .featsub{font-size:12px;color:var(--dim);margin-top:14px;line-height:1.5}
+  .winpills{display:inline-flex;gap:2px;background:var(--surface);border-radius:9px;padding:4px;margin-top:20px}
+  .winpills span{font-family:var(--mono);font-size:11px;padding:5px 9px;border-radius:6px;color:var(--dim);cursor:pointer}
+  .winpills .on{background:rgba(45,212,191,.16);color:var(--teal);font-weight:600}
+  .herochart{position:relative;border-radius:14px;background:linear-gradient(180deg,rgba(45,212,191,.05),rgba(45,212,191,0));border:1px solid var(--border);padding:18px 14px 6px}
+  .herochart .cap{position:absolute;top:16px;left:18px}
+
+  /* index switcher rail */
+  .rail{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:6px 0 8px}
+  .idx{border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;cursor:pointer;transition:border-color .12s}
+  .idx:hover{border-color:#3a3f49}
+  .idx.on{border-color:rgba(45,212,191,.5);background:rgba(45,212,191,.06)}
+  .idx h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--dim);font-weight:600}
+  .idx.on h4{color:var(--teal)}
+  .idx .val{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:5px}
+  .idx .sub{font-size:10.5px;color:var(--faint);margin-top:2px}
+
+  .shead{display:flex;align-items:baseline;justify-content:space-between;margin:34px 0 14px}
+  .shead h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
+  .shead p{font-size:11.5px;color:var(--faint);max-width:520px;text-align:right}
+
+  .map{display:flex;flex-wrap:wrap;gap:4px}
+  .tile{position:relative;border-radius:8px;padding:12px 13px;display:flex;flex-direction:column;justify-content:space-between;min-height:92px;overflow:hidden;cursor:pointer;transition:transform .12s}
+  .tile:hover{transform:translateY(-2px)}
+  .tile .nm{font-weight:600;font-size:13px} .tile .mc{font-family:var(--mono);font-size:11px;opacity:.9;margin-top:2px}
+  .tile .pc{font-family:var(--mono);font-size:13px;font-weight:600;align-self:flex-start} .tile small{font-size:9.5px;opacity:.7}
+
+  /* tier composition */
+  .panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:18px 20px}
+  .panel h3{font-size:13.5px;font-weight:620;margin-bottom:2px} .panel .ph{font-size:10.5px;color:var(--faint);margin-bottom:16px}
+  .bar{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .bar .bn{width:96px;font-size:12px;color:var(--dim)} .bar .bt{flex:1;height:9px;border-radius:5px;background:#20242b;overflow:hidden}
+  .bar .bf{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--teal),#1f9e8f)}
+  .bar .bv{font-family:var(--mono);font-size:11px;width:54px;text-align:right}
+
+  /* ACTIVITY — expanded */
+  .tabs{display:flex;gap:4px;background:var(--surface);border-radius:10px;padding:5px;width:fit-content}
+  .tabs span{font-family:var(--mono);font-size:11.5px;padding:6px 13px;border-radius:7px;color:var(--dim);cursor:pointer}
+  .tabs .on{background:rgba(45,212,191,.15);color:var(--teal);font-weight:600}
+  .chip{font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:2px 6px;border-radius:4px;font-weight:600}
+  .c-com{background:rgba(154,161,172,.18);color:#c4cad3} .c-rare{background:rgba(96,165,250,.18);color:var(--blue)}
+  .c-leg{background:rgba(167,139,250,.2);color:var(--violet)} .c-ult{background:rgba(245,177,75,.2);color:var(--amber)}
+
+  .actgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;margin-top:14px}
+  .sales{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+  .sales .hd{display:flex;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+  .sales .hd h3{font-size:13.5px;font-weight:620}
+  .sale{display:grid;grid-template-columns:1fr auto;gap:6px;padding:11px 18px;border-bottom:1px solid rgba(38,42,50,.5);align-items:center}
+  .sale:last-child{border-bottom:0}
+  .sale .who{font-size:12.5px} .sale .who b{font-weight:600}
+  .sale .meta{font-size:10.5px;color:var(--faint);margin-top:3px;font-family:var(--mono)}
+  .sale .px{font-family:var(--mono);font-size:14px;font-weight:600;text-align:right}
+  .sale .ago{font-size:10px;color:var(--faint);text-align:right;margin-top:3px}
+
+  .mvbox{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px 18px}
+  .mvbox h3{font-size:13.5px;font-weight:620;margin-bottom:12px}
+  .mv{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;border-radius:9px;margin-bottom:5px;font-size:12.5px}
+  .mv.g{background:rgba(52,211,153,.07)} .mv.l{background:rgba(248,113,113,.07)}
+  .mv .mvp{font-family:var(--mono);font-weight:600}
+  .mvlbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;margin:4px 0 8px}
+</style>
+</head>
+<body>
+  <div class="ticker"><div class="row">
+    <span class="it">◍ <b>jordan.eth</b> bought <b>LeBron Cosmic /49</b> <span class="up">$18,400</span></span>
+    <span class="it">◍ <b>MBL</b> bought <b>Cooper Flagg Ultimate /15</b> <span class="up">$175,000</span></span>
+    <span class="it">◍ <b>vault_szn</b> sold <b>Wemby Base /1500</b> <span class="down">$2,150</span></span>
+    <span class="it">◍ <b>cardbarron</b> bought <b>Paige Bueckers Ultimate /15</b> <span class="up">$500,000</span></span>
+    <span class="it">◍ <b>topshotgod</b> listed <b>Curry Metallic Gold /49</b> $41,000</span>
+    <span class="it">◍ <b>jordan.eth</b> bought <b>LeBron Cosmic /49</b> <span class="up">$18,400</span></span>
+    <span class="it">◍ <b>MBL</b> bought <b>Cooper Flagg Ultimate /15</b> <span class="up">$175,000</span></span>
+    <span class="it">◍ <b>vault_szn</b> sold <b>Wemby Base /1500</b> <span class="down">$2,150</span></span>
+    <span class="it">◍ <b>cardbarron</b> bought <b>Paige Bueckers Ultimate /15</b> <span class="up">$500,000</span></span>
+    <span class="it">◍ <b>topshotgod</b> listed <b>Curry Metallic Gold /49</b> $41,000</span>
+  </div></div>
+
+  <div class="wrap">
+    <!-- HERO: featured index (Rookies) -->
+    <div class="hero">
+      <div>
+        <div class="eyebrow"><span class="dot"></span><span class="feat-name">ROOKIES INDEX</span><span class="lbl">featured</span></div>
+        <div class="bignum">$1.62<span style="font-size:34px;color:var(--dim)">M</span></div>
+        <div class="delta up">▲ 7.9% <span class="faint">· 30d &nbsp;·&nbsp; +24% YTD</span></div>
+        <div class="featsub">2025 draft class · 30 editions · led by <b style="color:var(--text)">Cooper Flagg</b> and <b style="color:var(--text)">Paige Bueckers</b>. The market's growth engine — switch the index below to re-feature.</div>
+        <div class="winpills"><span>24H</span><span>7D</span><span class="on">30D</span><span>90D</span><span>6M</span><span>1Y</span><span>ALL</span></div>
+      </div>
+      <div class="herochart">
+        <div class="cap"><div class="lbl">Rookies basket market cap · 30 days</div></div>
+        <svg viewBox="0 0 900 250" width="100%" height="250" preserveAspectRatio="none">
+          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2dd4bf" stop-opacity=".42"/><stop offset="1" stop-color="#2dd4bf" stop-opacity="0"/></linearGradient></defs>
+          <path d="M0,190 C70,185 110,170 180,168 C250,166 290,150 360,140 C430,130 470,138 540,110 C610,82 660,92 730,60 C800,30 850,40 900,28 L900,250 L0,250 Z" fill="url(#g)"/>
+          <path d="M0,190 C70,185 110,170 180,168 C250,166 290,150 360,140 C430,130 470,138 540,110 C610,82 660,92 730,60 C800,30 850,40 900,28" fill="none" stroke="#2dd4bf" stroke-width="2.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- INDEX SWITCHER RAIL (Rookies active; Grail / TS-100 / TS-15) -->
+    <div class="rail">
+      <div class="idx on"><div><h4>ROOKIES</h4><div class="val tnum">$1.62M</div><div class="sub">2025 class · +7.9%</div></div>
+        <svg width="74" height="38" viewBox="0 0 74 38"><path d="M0,32 C16,30 22,20 37,16 C52,12 60,6 74,4" fill="none" stroke="var(--up)" stroke-width="2"/></svg></div>
+      <div class="idx"><div><h4>GRAIL</h4><div class="val tnum">$25.3M</div><div class="sub">166 blue-chips · −2.8%</div></div>
+        <svg width="74" height="38" viewBox="0 0 74 38"><path d="M0,16 C16,18 22,12 37,20 C52,26 60,22 74,28" fill="none" stroke="var(--down)" stroke-width="2"/></svg></div>
+      <div class="idx"><div><h4>TS-100</h4><div class="val tnum">$78.6M</div><div class="sub">top 100 · +3.1%</div></div>
+        <svg width="74" height="38" viewBox="0 0 74 38"><path d="M0,24 C16,22 22,26 37,18 C52,12 60,16 74,10" fill="none" stroke="var(--up)" stroke-width="2"/></svg></div>
+      <div class="idx"><div><h4>TS-15</h4><div class="val tnum">$44.1M</div><div class="sub">ultra blue-chip · +1.4%</div></div>
+        <svg width="74" height="38" viewBox="0 0 74 38"><path d="M0,22 C16,21 22,23 37,20 C52,17 60,19 74,16" fill="none" stroke="var(--up)" stroke-width="2"/></svg></div>
+    </div>
+
+    <!-- MARKET MAP -->
+    <div class="shead"><h2>The Market Map</h2><p>Every tile a player, sized by market cap, colored by 30-day move. (Player data still needs a cleanup pass.)</p></div>
+    <div class="map">
+      <div class="tile" style="flex:0 0 250px;background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.3)"><div><div class="nm">LeBron James</div><div class="mc">$8.9M</div></div><div class="pc up">+6.4%</div></div>
+      <div class="tile" style="flex:0 0 195px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.28)"><div><div class="nm">Stephen Curry</div><div class="mc">$6.2M</div></div><div class="pc down">−3.1%</div></div>
+      <div class="tile" style="flex:0 0 170px;background:rgba(52,211,153,.10);border:1px solid rgba(52,211,153,.24)"><div><div class="nm">Victor Wembanyama</div><div class="mc">$5.1M</div></div><div class="pc up">+11.2%</div></div>
+      <div class="tile" style="flex:0 0 150px;background:rgba(52,211,153,.18);border:1px solid rgba(52,211,153,.34)"><div><div class="nm">Cooper Flagg</div><div class="mc">$4.4M</div><small>rookie</small></div><div class="pc up">+24.0%</div></div>
+      <div class="tile" style="flex:0 0 135px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2)"><div><div class="nm">Giannis</div><div class="mc">$3.8M</div></div><div class="pc down">−1.2%</div></div>
+      <div class="tile" style="flex:1 1 125px;background:rgba(52,211,153,.07);border:1px solid var(--border)"><div><div class="nm">Luka Dončić</div><div class="mc">$3.3M</div></div><div class="pc up">+2.0%</div></div>
+      <div class="tile" style="flex:1 1 120px;background:rgba(248,113,113,.07);border:1px solid var(--border)"><div><div class="nm">Durant</div><div class="mc">$2.9M</div></div><div class="pc down">−4.6%</div></div>
+      <div class="tile" style="flex:1 1 120px;background:rgba(52,211,153,.12);border:1px solid var(--border)"><div><div class="nm">Paige Bueckers</div><div class="mc">$2.5M</div><small>rookie</small></div><div class="pc up">+9.8%</div></div>
+      <div class="tile" style="flex:1 1 110px;background:rgba(52,211,153,.06);border:1px solid var(--border)"><div><div class="nm">Tatum</div><div class="mc">$2.1M</div></div><div class="pc up">+1.4%</div></div>
+      <div class="tile" style="flex:1 1 110px;background:rgba(248,113,113,.06);border:1px solid var(--border)"><div><div class="nm">Ja Morant</div><div class="mc">$1.8M</div></div><div class="pc down">−2.2%</div></div>
+      <div class="tile" style="flex:1 1 100px;background:rgba(52,211,153,.05);border:1px solid var(--border)"><div><div class="nm">Edwards</div><div class="mc">$1.6M</div></div><div class="pc up">+5.1%</div></div>
+      <div class="tile" style="flex:1 1 100px;background:rgba(248,113,113,.05);border:1px solid var(--border)"><div><div class="nm">Embiid</div><div class="mc">$1.4M</div></div><div class="pc down">−0.8%</div></div>
+    </div>
+
+    <!-- ACTIVITY — expanded, tier-segmented, specific sales -->
+    <div class="shead"><h2>Market Activity</h2><p>Filter by tier. Specific sales on the left, biggest cap moves on the right — each cut its own view.</p></div>
+    <div class="tabs"><span class="on">All tiers</span><span>Common</span><span>Rare</span><span>Legendary</span><span>Ultimate</span><span>Fandom</span></div>
+
+    <div class="actgrid">
+      <div class="sales">
+        <div class="hd"><h3>Notable sales</h3><span class="lbl">last 24h · all tiers</span></div>
+        <div class="sale"><div><div class="who"><b>cardbarron</b> ← <b>vault_szn</b></div><div class="meta">Paige Bueckers · Ultimate · #7 of 15 &nbsp;<span class="chip c-ult">ULT</span></div></div><div><div class="px up">$500,000</div><div class="ago">2m ago</div></div></div>
+        <div class="sale"><div><div class="who"><b>MBL</b> ← <b>flowwhale</b></div><div class="meta">Cooper Flagg · Ultimate · #3 of 15 &nbsp;<span class="chip c-ult">ULT</span></div></div><div><div class="px up">$175,000</div><div class="ago">14m ago</div></div></div>
+        <div class="sale"><div><div class="who"><b>jordan.eth</b> ← <b>topshotgod</b></div><div class="meta">LeBron James · Cosmic Legendary · #12 of 49 &nbsp;<span class="chip c-leg">LEG</span></div></div><div><div class="px up">$18,400</div><div class="ago">31m ago</div></div></div>
+        <div class="sale"><div><div class="who"><b>setcollector</b> ← <b>diamondhands</b></div><div class="meta">Anthony Edwards · Metallic Gold · #28 of 49 &nbsp;<span class="chip c-leg">LEG</span></div></div><div><div class="px up">$9,200</div><div class="ago">48m ago</div></div></div>
+        <div class="sale"><div><div class="who"><b>rookiehunter</b> ← <b>flipcity</b></div><div class="meta">Wembanyama · Base Rare · #441 of 999 &nbsp;<span class="chip c-rare">RARE</span></div></div><div><div class="px">$2,850</div><div class="ago">1h ago</div></div></div>
+        <div class="sale"><div><div class="who"><b>casual_fan</b> ← <b>vault_szn</b></div><div class="meta">Curry · Base Common · #8,204 of 12,000 &nbsp;<span class="chip c-com">COM</span></div></div><div><div class="px down">$58</div><div class="ago">1h ago</div></div></div>
+      </div>
+
+      <div>
+        <div class="mvbox" style="margin-bottom:14px">
+          <h3>Top gainers · 30d</h3>
+          <div class="mv g"><span>Cooper Flagg <span class="chip c-ult">ULT</span></span><span class="mvp up">+24.0%</span></div>
+          <div class="mv g"><span>Wembanyama <span class="chip c-rare">RARE</span></span><span class="mvp up">+11.2%</span></div>
+          <div class="mv g"><span>Paige Bueckers <span class="chip c-ult">ULT</span></span><span class="mvp up">+9.8%</span></div>
+          <div class="mv g"><span>LeBron James <span class="chip c-leg">LEG</span></span><span class="mvp up">+6.4%</span></div>
+        </div>
+        <div class="mvbox">
+          <h3>Top losers · 30d</h3>
+          <div class="mv l"><span>Durant <span class="chip c-leg">LEG</span></span><span class="mvp down">−4.6%</span></div>
+          <div class="mv l"><span>Curry <span class="chip c-com">COM</span></span><span class="mvp down">−3.1%</span></div>
+          <div class="mv l"><span>Ja Morant <span class="chip c-rare">RARE</span></span><span class="mvp down">−2.2%</span></div>
+          <div class="mv l"><span>Giannis <span class="chip c-leg">LEG</span></span><span class="mvp down">−1.2%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- by-tier strip preview -->
+    <div class="shead"><h2>…and the same, cut every way</h2><p>Each tier gets its own movers + sales board. A taste below — we expand from here.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+      <div class="mvbox"><div class="mvlbl c-com" style="color:#c4cad3">Common movers</div>
+        <div class="mv g"><span>Edwards</span><span class="mvp up">+5.1%</span></div><div class="mv l"><span>Curry</span><span class="mvp down">−3.1%</span></div></div>
+      <div class="mvbox"><div class="mvlbl" style="color:var(--blue)">Rare movers</div>
+        <div class="mv g"><span>Wembanyama</span><span class="mvp up">+11.2%</span></div><div class="mv l"><span>Ja Morant</span><span class="mvp down">−2.2%</span></div></div>
+      <div class="mvbox"><div class="mvlbl" style="color:var(--violet)">Legendary movers</div>
+        <div class="mv g"><span>LeBron</span><span class="mvp up">+6.4%</span></div><div class="mv l"><span>Durant</span><span class="mvp down">−4.6%</span></div></div>
+      <div class="mvbox"><div class="mvlbl" style="color:var(--amber)">Ultimate movers</div>
+        <div class="mv g"><span>Cooper Flagg</span><span class="mvp up">+24.0%</span></div><div class="mv g"><span>Bueckers</span><span class="mvp up">+9.8%</span></div></div>
+    </div>
+  </div>
+</body>
+</html>

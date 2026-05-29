@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Player Page — v3 (parallels + liquidity)</title>
+<style>
+  :root{
+    --bg:#0a0b0e; --surface:#14161b; --surface2:#1b1e24; --border:#262a32;
+    --text:#eef1f5; --dim:#9aa1ac; --faint:#5f6671;
+    --teal:#2dd4bf; --up:#34d399; --down:#f87171; --amber:#f5b14b; --violet:#a78bfa; --blue:#60a5fa;
+    --omega:#f5c84b; --galactic:#b794f6; --laker2:#552583;
+    --mono:"JetBrains Mono",ui-monospace,monospace; --sans:Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1500px;margin:0 auto;padding:0 22px 60px}
+  .mono{font-family:var(--mono)} .tnum{font-variant-numeric:tabular-nums}
+  .up{color:var(--up)} .down{color:var(--down)} .dim{color:var(--dim)} .faint{color:var(--faint)}
+  .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .crumb{font-family:var(--mono);font-size:11px;color:var(--faint);padding:16px 0 0}
+  .crumb a{color:var(--dim);text-decoration:none}
+  .chip{font-family:var(--mono);font-size:9px;letter-spacing:.05em;padding:2px 7px;border-radius:4px;font-weight:700;white-space:nowrap}
+  .c-com{background:rgba(154,161,172,.18);color:#c4cad3} .c-rare{background:rgba(96,165,250,.18);color:var(--blue)}
+  .c-leg{background:rgba(167,139,250,.2);color:var(--violet)} .c-ult{background:rgba(245,177,75,.2);color:var(--amber)}
+  /* parallel badges — premium variants pop */
+  .p-base{background:rgba(154,161,172,.12);color:var(--dim)}
+  .p-omega{background:linear-gradient(135deg,rgba(245,200,75,.28),rgba(245,200,75,.12));color:var(--omega);border:1px solid rgba(245,200,75,.4)}
+  .p-galactic{background:linear-gradient(135deg,rgba(183,148,246,.28),rgba(183,148,246,.12));color:var(--galactic);border:1px solid rgba(183,148,246,.4)}
+  .p-diamond{background:rgba(96,165,250,.16);color:var(--blue)}
+
+  .liq{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+  .ldot{width:6px;height:6px;border-radius:50%}
+  .ldot.hi{background:var(--up);box-shadow:0 0 6px var(--up)} .ldot.mid{background:var(--amber)} .ldot.lo{background:var(--faint)}
+
+  .hero{display:grid;grid-template-columns:auto 1fr 420px;gap:28px;align-items:center;padding:22px 0 24px;border-bottom:1px solid var(--border)}
+  .shot{width:120px;height:120px;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,var(--laker2),#1a1030);flex-shrink:0}
+  .shot img{width:100%;height:100%;object-fit:cover;object-position:top}
+  .pname{font-size:36px;font-weight:700;letter-spacing:-.02em;line-height:1}
+  .pmeta{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--dim);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 9px} .tag b{color:var(--text)}
+  .statbox{display:grid;grid-template-columns:1fr 1fr;gap:13px 20px}
+  .statbox .v{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:3px}
+
+  .shead{display:flex;align-items:baseline;justify-content:space-between;margin:26px 0 14px}
+  .shead h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
+  .shead p{font-size:11.5px;color:var(--faint);text-align:right;max-width:480px}
+
+  /* premium parallels strip */
+  .pstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .pcard{border-radius:14px;padding:16px 18px;position:relative;overflow:hidden}
+  .pcard.omega{background:linear-gradient(150deg,rgba(245,200,75,.10),rgba(245,200,75,.02));border:1px solid rgba(245,200,75,.32)}
+  .pcard.galactic{background:linear-gradient(150deg,rgba(183,148,246,.10),rgba(183,148,246,.02));border:1px solid rgba(183,148,246,.32)}
+  .pcard .pk{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .pcard .play{font-size:13px;font-weight:600;margin-bottom:2px}
+  .pcard .sn{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .pcard .fl{font-family:var(--mono);font-size:24px;font-weight:680;margin-top:12px}
+  .pcard .row2{display:flex;justify-content:space-between;align-items:baseline;margin-top:7px}
+  .pcard .prem{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+
+  /* editions table */
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .seg{display:inline-flex;gap:3px;background:var(--surface);border-radius:9px;padding:4px}
+  .seg span{font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:6px;color:var(--dim);cursor:pointer}
+  .seg .on{background:rgba(45,212,191,.15);color:var(--teal);font-weight:600}
+  .toolbar .sp{flex:1} .sortby{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .tbl{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface)}
+  .tr{display:grid;grid-template-columns:1fr 92px 110px 78px 96px 76px 150px;align-items:center;border-bottom:1px solid rgba(38,42,50,.55)}
+  .tr:last-child{border-bottom:0}
+  .tr.h{background:var(--surface2)}
+  .tr.h .c{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:11px 10px}
+  .tr.h .c.r{text-align:right}
+  .tr:not(.h){cursor:pointer;transition:background .1s} .tr:not(.h):hover{background:var(--surface2)}
+  .c{padding:12px 10px;font-size:12.5px} .c.r{text-align:right;font-family:var(--mono)}
+  .mom{display:flex;align-items:center;gap:11px}
+  .thumb{width:36px;height:36px;border-radius:7px;flex-shrink:0;background:linear-gradient(150deg,#243b55,#0f2027)}
+  .mom .pl{font-weight:600;font-size:12.5px} .mom .sb{font-size:10px;color:var(--faint);font-family:var(--mono);margin-top:2px}
+  .floor{font-weight:600;font-size:13px}
+
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-top:24px}
+  .panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+  .panel .hd{display:flex;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)} .panel .hd h3{font-size:13.5px;font-weight:620}
+  .holder{display:grid;grid-template-columns:22px 1fr auto;gap:11px;padding:11px 18px;border-bottom:1px solid rgba(38,42,50,.5);align-items:center} .holder:last-child{border-bottom:0}
+  .holder .rk{font-family:var(--mono);font-size:11px;color:var(--faint)} .holder .hn{font-size:12.5px;font-weight:600} .holder .hs{font-size:10px;color:var(--faint);font-family:var(--mono)} .holder .hv{font-family:var(--mono);font-size:12px;text-align:right}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="#">Players</a> / <span style="color:var(--dim)">LeBron James</span></div>
+
+    <div class="hero">
+      <div class="shot"><img src="https://cdn.nba.com/headshots/nba/latest/1040x760/2544.png" alt="LeBron James" onerror="this.style.display='none'"></div>
+      <div>
+        <div class="pname">LeBron James</div>
+        <div class="pmeta"><span class="tag">Los Angeles <b>Lakers</b></span><span class="tag">SF · <b>#23</b></span><span class="tag">Drafted <b>2003</b></span></div>
+      </div>
+      <div class="statbox">
+        <div><div class="lbl">Market cap</div><div class="v tnum">$8.9M <span class="up" style="font-size:13px">▲6.4%</span></div></div>
+        <div><div class="lbl">Editions</div><div class="v tnum">142</div></div>
+        <div><div class="lbl">Parallel premium</div><div class="v tnum" style="color:var(--omega)">11×</div></div>
+        <div><div class="lbl">Lowest entry</div><div class="v tnum">$3</div></div>
+      </div>
+    </div>
+
+    <!-- PREMIUM PARALLELS — first-class, outperforming -->
+    <div class="shead"><h2>Premium parallels</h2><p>Omega &amp; Galactic variants — the scarcest cuts, sharply outperforming base. Avg <b style="color:var(--omega)">+19%</b> over 90d vs <span class="up">+6%</span> base.</p></div>
+    <div class="pstrip">
+      <div class="pcard omega">
+        <div class="pk"><span class="chip p-omega">OMEGA</span><span class="liq"><span class="ldot lo"></span>2 sales ever</span></div>
+        <div class="play">Block vs MIA</div><div class="sn">Cosmic · Ultimate · 1 of 1</div>
+        <div class="fl">$420,000</div>
+        <div class="row2"><span class="up mono">▲ 18% · 90d</span><span class="prem">last traded 63d ago</span></div>
+      </div>
+      <div class="pcard galactic">
+        <div class="pk"><span class="chip p-galactic">GALACTIC</span><span class="liq"><span class="ldot mid"></span>6 sales · 90d</span></div>
+        <div class="play">Driving Dunk vs BOS</div><div class="sn">Metallic Gold · Legendary · 5 mints</div>
+        <div class="fl">$88,000</div>
+        <div class="row2"><span class="up mono">▲ 22% · 90d</span><span class="prem">14× base floor</span></div>
+      </div>
+      <div class="pcard galactic">
+        <div class="pk"><span class="chip p-galactic">GALACTIC</span><span class="liq"><span class="ldot lo"></span>3 sales · 90d</span></div>
+        <div class="play">Chase-Down Block</div><div class="sn">Anthology · Legendary · 5 mints</div>
+        <div class="fl">$61,000</div>
+        <div class="row2"><span class="up mono">▲ 14% · 90d</span><span class="prem">last traded 40d ago</span></div>
+      </div>
+    </div>
+
+    <!-- EDITIONS — tier+parallel filters, set demoted, liquidity column -->
+    <div class="shead"><h2>Editions</h2><p>Filter by tier or parallel. "Last traded" shows liquidity — thin markets aren't dead, they're scarce.</p></div>
+    <div class="toolbar">
+      <div class="seg"><span class="on">All tiers</span><span>Common</span><span>Rare</span><span>Legendary</span><span>Ultimate</span></div>
+      <div class="seg"><span class="on">All parallels</span><span style="color:var(--omega)">Omega</span><span style="color:var(--galactic)">Galactic</span><span>Diamond</span><span>Base</span></div>
+      <div class="sp"></div>
+      <span class="sortby">142 editions · <b style="color:var(--text)">floor ↓</b></span>
+    </div>
+    <div class="tbl">
+      <div class="tr h">
+        <div class="c">Moment</div><div class="c">Tier</div><div class="c">Parallel</div><div class="c r">Circ.</div><div class="c r">Floor</div><div class="c r">30d</div><div class="c r">Last traded</div>
+      </div>
+      <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Block vs MIA</div><div class="sb">Cosmic · S3</div></div></div><div class="c"><span class="chip c-ult">ULT</span></div><div class="c"><span class="chip p-omega">OMEGA</span></div><div class="c r dim">/1</div><div class="c r floor">$420,000</div><div class="c r up">+18%</div><div class="c r"><span class="liq"><span class="ldot lo"></span>63d · 2 sales</span></div></div>
+      <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Driving Dunk vs BOS</div><div class="sb">Metallic Gold · S2</div></div></div><div class="c"><span class="chip c-leg">LEG</span></div><div class="c"><span class="chip p-galactic">GALACTIC</span></div><div class="c r dim">/5</div><div class="c r floor">$88,000</div><div class="c r up">+22%</div><div class="c r"><span class="liq"><span class="ldot mid"></span>9d · 6 sales</span></div></div>
+      <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Block vs MIA</div><div class="sb">Cosmic · S3</div></div></div><div class="c"><span class="chip c-ult">ULT</span></div><div class="c"><span class="chip p-base">Base</span></div><div class="c r dim">/15</div><div class="c r floor">$94,000</div><div class="c r up">+6%</div><div class="c r"><span class="liq"><span class="ldot hi"></span>2d · 14 sales</span></div></div>
+      <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Reverse Layup vs DEN</div><div class="sb">Anthology · S3</div></div></div><div class="c"><span class="chip c-leg">LEG</span></div><div class="c"><span class="chip p-base">Base</span></div><div class="c r dim">/49</div><div class="c r floor">$22,000</div><div class="c r down">−4%</div><div class="c r"><span class="liq"><span class="ldot mid"></span>18d · 4 sales</span></div></div>
+      <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">No-Look Pass vs GSW</div><div class="sb">Cosmic · S3</div></div></div><div class="c"><span class="chip c-leg">LEG</span></div><div class="c"><span class="chip p-base">Base</span></div><div class="c r dim">/49</div><div class="c r floor">$18,400</div><div class="c r up">+12%</div><div class="c r"><span class="liq"><span class="ldot hi"></span>today · 11 sales</span></div></div>
+      <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Step-Back Three</div><div class="sb">Base Set · S4</div></div></div><div class="c"><span class="chip c-rare">RARE</span></div><div class="c"><span class="chip p-diamond">DIAMOND</span></div><div class="c r dim">/99</div><div class="c r floor">$3,900</div><div class="c r up">+7%</div><div class="c r"><span class="liq"><span class="ldot mid"></span>6d · 5 sales</span></div></div>
+      <div class="tr"><div class="c mom"><div class="thumb"></div><div><div class="pl">Pull-Up Jumper</div><div class="sb">Base Set · S4</div></div></div><div class="c"><span class="chip c-com">COM</span></div><div class="c"><span class="chip p-base">Base</span></div><div class="c r dim">/12,000</div><div class="c r floor">$24</div><div class="c r up">+5%</div><div class="c r"><span class="liq"><span class="ldot hi"></span>2h · 240 sales</span></div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <div class="hd"><h3>Recent sales · LeBron moments</h3><span class="lbl">all parallels</span></div>
+        <div class="holder"><div class="rk" style="color:var(--omega)">◆</div><div><div class="hn">flowwhale ← MBL</div><div class="hs">Block vs MIA · OMEGA 1/1 · 63d ago</div></div><div class="hv up">$420K</div></div>
+        <div class="holder"><div class="rk" style="color:var(--galactic)">◆</div><div><div class="hn">jordan.eth ← topshotgod</div><div class="hs">Driving Dunk · GALACTIC /5 · 9d ago</div></div><div class="hv up">$88K</div></div>
+        <div class="holder"><div class="rk">·</div><div><div class="hn">vault_szn ← flipcity</div><div class="hs">No-Look Pass · Base Legendary · today</div></div><div class="hv up">$18.4K</div></div>
+        <div class="holder"><div class="rk">·</div><div><div class="hn">casual_fan ← diamondhands</div><div class="hs">Pull-Up Jumper · Base Common · 2h</div></div><div class="hv">$24</div></div>
+      </div>
+      <div class="panel">
+        <div class="hd"><h3>Top holders</h3><span class="lbl">on-chain · named</span></div>
+        <div class="holder"><div class="rk">1</div><div><div class="hn">flowwhale</div><div class="hs">312 moments · holds the OMEGA 1/1</div></div><div class="hv">$1.2M</div></div>
+        <div class="holder"><div class="rk">2</div><div><div class="hn">MBL</div><div class="hs">204 moments · 2 Galactics</div></div><div class="hv">$840K</div></div>
+        <div class="holder"><div class="rk">3</div><div><div class="hn">topshotgod</div><div class="hs">488 moments</div></div><div class="hv">$610K</div></div>
+        <div class="holder"><div class="rk">4</div><div><div class="hn">diamondhands</div><div class="hs">156 moments</div></div><div class="hv">$390K</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
