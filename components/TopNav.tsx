@@ -103,14 +103,14 @@ function SearchResolverButton() {
 export function TopNav({ freshness }: { freshness?: ReactNode } = {}) {
   const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-30 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--border-subtle)]">
-      <div className="max-w-[1440px] mx-auto px-4 h-12 flex items-center gap-6">
-        <Link href="/" className="font-mono text-[12px] font-semibold tracking-tight whitespace-nowrap flex items-center gap-1">
+    <header className="sticky top-0 z-30 bg-[var(--bg)]/80 backdrop-blur-xl border-b border-[var(--border-subtle)]/70">
+      <div className="max-w-[1600px] mx-auto px-5 h-14 flex items-center gap-7">
+        <Link href="/" className="font-mono text-[13px] font-semibold tracking-tight whitespace-nowrap flex items-center gap-1">
           <span className="text-[var(--text)]">TS</span>
           <span className="text-[var(--accent)]">·</span>
           <span className="text-[var(--text)]">PORTAL</span>
         </Link>
-        <nav className="hidden sm:flex items-center gap-1">
+        <nav className="hidden sm:flex items-center gap-0.5">
           {TABS.map((t) => {
             const active = t.match(pathname);
             return (
@@ -118,10 +118,10 @@ export function TopNav({ freshness }: { freshness?: ReactNode } = {}) {
                 key={t.href}
                 href={t.href}
                 className={cn(
-                  "px-2.5 py-1 text-[12px] tracking-[0.02em] transition-colors",
+                  "px-3 py-1.5 text-[12.5px] rounded-md transition-colors duration-150",
                   active
-                    ? "text-[var(--text)] border-b-2 border-[var(--accent)] -mb-px"
-                    : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                    ? "bg-[var(--surface-2)] text-[var(--text)] font-medium"
+                    : "text-[var(--text-dim)] hover:text-[var(--text)] hover:bg-[var(--surface-1)]"
                 )}
               >
                 {t.label}
