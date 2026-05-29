@@ -32,6 +32,7 @@ const MVS = [
   "mv_set_24h_activity",
   "mv_set_completion_distribution",
   "mv_player_market_cap",
+  "mv_market_cap_daily_totals",
 ];
 
 async function main() {
