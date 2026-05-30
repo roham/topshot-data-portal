@@ -57,3 +57,36 @@ export const getActivitySales = (window: TimeWindow = "30d", limit = 60) =>
     ["som-activity-sales", window, String(limit)],
     { revalidate: 120, tags: ["largest-sales", windowToLargestSalesView(window)] },
   )();
+
+// Per-player 30d % move for a specific set of players (the Market Map tiles).
+// Reads the full mv_player_movers_30d — not just the top 12 — so big-cap tiles
+// get their own move, not just the extreme small-cap movers.
+async function _getMovesByPlayerIds(playerIds: string[]): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  const sb = getSupabaseServerAnon();
+  if (!sb || playerIds.length === 0) return out;
+  try {
+    const { data, error } = await sb
+      .from("mv_player_movers_30d")
+      .select("player_id, pct_change")
+      .in("player_id", playerIds.slice(0, 300));
+    if (error) {
+      console.error("[state-of-market] moves-by-ids read failed", error);
+      return out;
+    }
+    for (const r of (data as { player_id: string; pct_change: number | string | null }[]) ?? []) {
+      if (r.pct_change != null) out[r.player_id] = Number(r.pct_change);
+    }
+    return out;
+  } catch (e) {
+    console.error("[state-of-market] moves-by-ids threw", e);
+    return out;
+  }
+}
+
+export const getMovesByPlayerIds = (playerIds: string[]) =>
+  unstable_cache(
+    () => _getMovesByPlayerIds(playerIds),
+    ["som-moves-by-ids", playerIds.slice(0, 40).join(",")],
+    { revalidate: 300, tags: ["player-movers", "player-movers-30"] },
+  )();

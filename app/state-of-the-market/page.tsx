@@ -20,7 +20,7 @@ import {
   parseIndexKey,
   type MarketIndexKey,
 } from "@/lib/state-of-market/indices";
-import { getActivitySales } from "@/lib/state-of-market/activity";
+import { getActivitySales, getMovesByPlayerIds } from "@/lib/state-of-market/activity";
 import { getPlayerMovers } from "@/lib/supabase/queries/player-movers";
 import { getPlayersMarketCap } from "@/lib/supabase/queries/players-marketcap";
 
@@ -157,10 +157,10 @@ async function HeroSection({ sp, featured }: { sp: SP; featured: MarketIndexKey 
 
 // ── Map ──────────────────────────────────────────────────────────────────────
 async function MapSection() {
-  const [{ rows }, movers] = await Promise.all([getPlayersMarketCap(), getPlayerMovers(30)]);
-  // player_id → 30d % move, from the populated movers MV.
-  const moves: Record<string, number> = {};
-  for (const m of [...movers.gainers, ...movers.losers]) moves[m.player_id] = m.pct_change;
+  const { rows } = await getPlayersMarketCap();
+  // Each tile's OWN 30d move (not just the top-12 movers), keyed by player_id.
+  const topIds = rows.filter((r) => r.market_cap_usd > 0).slice(0, 40).map((r) => r.player_id);
+  const moves = await getMovesByPlayerIds(topIds);
   return <MarketMap rows={rows} moves={moves} />;
 }
 
