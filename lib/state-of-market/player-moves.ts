@@ -28,13 +28,9 @@ export interface PlayerWindowMoves {
   prior_date: string | null;
 }
 
-const TOP_PLAYERS = 60;
-// Chunk × band-days must stay well under PostgREST's 1000-row response cap, or
-// rows get silently truncated and editions vanish (the bug that blanked tiles).
-const ED_CHUNK = 60;
-const ROW_LIMIT = 1000;
-// Top 60 players have ~3400 editions total — the editions read MUST override the
-// 1000-row default or 2/3 of editions (and their players) silently drop.
+const TOP_PLAYERS = 50;
+const ED_CHUNK = 120;
+const PAGE = 1000; // PostgREST row cap per request — paginate past it, don't truncate
 const EDITIONS_LIMIT = 20000;
 
 function isoMinusDays(iso: string, days: number): string {
@@ -62,28 +58,19 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
     if (targetIso < earliestDate) targetIso = earliestDate;
     if (targetIso >= latestDate) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
-    // 2b. EXACT prior dates — several spread-out candidates near the target, each
-    //     the nearest snapshot ≤ a stepped offset. A single prior date is too
-    //     sparse a year back (snapshots don't land on that exact day); a handful
-    //     of discrete dates lets each edition find its nearest without a date BAND
-    //     (bands overflow the 1000-row cap on dense windows and drop editions).
-    const offsets = [0, 7, 14, 21, 35, 50];
-    const candRows = await Promise.all(
-      offsets.map((o) =>
-        sb.from("market_caps").select("date").lte("date", isoMinusDays(targetIso, o))
-          .order("date", { ascending: false }).limit(1).maybeSingle(),
-      ),
-    );
-    // Distinct candidate dates, nearest-to-target first.
-    const priorDates = [...new Set(candRows.map((r) => (r.data as { date: string } | null)?.date).filter((d): d is string => !!d && d < latestDate))];
-    if (priorDates.length === 0) return { moves: {}, latest_date: latestDate, prior_date: null };
+    // 2b. Carry-forward BANDS — each edition's most-recent snapshot within a band
+    //     (per-edition nearest; global exact dates miss because editions snapshot
+    //     on different days). Read with PAGINATION so the 1000-row cap can't
+    //     truncate dense bands (that truncation was the blank cause).
+    const nowFrom = isoMinusDays(latestDate, 9);
+    const thenFrom = isoMinusDays(targetIso, 25);
 
-    // 3. Top players + their editions (MUST override the 1000-row default).
+    // 3. Top players + their editions (override the 1000-row default).
     const { data: topRows } = await sb
       .from("mv_player_market_cap").select("player_id")
       .order("total_market_cap_usd", { ascending: false }).limit(TOP_PLAYERS);
     const playerIds = ((topRows as { player_id: string }[] | null) ?? []).map((r) => r.player_id);
-    if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: priorDates[0] };
+    if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
     const { data: edRows } = await sb
       .from("editions").select("player_id, edition_id").in("player_id", playerIds).limit(EDITIONS_LIMIT);
@@ -92,43 +79,50 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       editionToPlayer.set(e.edition_id, e.player_id);
     }
     const editionIds = [...editionToPlayer.keys()];
-    if (editionIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: priorDates[0] };
+    if (editionIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
-    // 4. One read per chunk at the exact dates (latest + candidates) — at most
-    //    (1+candidates) rows per edition, so never near the 1000-row cap.
-    const dates = [latestDate, ...priorDates];
+    // 4. Paginated band read per chunk → every row, no cap truncation.
+    type Row = { edition_id: string; date: string; market_cap: number | null };
+    const fetchBand = async (c: string[], from: string, to: string): Promise<Row[]> => {
+      const out: Row[] = [];
+      for (let off = 0; off < 20000; off += PAGE) {
+        const { data } = await sb.from("market_caps").select("edition_id, date, market_cap")
+          .gte("date", from).lte("date", to).in("edition_id", c).range(off, off + PAGE - 1);
+        const batch = (data as Row[] | null) ?? [];
+        out.push(...batch);
+        if (batch.length < PAGE) break;
+      }
+      return out;
+    };
     const chunks: string[][] = [];
     for (let i = 0; i < editionIds.length; i += ED_CHUNK) chunks.push(editionIds.slice(i, i + ED_CHUNK));
-    const results = await Promise.all(
-      chunks.map((c) =>
-        sb.from("market_caps").select("edition_id, date, market_cap")
-          .in("date", dates).in("edition_id", c).limit(ROW_LIMIT),
-      ),
-    );
+    const [nowChunks, thenChunks] = await Promise.all([
+      Promise.all(chunks.map((c) => fetchBand(c, nowFrom, latestDate))),
+      Promise.all(chunks.map((c) => fetchBand(c, thenFrom, targetIso))),
+    ]);
 
-    type Row = { edition_id: string; date: string; market_cap: number | null };
-    const byEdition = new Map<string, Map<string, number>>();
-    for (const res of results) {
-      for (const r of (res.data as Row[] | null) ?? []) {
+    // 5. Per edition: most-recent value within each band (carry-forward).
+    const pickLatest = (lists: Row[][]) => {
+      const best = new Map<string, { date: string; val: number }>();
+      for (const list of lists) for (const r of list) {
         if (r.market_cap == null) continue;
-        let m = byEdition.get(r.edition_id);
-        if (!m) { m = new Map(); byEdition.set(r.edition_id, m); }
-        m.set(r.date, Number(r.market_cap));
+        const cur = best.get(r.edition_id);
+        if (!cur || r.date > cur.date) best.set(r.edition_id, { date: r.date, val: Number(r.market_cap) });
       }
-    }
+      return best;
+    };
+    const nowByEd = pickLatest(nowChunks);
+    const thenByEd = pickLatest(thenChunks);
 
-    // 5+6. Per-player basket sums. now = value@latest; then = nearest available
-    //      candidate date (priorDates are nearest-to-target first).
+    // 6. Per-player basket sums over editions present in both bands → ratio.
     const capNow = new Map<string, number>();
     const capThen = new Map<string, number>();
     for (const [eid, pid] of editionToPlayer.entries()) {
-      const m = byEdition.get(eid);
-      if (!m) continue;
-      const now = m.get(latestDate);
-      let then: number | undefined;
-      for (const d of priorDates) { const v = m.get(d); if (v != null) { then = v; break; } }
-      if (now != null) capNow.set(pid, (capNow.get(pid) ?? 0) + now);
-      if (then != null) capThen.set(pid, (capThen.get(pid) ?? 0) + then);
+      const now = nowByEd.get(eid)?.val;
+      const then = thenByEd.get(eid)?.val;
+      if (now == null || then == null) continue;
+      capNow.set(pid, (capNow.get(pid) ?? 0) + now);
+      capThen.set(pid, (capThen.get(pid) ?? 0) + then);
     }
 
     const moves: Record<string, number> = {};
