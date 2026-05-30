@@ -20,7 +20,11 @@ import {
   parseIndexKey,
   type MarketIndexKey,
 } from "@/lib/state-of-market/indices";
-import { getActivitySales, getMovesByPlayerIds } from "@/lib/state-of-market/activity";
+import {
+  getActivitySales,
+  getMovesByPlayerIds,
+  windowToMoverWindow,
+} from "@/lib/state-of-market/activity";
 import { getPlayerMovers } from "@/lib/supabase/queries/player-movers";
 import { getPlayersMarketCap } from "@/lib/supabase/queries/players-marketcap";
 
@@ -156,22 +160,29 @@ async function HeroSection({ sp, featured }: { sp: SP; featured: MarketIndexKey 
 }
 
 // ── Map ──────────────────────────────────────────────────────────────────────
-async function MapSection() {
+async function MapSection({ window }: { window: TimeWindow }) {
+  const mw = windowToMoverWindow(window);
   const { rows } = await getPlayersMarketCap();
-  // Each tile's OWN 30d move (not just the top-12 movers), keyed by player_id.
+  // Each tile's OWN move over the active mover window, keyed by player_id.
   const topIds = rows.filter((r) => r.market_cap_usd > 0).slice(0, 40).map((r) => r.player_id);
-  const moves = await getMovesByPlayerIds(topIds);
+  const moves = await getMovesByPlayerIds(topIds, mw);
   return <MarketMap rows={rows} moves={moves} />;
 }
 
 // ── Activity ─────────────────────────────────────────────────────────────────
-async function ActivitySection() {
-  const [sales, movers] = await Promise.all([getActivitySales("30d", 40), getPlayerMovers(30)]);
+async function ActivitySection({ window }: { window: TimeWindow }) {
+  const mw = windowToMoverWindow(window);
+  const [sales, movers] = await Promise.all([
+    getActivitySales(window, 40),
+    getPlayerMovers(mw),
+  ]);
   return (
     <MarketActivity
       sales={sales}
       gainers={movers.gainers.slice(0, 5)}
       losers={movers.losers.slice(0, 5)}
+      moverWindowDays={mw}
+      salesWindowLabel={window.toUpperCase()}
     />
   );
 }
@@ -184,6 +195,7 @@ export default async function StateOfMarketPage({
   const sp = await searchParams;
   const { window } = parseTimeWindow(sp.w);
   const featured = parseIndexKey(sp.idx);
+  const moverDays = windowToMoverWindow(window);
 
   return (
     <>
@@ -200,18 +212,18 @@ export default async function StateOfMarketPage({
 
         <SectionHead
           title="The Market Map"
-          legend="Each tile a player · sized by market cap · colored by 30-day move"
+          legend={`Each tile a player · sized by market cap · colored by ${moverDays}-day move`}
         />
-        <Suspense key="map" fallback={<MapSkeleton />}>
-          <MapSection />
+        <Suspense key={`map-${window}`} fallback={<MapSkeleton />}>
+          <MapSection window={window} />
         </Suspense>
 
         <SectionHead
           title="Market Activity"
           legend="Specific sales left, biggest cap moves right"
         />
-        <Suspense key="act" fallback={<ActivitySkeleton />}>
-          <ActivitySection />
+        <Suspense key={`act-${window}`} fallback={<ActivitySkeleton />}>
+          <ActivitySection window={window} />
         </Suspense>
       </main>
     </>

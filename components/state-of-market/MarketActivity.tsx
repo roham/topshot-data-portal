@@ -19,11 +19,19 @@ function ago(iso: string | null): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function MoverList({ rows, kind }: { rows: PlayerMoverRow[]; kind: "gain" | "loss" }) {
+function MoverList({
+  rows,
+  kind,
+  windowDays,
+}: {
+  rows: PlayerMoverRow[];
+  kind: "gain" | "loss";
+  windowDays: number;
+}) {
   return (
     <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[18px]">
       <h3 className="mb-3 text-[13.5px] font-semibold">
-        {kind === "gain" ? "Top gainers · 30d" : "Top losers · 30d"}
+        {kind === "gain" ? `Top gainers · ${windowDays}d` : `Top losers · ${windowDays}d`}
       </h3>
       {rows.length === 0 && (
         <p className="text-[11px] text-[var(--text-faint)]">No 30-day moves in range.</p>
@@ -50,10 +58,14 @@ export function MarketActivity({
   sales,
   gainers,
   losers,
+  moverWindowDays,
+  salesWindowLabel,
 }: {
   sales: ActivitySaleRow[];
   gainers: PlayerMoverRow[];
   losers: PlayerMoverRow[];
+  moverWindowDays: number;
+  salesWindowLabel: string;
 }) {
   return (
     <div className="mt-[14px] grid grid-cols-1 gap-[18px] lg:grid-cols-[1.5fr_1fr]">
@@ -62,7 +74,7 @@ export function MarketActivity({
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-[18px] py-[14px]">
           <h3 className="text-[13.5px] font-semibold">Notable sales</h3>
           <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            last 30d · by size
+            {salesWindowLabel} · by size
           </span>
         </div>
         {sales.length === 0 && (
@@ -99,8 +111,8 @@ export function MarketActivity({
 
       {/* Movers */}
       <div className="flex flex-col gap-[14px]">
-        <MoverList rows={gainers} kind="gain" />
-        <MoverList rows={losers} kind="loss" />
+        <MoverList rows={gainers} kind="gain" windowDays={moverWindowDays} />
+        <MoverList rows={losers} kind="loss" windowDays={moverWindowDays} />
       </div>
     </div>
   );

@@ -11,6 +11,13 @@ import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
 import { windowToLargestSalesView } from "@/lib/supabase/helpers";
 import type { TimeWindow } from "@/components/global/window-types";
+import type { MoverWindow } from "@/lib/supabase/queries/player-movers";
+
+// Per-player move data only exists as 15d + 30d MVs (no 90d MV). Map the page
+// window to the nearest available mover window; the UI labels the real span.
+export function windowToMoverWindow(w: TimeWindow): MoverWindow {
+  return w === "24h" || w === "7d" ? 15 : 30;
+}
 
 export interface ActivitySaleRow {
   transaction_id: string;
@@ -61,13 +68,16 @@ export const getActivitySales = (window: TimeWindow = "30d", limit = 60) =>
 // Per-player 30d % move for a specific set of players (the Market Map tiles).
 // Reads the full mv_player_movers_30d — not just the top 12 — so big-cap tiles
 // get their own move, not just the extreme small-cap movers.
-async function _getMovesByPlayerIds(playerIds: string[]): Promise<Record<string, number>> {
+async function _getMovesByPlayerIds(
+  playerIds: string[],
+  moverWindow: MoverWindow,
+): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   const sb = getSupabaseServerAnon();
   if (!sb || playerIds.length === 0) return out;
   try {
     const { data, error } = await sb
-      .from("mv_player_movers_30d")
+      .from(`mv_player_movers_${moverWindow}d`)
       .select("player_id, pct_change")
       .in("player_id", playerIds.slice(0, 300));
     if (error) {
@@ -84,9 +94,9 @@ async function _getMovesByPlayerIds(playerIds: string[]): Promise<Record<string,
   }
 }
 
-export const getMovesByPlayerIds = (playerIds: string[]) =>
+export const getMovesByPlayerIds = (playerIds: string[], moverWindow: MoverWindow = 30) =>
   unstable_cache(
-    () => _getMovesByPlayerIds(playerIds),
-    ["som-moves-by-ids", playerIds.slice(0, 40).join(",")],
-    { revalidate: 300, tags: ["player-movers", "player-movers-30"] },
+    () => _getMovesByPlayerIds(playerIds, moverWindow),
+    ["som-moves-by-ids", String(moverWindow), playerIds.slice(0, 40).join(",")],
+    { revalidate: 300, tags: ["player-movers", `player-movers-${moverWindow}`] },
   )();
