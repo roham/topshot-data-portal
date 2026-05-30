@@ -45,8 +45,11 @@ function MoverList({
           }`}
         >
           <span className="truncate">{r.player_name ?? "—"}</span>
-          <span className="ml-2 font-mono font-semibold">
+          <span className="ml-2 text-right font-mono font-semibold leading-tight">
             <Num value={r.pct_change} format="deltaPct" colorize precision={1} />
+            <span className="block text-[10px] font-medium text-[var(--text-faint)]">
+              <Num value={r.delta_usd} format="delta" colorize precision={1} />
+            </span>
           </span>
         </Link>
       ))}

@@ -24,8 +24,9 @@ export interface MarketIndexCard {
   key: MarketIndexKey;
   name: string; // rail label, e.g. "ROOKIES"
   sublabel: string; // one-line descriptor (analyst voice, not rationale)
-  basket_mcap_usd: number; // nominal basket value, USD
+  basket_mcap_usd: number; // nominal basket value, USD (current)
   pct_change: number; // % change across the series window
+  delta_usd: number; // dollar change across the series window (now − start)
   series: MarketIndexPoint[];
   is_thin: boolean;
   as_of_date: string | null;
@@ -90,6 +91,12 @@ function dollarPct(series: { basket_mcap_usd: number }[]): number {
   return first > 0 ? ((last - first) / first) * 100 : 0;
 }
 
+function dollarDelta(series: { basket_mcap_usd: number }[]): number {
+  const nonzero = series.filter((p) => p.basket_mcap_usd > 0);
+  if (nonzero.length < 2) return 0;
+  return nonzero[nonzero.length - 1].basket_mcap_usd - nonzero[0].basket_mcap_usd;
+}
+
 function toCard(
   key: MarketIndexKey,
   name: string,
@@ -103,6 +110,7 @@ function toCard(
     sublabel,
     basket_mcap_usd: synth.basket_mcap_total_usd,
     pct_change: dollarPct(synth.series),
+    delta_usd: dollarDelta(synth.series),
     // value === mcap on purpose: chart, sparkline, and headline % all read the
     // one honest dollar series, so they can never disagree.
     series: synth.series.map((p) => ({

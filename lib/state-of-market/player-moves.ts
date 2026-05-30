@@ -10,15 +10,21 @@
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
 
+export interface PlayerMove {
+  pct: number; // % cap move over the window
+  delta_usd: number; // dollar cap change over the window (now − then)
+}
+
 export interface MoverItem {
   player_id: string;
   player_name: string | null;
   pct_change: number;
+  delta_usd: number;
 }
 
 export interface PlayerWindowMoves {
-  // player_id → % cap move over the window (null-absent = no comparable snapshot)
-  moves: Record<string, number>;
+  // player_id → move over the window (absent = no comparable snapshot)
+  moves: Record<string, PlayerMove>;
   latest_date: string | null;
   prior_date: string | null;
 }
@@ -107,13 +113,13 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       }
     }
 
-    // 7. pct move per player.
-    const moves: Record<string, number> = {};
+    // 7. pct + dollar move per player.
+    const moves: Record<string, PlayerMove> = {};
     for (const pid of playerIds) {
       const now = capLatest.get(pid);
       const then = capPrior.get(pid);
       if (now != null && then != null && then > 0) {
-        moves[pid] = ((now - then) / then) * 100;
+        moves[pid] = { pct: ((now - then) / then) * 100, delta_usd: now - then };
       }
     }
     return { moves, latest_date: latestDate, prior_date: priorDate };
