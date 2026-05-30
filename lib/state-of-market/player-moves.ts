@@ -102,8 +102,11 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       }
     }
 
-    // 6. Like-for-like ratio: only editions present at BOTH dates contribute to
-    //    both sums, so sparse coverage cancels and the % isn't biased by it.
+    // 6. Per-date basket sums. The latest snapshot date has sparse per-edition
+    //    coverage, so we sum whatever each date has (not matched pairs — that
+    //    leaves too few editions and blanks the %). The ratio of the two
+    //    available baskets is a sound proxy for the player's move; the absolute
+    //    sums are NOT a true cap (we display mv cap for the level).
     const capNow = new Map<string, number>();
     const capThen = new Map<string, number>();
     for (const [eid, pid] of editionToPlayer.entries()) {
@@ -111,9 +114,8 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       if (!m) continue;
       const now = m.get(latestDate);
       const then = m.get(prior1) ?? (prior2 ? m.get(prior2) : undefined);
-      if (now == null || then == null) continue; // matched pairs only
-      capNow.set(pid, (capNow.get(pid) ?? 0) + now);
-      capThen.set(pid, (capThen.get(pid) ?? 0) + then);
+      if (now != null) capNow.set(pid, (capNow.get(pid) ?? 0) + now);
+      if (then != null) capThen.set(pid, (capThen.get(pid) ?? 0) + then);
     }
 
     const moves: Record<string, number> = {};
