@@ -127,7 +127,11 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
     for (const [eid, pid] of editionToPlayer.entries()) {
       const now = nowByEd.get(eid)?.val;
       const then = thenByEd.get(eid)?.val;
-      if (now == null || then == null) continue;
+      if (now == null || then == null || then <= 0) continue;
+      // Exclude per-edition outliers (stuck listings / data artifacts, e.g. a
+      // Holo with a frozen $500K floor) — same guard the index synthesizers use.
+      const ratio = now / then;
+      if (ratio > 5 || ratio < 0.2) continue;
       capNow.set(pid, (capNow.get(pid) ?? 0) + now);
       capThen.set(pid, (capThen.get(pid) ?? 0) + then);
     }
@@ -150,6 +154,6 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
 export const getPlayerWindowMoves = (windowDays: number) =>
   unstable_cache(
     () => _getPlayerWindowMoves(windowDays),
-    ["som-player-window-moves-v3-paginated", String(windowDays)],
+    ["som-player-window-moves-v4-outlier", String(windowDays)],
     { revalidate: 300, tags: ["player-window-moves", "market_caps"] },
   )();
