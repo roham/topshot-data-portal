@@ -7,6 +7,7 @@ import { sbAdmin } from "./lib/sb-client.mjs";
 import { logRun } from "./lib/etl-helpers.mjs";
 
 const MVS = [
+  "mv_realized_monthly",
   "mv_market_summary_24h",
   "mv_market_summary_7d",
   "mv_market_summary_30d",
