@@ -12,11 +12,6 @@
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
 
-export interface PlayerMove {
-  pct: number; // % cap move over the window
-  cap_now: number; // current cap (latest snapshot), USD — same basis as pct
-}
-
 export interface MoverItem {
   player_id: string;
   player_name: string | null;
@@ -24,7 +19,11 @@ export interface MoverItem {
 }
 
 export interface PlayerWindowMoves {
-  moves: Record<string, PlayerMove>;
+  // player_id → % cap move over the window. Like-for-like ratio over editions
+  // present at BOTH the latest and prior snapshot (coverage cancels). The cap
+  // LEVEL displayed comes from mv_player_market_cap (authoritative current cap);
+  // a single-date market_caps sum undercounts and must not be shown.
+  moves: Record<string, number>;
   latest_date: string | null;
   prior_date: string | null;
 }
@@ -103,7 +102,8 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       }
     }
 
-    // 6. Sum into per-player basket now/then, then derive pct.
+    // 6. Like-for-like ratio: only editions present at BOTH dates contribute to
+    //    both sums, so sparse coverage cancels and the % isn't biased by it.
     const capNow = new Map<string, number>();
     const capThen = new Map<string, number>();
     for (const [eid, pid] of editionToPlayer.entries()) {
@@ -111,16 +111,17 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       if (!m) continue;
       const now = m.get(latestDate);
       const then = m.get(prior1) ?? (prior2 ? m.get(prior2) : undefined);
-      if (now != null) capNow.set(pid, (capNow.get(pid) ?? 0) + now);
-      if (then != null) capThen.set(pid, (capThen.get(pid) ?? 0) + then);
+      if (now == null || then == null) continue; // matched pairs only
+      capNow.set(pid, (capNow.get(pid) ?? 0) + now);
+      capThen.set(pid, (capThen.get(pid) ?? 0) + then);
     }
 
-    const moves: Record<string, PlayerMove> = {};
+    const moves: Record<string, number> = {};
     for (const pid of playerIds) {
       const now = capNow.get(pid);
       const then = capThen.get(pid);
       if (now != null && then != null && then > 0) {
-        moves[pid] = { pct: ((now - then) / then) * 100, cap_now: now };
+        moves[pid] = ((now - then) / then) * 100;
       }
     }
     return { moves, latest_date: latestDate, prior_date: prior1 };

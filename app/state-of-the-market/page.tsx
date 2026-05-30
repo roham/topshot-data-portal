@@ -193,7 +193,7 @@ async function ActivitySection({ window }: { window: TimeWindow }) {
     .map((r) => ({
       player_id: r.player_id,
       player_name: r.player_name,
-      pct_change: moves[r.player_id].pct,
+      pct_change: moves[r.player_id],
     }));
   const gainers = [...items].filter((i) => i.pct_change > 0).sort((a, b) => b.pct_change - a.pct_change).slice(0, 5);
   const losers = [...items].filter((i) => i.pct_change < 0).sort((a, b) => a.pct_change - b.pct_change).slice(0, 5);

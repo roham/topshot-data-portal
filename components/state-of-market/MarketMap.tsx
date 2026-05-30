@@ -49,7 +49,7 @@ export function MarketMap({
 }: {
   rows: PlayerMarketCapRow[];
   // player_id → 30d % move (from mv_player_movers_30d). Absent = neutral tile.
-  moves: Record<string, import("@/lib/state-of-market/player-moves").PlayerMove>;
+  moves: Record<string, number>; // player_id → % move over the window
 }) {
   const visible = rows.filter((r) => r.market_cap_usd > 0).slice(0, MAX_TILES);
   if (visible.length === 0) {
@@ -65,8 +65,7 @@ export function MarketMap({
     <div className="flex flex-wrap gap-1">
       {visible.map((r) => {
         const capRatio = r.market_cap_usd / maxCap;
-        const m = moves[r.player_id];
-        const move = m?.pct ?? r.delta_pct_30d;
+        const move = moves[r.player_id] ?? r.delta_pct_30d;
         const isRookie = r.last_play_date == null && r.league === "NBA";
         return (
           <Link
@@ -78,7 +77,7 @@ export function MarketMap({
             <div>
               <div className="text-[13px] font-semibold leading-tight">{r.player_name ?? "—"}</div>
               <div className="mt-0.5 font-mono text-[11px] opacity-90">
-                <Num value={m?.cap_now ?? r.market_cap_usd} format="usdCompact" />
+                <Num value={r.market_cap_usd} format="usdCompact" />
               </div>
               {isRookie && (
                 <div className="mt-0.5 text-[9.5px] uppercase tracking-wide opacity-70">rookie</div>
