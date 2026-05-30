@@ -150,6 +150,6 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
 export const getPlayerWindowMoves = (windowDays: number) =>
   unstable_cache(
     () => _getPlayerWindowMoves(windowDays),
-    ["som-player-window-moves-v2", String(windowDays)],
+    ["som-player-window-moves-v3-paginated", String(windowDays)],
     { revalidate: 300, tags: ["player-window-moves", "market_caps"] },
   )();
