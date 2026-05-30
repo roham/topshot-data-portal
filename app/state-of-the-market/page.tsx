@@ -127,10 +127,7 @@ async function HeroSection({ sp, featured }: { sp: SP; featured: MarketIndexKey 
           </div>
           <div className="mt-2.5 font-mono text-[15px]">
             <Num value={active.pct_change} format="deltaPct" colorize precision={1} />
-            <span className="mx-2 text-[var(--text-faint)]">
-              <Num value={active.delta_usd} format="delta" colorize precision={1} />
-            </span>
-            <span className="text-[var(--text-faint)]">· {window.toUpperCase()}</span>
+            <span className="ml-2 text-[var(--text-faint)]">· {window.toUpperCase()}</span>
           </div>
           <div className="mt-3.5 text-[12px] leading-relaxed text-[var(--text-dim)]">
             {active.sublabel}
@@ -197,7 +194,6 @@ async function ActivitySection({ window }: { window: TimeWindow }) {
       player_id: r.player_id,
       player_name: r.player_name,
       pct_change: moves[r.player_id].pct,
-      delta_usd: moves[r.player_id].delta_usd,
     }));
   const gainers = [...items].filter((i) => i.pct_change > 0).sort((a, b) => b.pct_change - a.pct_change).slice(0, 5);
   const losers = [...items].filter((i) => i.pct_change < 0).sort((a, b) => a.pct_change - b.pct_change).slice(0, 5);

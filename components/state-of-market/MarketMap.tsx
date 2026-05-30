@@ -78,19 +78,14 @@ export function MarketMap({
             <div>
               <div className="text-[13px] font-semibold leading-tight">{r.player_name ?? "—"}</div>
               <div className="mt-0.5 font-mono text-[11px] opacity-90">
-                <Num value={r.market_cap_usd} format="usdCompact" />
+                <Num value={m?.cap_now ?? r.market_cap_usd} format="usdCompact" />
               </div>
               {isRookie && (
                 <div className="mt-0.5 text-[9.5px] uppercase tracking-wide opacity-70">rookie</div>
               )}
             </div>
-            <div className="self-start font-mono text-[13px] font-semibold leading-tight">
+            <div className="self-start font-mono text-[13px] font-semibold">
               <Num value={move} format="deltaPct" colorize precision={1} />
-              {m && (
-                <div className="text-[10px] font-medium opacity-80">
-                  <Num value={m.delta_usd} format="delta" colorize precision={1} />
-                </div>
-              )}
             </div>
           </Link>
         );
