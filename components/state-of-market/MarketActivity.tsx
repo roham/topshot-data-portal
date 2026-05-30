@@ -1,28 +1,11 @@
-// Market Activity — tier-segmented. Specific sales on the left (buyer ← seller,
-// play · tier · serial, price, time), biggest cap moves on the right.
-// Sales are real topshot.transactions; movers are real player cap deltas.
+// Market Activity. Specific sales on the left (buyer ← seller · play · #serial ·
+// price · time) from the flat mv_largest_sales MV; biggest cap moves on the
+// right from mv_player_movers_30d. All real, all MV-backed.
 
 import Link from "next/link";
-import type { RecentTransactionRow } from "@/lib/supabase/queries/recent-transactions";
-import type { PlayerMarketCapRow } from "@/lib/supabase/queries/players-marketcap";
+import type { ActivitySaleRow } from "@/lib/state-of-market/activity";
+import type { PlayerMoverRow } from "@/lib/supabase/queries/player-movers";
 import { Num } from "@/components/primitives/Num";
-import { type TierTab } from "@/components/state-of-market/tier-tabs-shared";
-
-const TIER_CHIP: Record<string, string> = {
-  Common: "bg-[rgba(154,161,172,0.18)] text-[#c4cad3]",
-  Rare: "bg-[rgba(96,165,250,0.18)] text-[var(--blue,#60a5fa)]",
-  Fandom: "bg-[rgba(167,139,250,0.2)] text-[var(--violet,#a78bfa)]",
-  Legendary: "bg-[rgba(167,139,250,0.2)] text-[var(--violet,#a78bfa)]",
-  Ultimate: "bg-[rgba(245,177,75,0.2)] text-[var(--amber,#f5b14b)]",
-};
-
-const TIER_ABBR: Record<string, string> = {
-  Common: "COM",
-  Rare: "RARE",
-  Fandom: "FAN",
-  Legendary: "LEG",
-  Ultimate: "ULT",
-};
 
 function ago(iso: string | null): string {
   if (!iso) return "";
@@ -36,17 +19,7 @@ function ago(iso: string | null): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function TierChip({ tier }: { tier: string | null }) {
-  if (!tier) return null;
-  const cls = TIER_CHIP[tier] ?? "bg-[var(--surface-2)] text-[var(--text-dim)]";
-  return (
-    <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-[0.06em] ${cls}`}>
-      {TIER_ABBR[tier] ?? tier.slice(0, 4).toUpperCase()}
-    </span>
-  );
-}
-
-function MoverList({ rows, kind }: { rows: PlayerMarketCapRow[]; kind: "gain" | "loss" }) {
+function MoverList({ rows, kind }: { rows: PlayerMoverRow[]; kind: "gain" | "loss" }) {
   return (
     <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[18px]">
       <h3 className="mb-3 text-[13.5px] font-semibold">
@@ -65,7 +38,7 @@ function MoverList({ rows, kind }: { rows: PlayerMarketCapRow[]; kind: "gain" | 
         >
           <span className="truncate">{r.player_name ?? "—"}</span>
           <span className="ml-2 font-mono font-semibold">
-            <Num value={r.delta_pct_30d} format="deltaPct" colorize precision={1} />
+            <Num value={r.pct_change} format="deltaPct" colorize precision={1} />
           </span>
         </Link>
       ))}
@@ -74,29 +47,14 @@ function MoverList({ rows, kind }: { rows: PlayerMarketCapRow[]; kind: "gain" | 
 }
 
 export function MarketActivity({
-  transactions,
-  movers,
-  activeTier,
+  sales,
+  gainers,
+  losers,
 }: {
-  transactions: RecentTransactionRow[];
-  movers: PlayerMarketCapRow[];
-  activeTier: TierTab;
+  sales: ActivitySaleRow[];
+  gainers: PlayerMoverRow[];
+  losers: PlayerMoverRow[];
 }) {
-  const sales =
-    activeTier === "All"
-      ? transactions
-      : transactions.filter((t) => t.tier_name === activeTier);
-
-  const withDelta = movers.filter((m) => m.delta_pct_30d != null);
-  const gainers = [...withDelta]
-    .filter((m) => (m.delta_pct_30d ?? 0) > 0)
-    .sort((a, b) => (b.delta_pct_30d ?? 0) - (a.delta_pct_30d ?? 0))
-    .slice(0, 5);
-  const losers = [...withDelta]
-    .filter((m) => (m.delta_pct_30d ?? 0) < 0)
-    .sort((a, b) => (a.delta_pct_30d ?? 0) - (b.delta_pct_30d ?? 0))
-    .slice(0, 5);
-
   return (
     <div className="mt-[14px] grid grid-cols-1 gap-[18px] lg:grid-cols-[1.5fr_1fr]">
       {/* Sales */}
@@ -104,12 +62,12 @@ export function MarketActivity({
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-[18px] py-[14px]">
           <h3 className="text-[13.5px] font-semibold">Notable sales</h3>
           <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            {activeTier === "All" ? "all tiers" : activeTier}
+            last 30d · by size
           </span>
         </div>
         {sales.length === 0 && (
           <p className="px-[18px] py-8 text-center text-[12px] text-[var(--text-dim)]">
-            No sales in this tier.
+            No sales in range.
           </p>
         )}
         {sales.slice(0, 12).map((s) => (
@@ -123,21 +81,17 @@ export function MarketActivity({
                 <span className="text-[var(--text-faint)]">←</span>{" "}
                 <b className="font-semibold">{s.seller_safe_name ?? "—"}</b>
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[10.5px] text-[var(--text-faint)]">
-                <span className="truncate">
-                  {s.player_name ?? s.play_name ?? "—"}
-                  {s.serial_number != null && ` · #${s.serial_number}`}
-                </span>
-                <TierChip tier={s.tier_name} />
+              <div className="mt-0.5 truncate font-mono text-[10.5px] text-[var(--text-faint)]">
+                {s.player_name ?? s.play_name ?? "—"}
+                {s.serial_number != null && ` · #${s.serial_number}`}
+                {s.set_name && ` · ${s.set_name}`}
               </div>
             </div>
             <div className="text-right">
               <div className="font-mono text-[14px] font-semibold">
                 <Num value={s.gross_amount_usd} format="usdCompact" />
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--text-faint)]">
-                {ago(s.source_updated_at)}
-              </div>
+              <div className="mt-0.5 text-[10px] text-[var(--text-faint)]">{ago(s.sold_at)}</div>
             </div>
           </div>
         ))}

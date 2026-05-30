@@ -43,7 +43,14 @@ function tileStyle(delta: number | null, capRatio: number): React.CSSProperties 
   };
 }
 
-export function MarketMap({ rows }: { rows: PlayerMarketCapRow[] }) {
+export function MarketMap({
+  rows,
+  moves,
+}: {
+  rows: PlayerMarketCapRow[];
+  // player_id → 30d % move (from mv_player_movers_30d). Absent = neutral tile.
+  moves: Record<string, number>;
+}) {
   const visible = rows.filter((r) => r.market_cap_usd > 0).slice(0, MAX_TILES);
   if (visible.length === 0) {
     return (
@@ -58,12 +65,13 @@ export function MarketMap({ rows }: { rows: PlayerMarketCapRow[] }) {
     <div className="flex flex-wrap gap-1">
       {visible.map((r) => {
         const capRatio = r.market_cap_usd / maxCap;
+        const move = moves[r.player_id] ?? r.delta_pct_30d;
         const isRookie = r.last_play_date == null && r.league === "NBA";
         return (
           <Link
             key={r.player_id}
             href={`/player/${r.player_id}`}
-            style={tileStyle(r.delta_pct_30d, capRatio)}
+            style={tileStyle(move, capRatio)}
             className="flex min-h-[92px] flex-col justify-between overflow-hidden rounded-lg px-[13px] py-3 transition-transform hover:-translate-y-0.5"
           >
             <div>
@@ -76,7 +84,7 @@ export function MarketMap({ rows }: { rows: PlayerMarketCapRow[] }) {
               )}
             </div>
             <div className="self-start font-mono text-[13px] font-semibold">
-              <Num value={r.delta_pct_30d} format="deltaPct" colorize precision={1} />
+              <Num value={move} format="deltaPct" colorize precision={1} />
             </div>
           </Link>
         );

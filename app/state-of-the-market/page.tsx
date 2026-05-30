@@ -20,10 +20,8 @@ import {
   parseIndexKey,
   type MarketIndexKey,
 } from "@/lib/state-of-market/indices";
-import {
-  getRecentTransactions,
-  isoHoursAgo,
-} from "@/lib/supabase/queries/recent-transactions";
+import { getActivitySales } from "@/lib/state-of-market/activity";
+import { getPlayerMovers } from "@/lib/supabase/queries/player-movers";
 import { getPlayersMarketCap } from "@/lib/supabase/queries/players-marketcap";
 
 import { Num } from "@/components/primitives/Num";
@@ -32,8 +30,6 @@ import { IndexHeroChart } from "@/components/state-of-market/IndexHeroChart";
 import { IndexRail } from "@/components/state-of-market/IndexRail";
 import { MarketMap } from "@/components/state-of-market/MarketMap";
 import { MarketActivity } from "@/components/state-of-market/MarketActivity";
-import { TierTabs } from "@/components/state-of-market/TierTabs";
-import { parseTier } from "@/components/state-of-market/tier-tabs-shared";
 import {
   HeroSkeleton,
   MapSkeleton,
@@ -48,7 +44,7 @@ import {
 export const metadata: Metadata = {
   title: "State of the Market · TS·PORTAL",
   description:
-    "The macro backdrop for NBA Top Shot — a featured market index, the Market Map of every player sized by cap and colored by 30-day move, and tier-segmented live activity.",
+    "The macro backdrop for NBA Top Shot — a featured market index, the Market Map of every player sized by cap and colored by 30-day move, and live market activity.",
 };
 
 export const revalidate = 300;
@@ -80,18 +76,16 @@ function SectionHead({ title, legend }: { title: string; legend: string }) {
 
 // ── Ticker (live layer thread) ───────────────────────────────────────────────
 async function TickerSection() {
-  const tx = await getRecentTransactions({ limit: 16, since: isoHoursAgo(72) });
-  const items: TickerItem[] = tx
-    .filter((t) => t.gross_amount_usd != null)
-    .map((t) => ({
-      id: t.transaction_id,
-      actor: t.buyer_safe_name ?? t.seller_safe_name,
-      side: "bought" as const,
-      label: [t.player_name ?? t.play_name, t.serial_number != null ? `#${t.serial_number}` : null]
-        .filter(Boolean)
-        .join(" "),
-      priceUsd: t.gross_amount_usd,
-    }));
+  const sales = await getActivitySales("7d", 16);
+  const items: TickerItem[] = sales.map((s) => ({
+    id: s.transaction_id,
+    actor: s.buyer_safe_name ?? s.seller_safe_name,
+    side: "bought" as const,
+    label: [s.player_name ?? s.play_name, s.serial_number != null ? `#${s.serial_number}` : null]
+      .filter(Boolean)
+      .join(" "),
+    priceUsd: s.gross_amount_usd,
+  }));
   return <MarketTicker items={items} />;
 }
 
@@ -163,18 +157,23 @@ async function HeroSection({ sp, featured }: { sp: SP; featured: MarketIndexKey 
 
 // ── Map ──────────────────────────────────────────────────────────────────────
 async function MapSection() {
-  const { rows } = await getPlayersMarketCap();
-  return <MarketMap rows={rows} />;
+  const [{ rows }, movers] = await Promise.all([getPlayersMarketCap(), getPlayerMovers(30)]);
+  // player_id → 30d % move, from the populated movers MV.
+  const moves: Record<string, number> = {};
+  for (const m of [...movers.gainers, ...movers.losers]) moves[m.player_id] = m.pct_change;
+  return <MarketMap rows={rows} moves={moves} />;
 }
 
 // ── Activity ─────────────────────────────────────────────────────────────────
-async function ActivitySection({ sp }: { sp: SP }) {
-  const tier = parseTier(sp.tier);
-  const [tx, players] = await Promise.all([
-    getRecentTransactions({ limit: 80, since: isoHoursAgo(72) }),
-    getPlayersMarketCap(),
-  ]);
-  return <MarketActivity transactions={tx} movers={players.rows} activeTier={tier} />;
+async function ActivitySection() {
+  const [sales, movers] = await Promise.all([getActivitySales("30d", 40), getPlayerMovers(30)]);
+  return (
+    <MarketActivity
+      sales={sales}
+      gainers={movers.gainers.slice(0, 5)}
+      losers={movers.losers.slice(0, 5)}
+    />
+  );
 }
 
 export default async function StateOfMarketPage({
@@ -185,7 +184,6 @@ export default async function StateOfMarketPage({
   const sp = await searchParams;
   const { window } = parseTimeWindow(sp.w);
   const featured = parseIndexKey(sp.idx);
-  const tier = parseTier(sp.tier);
 
   return (
     <>
@@ -210,13 +208,10 @@ export default async function StateOfMarketPage({
 
         <SectionHead
           title="Market Activity"
-          legend="Filter by tier · specific sales left, biggest cap moves right"
+          legend="Specific sales left, biggest cap moves right"
         />
-        <Suspense fallback={<div className="h-[38px]" />}>
-          <TierTabs active={tier} />
-        </Suspense>
-        <Suspense key={`act-${tier}`} fallback={<ActivitySkeleton />}>
-          <ActivitySection sp={sp} />
+        <Suspense key="act" fallback={<ActivitySkeleton />}>
+          <ActivitySection />
         </Suspense>
       </main>
     </>
