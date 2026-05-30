@@ -14,14 +14,18 @@ export const revalidate = 600;
 
 async function Trend() {
   const rows = await getRealizedMonthly();
-  const last = rows[rows.length - 1];
-  const sixAgo = rows[rows.length - 7];
-  const yrAgo = rows[rows.length - 13];
+  // Exclude the current calendar month — it's partial (data lands mid-month) and
+  // comparing a half-month to full months reads as a fake crash.
+  const curMonth = new Date().toISOString().slice(0, 7);
+  const complete = rows.filter((r) => r.month.slice(0, 7) < curMonth);
+  const last = complete[complete.length - 1];
+  const sixAgo = complete[complete.length - 7];
+  const bottom = complete.reduce<typeof last | undefined>((m, r) => (!m || r.gmv < m.gmv ? r : m), undefined);
   const pct = (a?: number, b?: number) => (a != null && b ? ((a - b) / b) * 100 : null);
   const kpis = [
-    { label: "GMV / latest mo", value: last?.gmv, fmt: "usdCompact" as const },
+    { label: `GMV · ${last?.month.slice(0, 7) ?? "—"}`, value: last?.gmv, fmt: "usdCompact" as const },
     { label: "GMV vs 6mo ago", value: pct(last?.gmv, sixAgo?.gmv), fmt: "deltaPct" as const },
-    { label: "GMV vs 12mo ago", value: pct(last?.gmv, yrAgo?.gmv), fmt: "deltaPct" as const },
+    { label: `vs bottom (${bottom?.month.slice(2, 7) ?? "—"})`, value: pct(last?.gmv, bottom?.gmv), fmt: "deltaPct" as const },
     { label: "Median sale", value: last?.median_usd, fmt: "usd" as const },
   ];
   return (
@@ -38,7 +42,7 @@ async function Trend() {
       </div>
       <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[18px]">
         <div className="mb-1 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--text-faint)]">
-          Realized GMV (teal, left) · median sale price (amber, right) · by month
+          Realized GMV (teal, left) · median sale price (amber, right) · by month · final month partial (data lands mid-month)
         </div>
         <RealizedTrendChart rows={rows} />
       </div>
