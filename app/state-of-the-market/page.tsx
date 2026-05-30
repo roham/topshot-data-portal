@@ -20,12 +20,8 @@ import {
   parseIndexKey,
   type MarketIndexKey,
 } from "@/lib/state-of-market/indices";
-import {
-  getActivitySales,
-  getMovesByPlayerIds,
-  windowToMoverWindow,
-} from "@/lib/state-of-market/activity";
-import { getPlayerMovers } from "@/lib/supabase/queries/player-movers";
+import { getActivitySales } from "@/lib/state-of-market/activity";
+import { getPlayerWindowMoves } from "@/lib/state-of-market/player-moves";
 import { getPlayersMarketCap } from "@/lib/supabase/queries/players-marketcap";
 
 import { Num } from "@/components/primitives/Num";
@@ -58,6 +54,20 @@ type SP = { w?: string; idx?: string; tier?: string };
 
 // Pills shown in the hero. Subset of the full window taxonomy.
 const HERO_WINDOWS: TimeWindow[] = ["7d", "30d", "90d", "1y", "all"];
+
+// Human label for a window's move span (used in legend + activity headers).
+function windowMoveLabel(w: TimeWindow): string {
+  switch (w) {
+    case "24h": return "24-hour";
+    case "7d": return "7-day";
+    case "30d": return "30-day";
+    case "90d": return "90-day";
+    case "6m": return "6-month";
+    case "1y": return "1-year";
+    case "2y": return "2-year";
+    case "all": return "all-time";
+  }
+}
 
 function buildHref(sp: SP, override: Partial<SP>): string {
   const next = new URLSearchParams();
@@ -161,27 +171,34 @@ async function HeroSection({ sp, featured }: { sp: SP; featured: MarketIndexKey 
 
 // ── Map ──────────────────────────────────────────────────────────────────────
 async function MapSection({ window }: { window: TimeWindow }) {
-  const mw = windowToMoverWindow(window);
-  const { rows } = await getPlayersMarketCap();
-  // Each tile's OWN move over the active mover window, keyed by player_id.
-  const topIds = rows.filter((r) => r.market_cap_usd > 0).slice(0, 40).map((r) => r.player_id);
-  const moves = await getMovesByPlayerIds(topIds, mw);
+  const days = windowToDays(window);
+  const [{ rows }, { moves }] = await Promise.all([
+    getPlayersMarketCap(),
+    getPlayerWindowMoves(days),
+  ]);
   return <MarketMap rows={rows} moves={moves} />;
 }
 
 // ── Activity ─────────────────────────────────────────────────────────────────
 async function ActivitySection({ window }: { window: TimeWindow }) {
-  const mw = windowToMoverWindow(window);
-  const [sales, movers] = await Promise.all([
+  const days = windowToDays(window);
+  const [sales, { rows }, { moves }] = await Promise.all([
     getActivitySales(window, 40),
-    getPlayerMovers(mw),
+    getPlayersMarketCap(),
+    getPlayerWindowMoves(days),
   ]);
+  // Gainers/losers = the biggest cap movers among top players, over this window.
+  const items = rows
+    .filter((r) => moves[r.player_id] != null)
+    .map((r) => ({ player_id: r.player_id, player_name: r.player_name, pct_change: moves[r.player_id] }));
+  const gainers = [...items].filter((i) => i.pct_change > 0).sort((a, b) => b.pct_change - a.pct_change).slice(0, 5);
+  const losers = [...items].filter((i) => i.pct_change < 0).sort((a, b) => a.pct_change - b.pct_change).slice(0, 5);
   return (
     <MarketActivity
       sales={sales}
-      gainers={movers.gainers.slice(0, 5)}
-      losers={movers.losers.slice(0, 5)}
-      moverWindowDays={mw}
+      gainers={gainers}
+      losers={losers}
+      moverWindowLabel={windowMoveLabel(window)}
       salesWindowLabel={window.toUpperCase()}
     />
   );
@@ -195,7 +212,6 @@ export default async function StateOfMarketPage({
   const sp = await searchParams;
   const { window } = parseTimeWindow(sp.w);
   const featured = parseIndexKey(sp.idx);
-  const moverDays = windowToMoverWindow(window);
 
   return (
     <>
@@ -212,7 +228,7 @@ export default async function StateOfMarketPage({
 
         <SectionHead
           title="The Market Map"
-          legend={`Each tile a player · sized by market cap · colored by ${moverDays}-day move`}
+          legend={`Each tile a player · sized by market cap · colored by ${windowMoveLabel(window)} move`}
         />
         <Suspense key={`map-${window}`} fallback={<MapSkeleton />}>
           <MapSection window={window} />

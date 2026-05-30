@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import type { ActivitySaleRow } from "@/lib/state-of-market/activity";
-import type { PlayerMoverRow } from "@/lib/supabase/queries/player-movers";
+import type { MoverItem } from "@/lib/state-of-market/player-moves";
 import { Num } from "@/components/primitives/Num";
 
 function ago(iso: string | null): string {
@@ -22,16 +22,16 @@ function ago(iso: string | null): string {
 function MoverList({
   rows,
   kind,
-  windowDays,
+  windowLabel,
 }: {
-  rows: PlayerMoverRow[];
+  rows: MoverItem[];
   kind: "gain" | "loss";
-  windowDays: number;
+  windowLabel: string;
 }) {
   return (
     <div className="rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-[18px]">
       <h3 className="mb-3 text-[13.5px] font-semibold">
-        {kind === "gain" ? `Top gainers · ${windowDays}d` : `Top losers · ${windowDays}d`}
+        {kind === "gain" ? `Top gainers · ${windowLabel}` : `Top losers · ${windowLabel}`}
       </h3>
       {rows.length === 0 && (
         <p className="text-[11px] text-[var(--text-faint)]">No 30-day moves in range.</p>
@@ -58,13 +58,13 @@ export function MarketActivity({
   sales,
   gainers,
   losers,
-  moverWindowDays,
+  moverWindowLabel,
   salesWindowLabel,
 }: {
   sales: ActivitySaleRow[];
-  gainers: PlayerMoverRow[];
-  losers: PlayerMoverRow[];
-  moverWindowDays: number;
+  gainers: MoverItem[];
+  losers: MoverItem[];
+  moverWindowLabel: string;
   salesWindowLabel: string;
 }) {
   return (
@@ -111,8 +111,8 @@ export function MarketActivity({
 
       {/* Movers */}
       <div className="flex flex-col gap-[14px]">
-        <MoverList rows={gainers} kind="gain" windowDays={moverWindowDays} />
-        <MoverList rows={losers} kind="loss" windowDays={moverWindowDays} />
+        <MoverList rows={gainers} kind="gain" windowLabel={moverWindowLabel} />
+        <MoverList rows={losers} kind="loss" windowLabel={moverWindowLabel} />
       </div>
     </div>
   );
