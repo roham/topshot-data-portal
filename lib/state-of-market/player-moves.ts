@@ -87,7 +87,9 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       const out: Row[] = [];
       for (let off = 0; off < 20000; off += PAGE) {
         const { data } = await sb.from("market_caps").select("edition_id, date, market_cap")
-          .gte("date", from).lte("date", to).in("edition_id", c).range(off, off + PAGE - 1);
+          .gte("date", from).lte("date", to).in("edition_id", c)
+          .order("edition_id", { ascending: true }).order("date", { ascending: true })
+          .range(off, off + PAGE - 1);
         const batch = (data as Row[] | null) ?? [];
         out.push(...batch);
         if (batch.length < PAGE) break;
