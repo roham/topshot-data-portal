@@ -51,50 +51,66 @@ export async function getMarketIndices(lookbackDays = 30): Promise<MarketIndexCa
   ]);
 
   return [
-    {
-      key: "rookies",
-      name: "ROOKIES",
-      sublabel: rookies.draft_year_used
-        ? `${rookies.draft_year_used} draft class`
-        : "current draft class",
-      basket_mcap_usd: rookies.basket_mcap_total_usd,
-      pct_change: rookies.series_pct_change,
-      series: rookies.series.map((p) => ({
-        date: p.date,
-        value: p.index_value,
-        mcap: p.basket_mcap_usd,
-      })),
-      is_thin: rookies.is_thin,
-      as_of_date: rookies.as_of_date,
-    },
-    {
-      key: "grail",
-      name: "GRAIL",
-      sublabel: "blue-chip basket",
-      basket_mcap_usd: grail.basket_mcap_total_usd,
-      pct_change: grail.series_pct_change,
-      series: grail.series.map((p) => ({
-        date: p.date,
-        value: p.index_value,
-        mcap: p.basket_mcap_usd,
-      })),
+    toCard("rookies", "ROOKIES", rookies.draft_year_used
+      ? `${rookies.draft_year_used} draft class`
+      : "current draft class", rookies.is_thin, rookies),
+    toCard("grail", "GRAIL", "blue-chip basket",
       // GrailIndexResult has no is_thin flag — derive it from coverage.
-      is_thin: grail.days_of_history < 2 || grail.basket_active_size === 0,
-      as_of_date: grail.as_of_date,
-    },
-    {
-      key: "ts50",
-      name: "TS-50",
-      sublabel: "top 50 by cap × floor",
-      basket_mcap_usd: ts50.basket_mcap_total_usd,
-      pct_change: ts50.series_pct_change,
-      series: ts50.series.map((p) => ({
-        date: p.date,
-        value: p.index_value,
-        mcap: p.basket_mcap_usd,
-      })),
-      is_thin: ts50.is_thin,
-      as_of_date: ts50.as_of_date,
-    },
+      grail.days_of_history < 2 || grail.basket_active_size === 0, grail),
+    toCard("ts50", "TS-50", "top 50 by cap × floor", ts50.is_thin, ts50),
   ];
+}
+
+// Shared synthesizer result shape (the fields all three indices expose that we
+// need). Each synth also exposes index_value per point — we deliberately ignore
+// it (see below).
+interface SynthResult {
+  series: { date: string; index_value: number; basket_mcap_usd: number }[];
+  basket_mcap_total_usd: number;
+  as_of_date: string | null;
+}
+
+/**
+ * % change over the window, computed from the HONEST DOLLAR series
+ * (`basket_mcap_usd`) — the same series the hero chart plots — NOT from the
+ * normalized `index_value`.
+ *
+ * Why: the synthesizers normalize `index_value` to 100 at the first in-window
+ * date, and that baseline (`weightedSumByDate[0]`) collapses when the start of
+ * the window lands on a sparse-coverage snapshot, producing nonsense like
+ * Grail +404% over 30d while the dollar basket sat flat at ~$25M. Anchoring the
+ * headline on the dollar series keeps the number consistent with the chart and
+ * monotonic across windows (a 30d move is contained within the 90d/1y series).
+ */
+function dollarPct(series: { basket_mcap_usd: number }[]): number {
+  const nonzero = series.filter((p) => p.basket_mcap_usd > 0);
+  if (nonzero.length < 2) return 0;
+  const first = nonzero[0].basket_mcap_usd;
+  const last = nonzero[nonzero.length - 1].basket_mcap_usd;
+  return first > 0 ? ((last - first) / first) * 100 : 0;
+}
+
+function toCard(
+  key: MarketIndexKey,
+  name: string,
+  sublabel: string,
+  isThin: boolean,
+  synth: SynthResult,
+): MarketIndexCard {
+  return {
+    key,
+    name,
+    sublabel,
+    basket_mcap_usd: synth.basket_mcap_total_usd,
+    pct_change: dollarPct(synth.series),
+    // value === mcap on purpose: chart, sparkline, and headline % all read the
+    // one honest dollar series, so they can never disagree.
+    series: synth.series.map((p) => ({
+      date: p.date,
+      value: p.basket_mcap_usd,
+      mcap: p.basket_mcap_usd,
+    })),
+    is_thin: isThin,
+    as_of_date: synth.as_of_date,
+  };
 }
