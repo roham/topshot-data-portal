@@ -5,7 +5,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSliceMoves, type Slice } from "@/lib/state-of-market/slice-moves";
+import { getSliceMoves, type Slice, type Metric } from "@/lib/state-of-market/slice-moves";
 import { Num } from "@/components/primitives/Num";
 import { parseTimeWindow, type TimeWindow, windowToDays } from "@/components/global/window-types";
 
@@ -61,11 +61,12 @@ function SliceCard({ title, hint, slices }: { title: string; hint: string; slice
   );
 }
 
-async function Lab({ window }: { window: TimeWindow }) {
-  const s = await getSliceMoves(windowToDays(window));
+async function Lab({ window, metric }: { window: TimeWindow; metric: Metric }) {
+  const s = await getSliceMoves(windowToDays(window), metric);
+  const m = metric === "bid" ? "bid" : "ask";
   return (
     <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-2">
-      <SliceCard title="By Tier" hint={`cap-weighted move · ${window.toUpperCase()}`} slices={s.byTier} />
+      <SliceCard title="By Tier" hint={`${m} move · ${window.toUpperCase()}`} slices={s.byTier} />
       <SliceCard title="By Price Band" hint="per-moment cap bucket" slices={s.byPriceBand} />
       <SliceCard title="By Scarcity" hint="edition mint size" slices={s.byScarcity} />
       <SliceCard title="By Series" hint="vintage → recent" slices={s.bySeries} />
@@ -86,33 +87,55 @@ function Skeleton() {
   );
 }
 
-export default async function SliceLabPage({ searchParams }: { searchParams: Promise<{ w?: string }> }) {
+export default async function SliceLabPage({ searchParams }: { searchParams: Promise<{ w?: string; m?: string }> }) {
   const sp = await searchParams;
   const { window } = parseTimeWindow(sp.w);
+  const metric: Metric = sp.m === "bid" ? "bid" : "ask";
+  const metrics: { key: Metric; label: string }[] = [
+    { key: "ask", label: "ASK (floor)" },
+    { key: "bid", label: "BID (demand)" },
+  ];
   return (
     <main className="mx-auto max-w-[1200px] px-[22px] py-6">
-      <div className="mb-1 flex items-end justify-between">
+      <div className="mb-1 flex flex-wrap items-end justify-between gap-2">
         <h1 className="text-[20px] font-semibold tracking-tight">Slice Lab</h1>
-        <div className="inline-flex gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
-          {WINDOWS.map((w) => (
-            <Link
-              key={w}
-              href={`/lab/slices?w=${w}`}
-              scroll={false}
-              className={`rounded-md px-[9px] py-[5px] font-mono text-[11px] transition-colors ${
-                w === window ? "bg-[#2dd4bf]/15 font-semibold text-[#2dd4bf]" : "text-[var(--text-dim)] hover:text-[var(--text)]"
-              }`}
-            >
-              {w.toUpperCase()}
-            </Link>
-          ))}
+        <div className="flex gap-2">
+          <div className="inline-flex gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
+            {metrics.map((mm) => (
+              <Link
+                key={mm.key}
+                href={`/lab/slices?w=${window}&m=${mm.key}`}
+                scroll={false}
+                className={`rounded-md px-[10px] py-[5px] font-mono text-[11px] transition-colors ${
+                  mm.key === metric ? "bg-[var(--accent)]/15 font-semibold text-[var(--accent)]" : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                }`}
+              >
+                {mm.label}
+              </Link>
+            ))}
+          </div>
+          <div className="inline-flex gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
+            {WINDOWS.map((w) => (
+              <Link
+                key={w}
+                href={`/lab/slices?w=${w}&m=${metric}`}
+                scroll={false}
+                className={`rounded-md px-[9px] py-[5px] font-mono text-[11px] transition-colors ${
+                  w === window ? "bg-[#2dd4bf]/15 font-semibold text-[#2dd4bf]" : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                }`}
+              >
+                {w.toUpperCase()}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
       <p className="mb-5 text-[11px] text-[var(--text-faint)]">
-        Cap-weighted % move by slice (top-player universe). Green = up, red = down. Finding cuts with signal.
+        Cap-weighted % move by slice (top-player universe). <b>ASK</b> = floor (sellers); <b>BID</b> = top offer (demand).
+        Green = up, red = down. The ask-vs-bid gap is itself the signal.
       </p>
-      <Suspense key={window} fallback={<Skeleton />}>
-        <Lab window={window} />
+      <Suspense key={`${window}-${metric}`} fallback={<Skeleton />}>
+        <Lab window={window} metric={metric} />
       </Suspense>
     </main>
   );

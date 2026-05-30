@@ -64,7 +64,9 @@ interface EdMeta {
   team: string | null;
 }
 
-async function _getSliceMoves(windowDays: number): Promise<SliceMoves> {
+export type Metric = "ask" | "bid";
+
+async function _getSliceMoves(windowDays: number, metric: Metric): Promise<SliceMoves> {
   const empty: SliceMoves = { byTier: [], byPriceBand: [], byScarcity: [], bySeries: [], byTeam: [], latest_date: null, prior_date: null };
   const sb = getSupabaseServerAnon();
   if (!sb) return empty;
@@ -112,12 +114,14 @@ async function _getSliceMoves(windowDays: number): Promise<SliceMoves> {
       for (const s of (data as { set_id: string; series_number: number | null }[] | null) ?? []) seriesBySet.set(s.set_id, s.series_number);
     }
 
-    // Paginated band reads.
-    type Row = { edition_id: string; date: string; market_cap: number | null };
+    // Paginated band reads of the RAW quote columns so we can value the basket
+    // on ask (floor) OR bid (top offer) × circulation — not the precomputed
+    // floor-only market_cap.
+    type Row = { edition_id: string; date: string; lowest_ask_price: number | null; highest_offer_price: number | null; num_moments_in_circulation: number | null };
     const fetchBand = async (c: string[], from: string, to: string): Promise<Row[]> => {
       const out: Row[] = [];
       for (let off = 0; off < 40000; off += PAGE) {
-        const { data } = await sb.from("market_caps").select("edition_id, date, market_cap")
+        const { data } = await sb.from("market_caps").select("edition_id, date, lowest_ask_price, highest_offer_price, num_moments_in_circulation")
           .gte("date", from).lte("date", to).in("edition_id", c)
           .order("edition_id", { ascending: true }).order("date", { ascending: true }).range(off, off + PAGE - 1);
         const batch = (data as Row[] | null) ?? [];
@@ -132,12 +136,20 @@ async function _getSliceMoves(windowDays: number): Promise<SliceMoves> {
       Promise.all(chunks.map((c) => fetchBand(c, nowFrom, latestDate))),
       Promise.all(chunks.map((c) => fetchBand(c, thenFrom, targetIso))),
     ]);
+    // Cap for the chosen metric on a given row: price × circulation.
+    const capOf = (r: Row): number | null => {
+      const price = metric === "bid" ? r.highest_offer_price : r.lowest_ask_price;
+      const circ = r.num_moments_in_circulation;
+      if (price == null || circ == null || price <= 0) return null;
+      return Number(price) * Number(circ);
+    };
     const pick = (lists: Row[][]) => {
       const best = new Map<string, { date: string; val: number }>();
       for (const list of lists) for (const r of list) {
-        if (r.market_cap == null) continue;
+        const val = capOf(r);
+        if (val == null) continue;
         const cur = best.get(r.edition_id);
-        if (!cur || r.date > cur.date) best.set(r.edition_id, { date: r.date, val: Number(r.market_cap) });
+        if (!cur || r.date > cur.date) best.set(r.edition_id, { date: r.date, val });
       }
       return best;
     };
@@ -186,9 +198,9 @@ async function _getSliceMoves(windowDays: number): Promise<SliceMoves> {
   }
 }
 
-export const getSliceMoves = (windowDays: number) =>
+export const getSliceMoves = (windowDays: number, metric: Metric = "ask") =>
   unstable_cache(
-    () => _getSliceMoves(windowDays),
-    ["som-slice-moves-v1", String(windowDays)],
+    () => _getSliceMoves(windowDays, metric),
+    ["som-slice-moves-v2", String(windowDays), metric],
     { revalidate: 300, tags: ["slice-moves", "market_caps"] },
   )();
