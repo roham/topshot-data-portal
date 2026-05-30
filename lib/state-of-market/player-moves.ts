@@ -31,8 +31,11 @@ export interface PlayerWindowMoves {
 const TOP_PLAYERS = 60;
 // Chunk × band-days must stay well under PostgREST's 1000-row response cap, or
 // rows get silently truncated and editions vanish (the bug that blanked tiles).
-const ED_CHUNK = 40;
+const ED_CHUNK = 60;
 const ROW_LIMIT = 1000;
+// Top 60 players have ~3400 editions total — the editions read MUST override the
+// 1000-row default or 2/3 of editions (and their players) silently drop.
+const EDITIONS_LIMIT = 20000;
 
 function isoMinusDays(iso: string, days: number): string {
   const d = new Date(iso + "T00:00:00Z");
@@ -73,7 +76,7 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
     if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
     const { data: edRows } = await sb
-      .from("editions").select("player_id, edition_id").in("player_id", playerIds);
+      .from("editions").select("player_id, edition_id").in("player_id", playerIds).limit(EDITIONS_LIMIT);
     const editionToPlayer = new Map<string, string>();
     for (const e of (edRows as { player_id: string; edition_id: string }[] | null) ?? []) {
       editionToPlayer.set(e.edition_id, e.player_id);
