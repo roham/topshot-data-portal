@@ -29,7 +29,10 @@ export interface PlayerWindowMoves {
 }
 
 const TOP_PLAYERS = 60;
-const ED_CHUNK = 80;
+// Chunk × band-days must stay well under PostgREST's 1000-row response cap, or
+// rows get silently truncated and editions vanish (the bug that blanked tiles).
+const ED_CHUNK = 40;
+const ROW_LIMIT = 1000;
 
 function isoMinusDays(iso: string, days: number): string {
   const d = new Date(iso + "T00:00:00Z");
@@ -56,10 +59,11 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
     let targetIso = isoMinusDays(latestDate, windowDays);
     if (targetIso < earliestDate) targetIso = earliestDate;
     if (targetIso >= latestDate) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
-    // Carry-forward bands: take each edition's most-recent snapshot within the
-    // band. Wider band for older targets where snapshots are sparse.
-    const nowFrom = isoMinusDays(latestDate, 21);
-    const thenFrom = isoMinusDays(targetIso, 75);
+    // Narrow carry-forward bands (each edition's most-recent snapshot within the
+    // band). Coverage is dense daily, so a tight band catches editions without
+    // exploding past the row cap. now: 5d, then: 11d.
+    const nowFrom = isoMinusDays(latestDate, 4);
+    const thenFrom = isoMinusDays(targetIso, 10);
 
     // 3. Top players + their editions.
     const { data: topRows } = await sb
@@ -82,7 +86,7 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
     for (let i = 0; i < editionIds.length; i += ED_CHUNK) chunks.push(editionIds.slice(i, i + ED_CHUNK));
     const band = (c: string[], from: string, to: string) =>
       sb.from("market_caps").select("edition_id, date, market_cap")
-        .gte("date", from).lte("date", to).in("edition_id", c);
+        .gte("date", from).lte("date", to).in("edition_id", c).limit(ROW_LIMIT);
     const [nowRes, thenRes] = await Promise.all([
       Promise.all(chunks.map((c) => band(c, nowFrom, latestDate))),
       Promise.all(chunks.map((c) => band(c, thenFrom, targetIso))),
