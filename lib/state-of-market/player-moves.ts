@@ -42,35 +42,31 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
   const sb = getSupabaseServerAnon();
   if (!sb) return empty;
   try {
-    // 1. Latest snapshot date.
+    // 1. Data span.
     const { data: latestRow } = await sb
-      .from("market_caps")
-      .select("date")
-      .order("date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .from("market_caps").select("date").order("date", { ascending: false }).limit(1).maybeSingle();
     const latestDate = (latestRow as { date: string } | null)?.date ?? null;
     if (!latestDate) return empty;
+    const { data: earliestRow } = await sb
+      .from("market_caps").select("date").order("date", { ascending: true }).limit(1).maybeSingle();
+    const earliestDate = (earliestRow as { date: string } | null)?.date ?? latestDate;
 
-    // 2. Two prior candidate dates ≤ (latest − window). Two so editions missing
-    //    the nearest one fall back to the next — no per-player blanks.
-    const targetIso = isoMinusDays(latestDate, windowDays);
-    const { data: p1 } = await sb
-      .from("market_caps").select("date").lte("date", targetIso)
-      .order("date", { ascending: false }).limit(1).maybeSingle();
-    const prior1 = (p1 as { date: string } | null)?.date ?? null;
-    if (!prior1 || prior1 === latestDate) return { moves: {}, latest_date: latestDate, prior_date: prior1 };
-    const { data: p2 } = await sb
-      .from("market_caps").select("date").lt("date", prior1)
-      .order("date", { ascending: false }).limit(1).maybeSingle();
-    const prior2 = (p2 as { date: string } | null)?.date ?? null;
+    // 2. Target = latest − window, clamped to the data span (so ALL compares to
+    //    the oldest snapshot). then-band reaches back further for sparse history.
+    let targetIso = isoMinusDays(latestDate, windowDays);
+    if (targetIso < earliestDate) targetIso = earliestDate;
+    if (targetIso >= latestDate) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
+    // Carry-forward bands: take each edition's most-recent snapshot within the
+    // band. Wider band for older targets where snapshots are sparse.
+    const nowFrom = isoMinusDays(latestDate, 21);
+    const thenFrom = isoMinusDays(targetIso, 75);
 
     // 3. Top players + their editions.
     const { data: topRows } = await sb
       .from("mv_player_market_cap").select("player_id")
       .order("total_market_cap_usd", { ascending: false }).limit(TOP_PLAYERS);
     const playerIds = ((topRows as { player_id: string }[] | null) ?? []).map((r) => r.player_id);
-    if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: prior1 };
+    if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
     const { data: edRows } = await sb
       .from("editions").select("player_id, edition_id").in("player_id", playerIds);
@@ -79,43 +75,45 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       editionToPlayer.set(e.edition_id, e.player_id);
     }
     const editionIds = [...editionToPlayer.keys()];
-    if (editionIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: prior1 };
+    if (editionIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
-    // 4. Caps at the three candidate dates, chunked.
-    const dates = [latestDate, prior1, prior2].filter((d): d is string => !!d);
+    // 4. Two bounded range reads per chunk (now-band, then-band).
     const chunks: string[][] = [];
     for (let i = 0; i < editionIds.length; i += ED_CHUNK) chunks.push(editionIds.slice(i, i + ED_CHUNK));
-    const results = await Promise.all(
-      chunks.map((c) =>
-        sb.from("market_caps").select("edition_id, date, market_cap").in("date", dates).in("edition_id", c),
-      ),
-    );
+    const band = (c: string[], from: string, to: string) =>
+      sb.from("market_caps").select("edition_id, date, market_cap")
+        .gte("date", from).lte("date", to).in("edition_id", c);
+    const [nowRes, thenRes] = await Promise.all([
+      Promise.all(chunks.map((c) => band(c, nowFrom, latestDate))),
+      Promise.all(chunks.map((c) => band(c, thenFrom, targetIso))),
+    ]);
 
-    // 5. Per edition: now = value@latest; then = value@prior1 ?? value@prior2.
-    const byEdition = new Map<string, Map<string, number>>();
-    for (const res of results) {
-      for (const row of (res.data as { edition_id: string; date: string; market_cap: number | null }[] | null) ?? []) {
-        if (row.market_cap == null) continue;
-        let m = byEdition.get(row.edition_id);
-        if (!m) { m = new Map(); byEdition.set(row.edition_id, m); }
-        m.set(row.date, Number(row.market_cap));
+    // 5. Per edition: most-recent value within each band (carry-forward).
+    type Row = { edition_id: string; date: string; market_cap: number | null };
+    const pickLatest = (resList: { data: unknown }[]) => {
+      const best = new Map<string, { date: string; val: number }>();
+      for (const res of resList) {
+        for (const r of (res.data as Row[] | null) ?? []) {
+          if (r.market_cap == null) continue;
+          const cur = best.get(r.edition_id);
+          if (!cur || r.date > cur.date) best.set(r.edition_id, { date: r.date, val: Number(r.market_cap) });
+        }
       }
-    }
+      return best;
+    };
+    const nowByEd = pickLatest(nowRes);
+    const thenByEd = pickLatest(thenRes);
 
-    // 6. Per-date basket sums. The latest snapshot date has sparse per-edition
-    //    coverage, so we sum whatever each date has (not matched pairs — that
-    //    leaves too few editions and blanks the %). The ratio of the two
-    //    available baskets is a sound proxy for the player's move; the absolute
-    //    sums are NOT a true cap (we display mv cap for the level).
+    // 6. Per-player basket sums over the SAME editions present in both bands
+    //    (like-for-like), then ratio.
     const capNow = new Map<string, number>();
     const capThen = new Map<string, number>();
     for (const [eid, pid] of editionToPlayer.entries()) {
-      const m = byEdition.get(eid);
-      if (!m) continue;
-      const now = m.get(latestDate);
-      const then = m.get(prior1) ?? (prior2 ? m.get(prior2) : undefined);
-      if (now != null) capNow.set(pid, (capNow.get(pid) ?? 0) + now);
-      if (then != null) capThen.set(pid, (capThen.get(pid) ?? 0) + then);
+      const now = nowByEd.get(eid)?.val;
+      const then = thenByEd.get(eid)?.val;
+      if (now == null || then == null) continue;
+      capNow.set(pid, (capNow.get(pid) ?? 0) + now);
+      capThen.set(pid, (capThen.get(pid) ?? 0) + then);
     }
 
     const moves: Record<string, number> = {};
@@ -126,7 +124,7 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
         moves[pid] = ((now - then) / then) * 100;
       }
     }
-    return { moves, latest_date: latestDate, prior_date: prior1 };
+    return { moves, latest_date: latestDate, prior_date: targetIso };
   } catch (e) {
     console.error("[state-of-market] player window moves threw", e);
     return empty;
