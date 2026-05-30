@@ -62,26 +62,28 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
     if (targetIso < earliestDate) targetIso = earliestDate;
     if (targetIso >= latestDate) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
-    // 2b. EXACT prior dates (nearest snapshot ≤ target, plus the one before it as
-    //     fallback). Exact dates → ≤3 rows per edition per chunk, so the response
-    //     can never hit the 1000-row cap (date BANDS overflow on dense windows and
-    //     silently drop editions — the real cause of the blanks).
-    const { data: p1 } = await sb
-      .from("market_caps").select("date").lte("date", targetIso)
-      .order("date", { ascending: false }).limit(1).maybeSingle();
-    const prior1 = (p1 as { date: string } | null)?.date ?? null;
-    if (!prior1 || prior1 >= latestDate) return { moves: {}, latest_date: latestDate, prior_date: prior1 };
-    const { data: p2 } = await sb
-      .from("market_caps").select("date").lt("date", prior1)
-      .order("date", { ascending: false }).limit(1).maybeSingle();
-    const prior2 = (p2 as { date: string } | null)?.date ?? null;
+    // 2b. EXACT prior dates — several spread-out candidates near the target, each
+    //     the nearest snapshot ≤ a stepped offset. A single prior date is too
+    //     sparse a year back (snapshots don't land on that exact day); a handful
+    //     of discrete dates lets each edition find its nearest without a date BAND
+    //     (bands overflow the 1000-row cap on dense windows and drop editions).
+    const offsets = [0, 7, 14, 21, 35, 50];
+    const candRows = await Promise.all(
+      offsets.map((o) =>
+        sb.from("market_caps").select("date").lte("date", isoMinusDays(targetIso, o))
+          .order("date", { ascending: false }).limit(1).maybeSingle(),
+      ),
+    );
+    // Distinct candidate dates, nearest-to-target first.
+    const priorDates = [...new Set(candRows.map((r) => (r.data as { date: string } | null)?.date).filter((d): d is string => !!d && d < latestDate))];
+    if (priorDates.length === 0) return { moves: {}, latest_date: latestDate, prior_date: null };
 
     // 3. Top players + their editions (MUST override the 1000-row default).
     const { data: topRows } = await sb
       .from("mv_player_market_cap").select("player_id")
       .order("total_market_cap_usd", { ascending: false }).limit(TOP_PLAYERS);
     const playerIds = ((topRows as { player_id: string }[] | null) ?? []).map((r) => r.player_id);
-    if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: prior1 };
+    if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: priorDates[0] };
 
     const { data: edRows } = await sb
       .from("editions").select("player_id, edition_id").in("player_id", playerIds).limit(EDITIONS_LIMIT);
@@ -90,10 +92,11 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       editionToPlayer.set(e.edition_id, e.player_id);
     }
     const editionIds = [...editionToPlayer.keys()];
-    if (editionIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: prior1 };
+    if (editionIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: priorDates[0] };
 
-    // 4. One read per chunk at the 3 exact dates (≤180 rows/chunk — never capped).
-    const dates = [latestDate, prior1, prior2].filter((d): d is string => !!d);
+    // 4. One read per chunk at the exact dates (latest + candidates) — at most
+    //    (1+candidates) rows per edition, so never near the 1000-row cap.
+    const dates = [latestDate, ...priorDates];
     const chunks: string[][] = [];
     for (let i = 0; i < editionIds.length; i += ED_CHUNK) chunks.push(editionIds.slice(i, i + ED_CHUNK));
     const results = await Promise.all(
@@ -103,7 +106,6 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       ),
     );
 
-    // 5. Per edition: now = value@latest; then = value@prior1 ?? value@prior2.
     type Row = { edition_id: string; date: string; market_cap: number | null };
     const byEdition = new Map<string, Map<string, number>>();
     for (const res of results) {
@@ -115,15 +117,16 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
       }
     }
 
-    // 6. Per-player basket sums (whatever each date has — dense coverage makes the
-    //    available baskets near-complete; ratio is the move proxy).
+    // 5+6. Per-player basket sums. now = value@latest; then = nearest available
+    //      candidate date (priorDates are nearest-to-target first).
     const capNow = new Map<string, number>();
     const capThen = new Map<string, number>();
     for (const [eid, pid] of editionToPlayer.entries()) {
       const m = byEdition.get(eid);
       if (!m) continue;
       const now = m.get(latestDate);
-      const then = m.get(prior1) ?? (prior2 ? m.get(prior2) : undefined);
+      let then: number | undefined;
+      for (const d of priorDates) { const v = m.get(d); if (v != null) { then = v; break; } }
       if (now != null) capNow.set(pid, (capNow.get(pid) ?? 0) + now);
       if (then != null) capThen.set(pid, (capThen.get(pid) ?? 0) + then);
     }
