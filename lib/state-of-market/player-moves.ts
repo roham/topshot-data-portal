@@ -72,11 +72,16 @@ async function _getPlayerWindowMoves(windowDays: number): Promise<PlayerWindowMo
     const playerIds = ((topRows as { player_id: string }[] | null) ?? []).map((r) => r.player_id);
     if (playerIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
 
-    const { data: edRows } = await sb
-      .from("editions").select("player_id, edition_id").in("player_id", playerIds).limit(EDITIONS_LIMIT);
+    // PAGINATE — the server enforces max-rows=1000 regardless of .limit(), so a
+    // single read silently drops 2/3 of the editions (the actual blank cause).
     const editionToPlayer = new Map<string, string>();
-    for (const e of (edRows as { player_id: string; edition_id: string }[] | null) ?? []) {
-      editionToPlayer.set(e.edition_id, e.player_id);
+    for (let off = 0; off < EDITIONS_LIMIT; off += PAGE) {
+      const { data } = await sb
+        .from("editions").select("player_id, edition_id").in("player_id", playerIds)
+        .order("edition_id", { ascending: true }).range(off, off + PAGE - 1);
+      const rows = (data as { player_id: string; edition_id: string }[] | null) ?? [];
+      for (const e of rows) editionToPlayer.set(e.edition_id, e.player_id);
+      if (rows.length < PAGE) break;
     }
     const editionIds = [...editionToPlayer.keys()];
     if (editionIds.length === 0) return { moves: {}, latest_date: latestDate, prior_date: targetIso };
