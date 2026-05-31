@@ -119,7 +119,7 @@ export default async function Page({
   searchParams?: Promise<{ w?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const { window } = parseTimeWindow(sp.w, "7d");
+  const { window } = parseTimeWindow(sp.w, "30d");
   const label = WINDOW_SPECS[window].label;
 
   return (
