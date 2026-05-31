@@ -20,12 +20,14 @@ export interface FloorSmashRow {
   edition_id: string; player_name: string | null; tier_name: string | null; mint_count: number | null;
   parallel_id: number | null; series_name: string | null; image_url: string | null;
   floor_before: number | null; floor_now: number | null; jump_mult: number | null;
+  n_sub: number | null; scarcest_sub: number | null;
 }
 export interface IlliquidRow {
   edition_id: string; player_name: string | null; tier_name: string | null; mint_count: number | null;
   parallel_id: number | null; series_name: string | null; image_url: string | null;
   floor: number | null; sales_90d: number; sales_ever: number | null; last_sale: number | null; last_at: string | null;
   max_sale_ever: number | null; msrp_pack: string | null; pack_msrp: number | null;
+  n_sub: number | null; scarcest_sub: number | null;
 }
 
 async function read<T>(table: string, cols: string, order: string, limit: number, map: (r: Record<string, unknown>) => T): Promise<T[]> {
@@ -64,15 +66,15 @@ export const getAppreciationStories = (cls: SerialClass = "all", limit = 48) =>
 export const getFloorSmash = (limit = 48) =>
   unstable_cache(() => read<FloorSmashRow>(
     "mv_edition_floor_smash",
-    "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor_before, floor_now, jump_mult",
+    "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor_before, floor_now, jump_mult, n_sub, scarcest_sub",
     "jump_mult", limit,
-    (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor_before: N(r.floor_before), floor_now: N(r.floor_now), jump_mult: N(r.jump_mult) }),
+    (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor_before: N(r.floor_before), floor_now: N(r.floor_now), jump_mult: N(r.jump_mult), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
   ), ["appr-floorsmash-v1", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
 
 export const getIlliquidHighValue = (limit = 48) =>
   unstable_cache(() => read<IlliquidRow>(
     "mv_edition_illiquid_highvalue",
-    "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor, sales_90d, sales_ever, last_sale, last_at, max_sale_ever, msrp_pack, pack_msrp",
+    "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor, sales_90d, sales_ever, last_sale, last_at, max_sale_ever, msrp_pack, pack_msrp, n_sub, scarcest_sub",
     "floor", limit,
-    (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor: N(r.floor), sales_90d: Number(r.sales_90d), sales_ever: N(r.sales_ever), last_sale: N(r.last_sale), last_at: S(r.last_at), max_sale_ever: N(r.max_sale_ever), msrp_pack: S(r.msrp_pack), pack_msrp: N(r.pack_msrp) }),
+    (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor: N(r.floor), sales_90d: Number(r.sales_90d), sales_ever: N(r.sales_ever), last_sale: N(r.last_sale), last_at: S(r.last_at), max_sale_ever: N(r.max_sale_ever), msrp_pack: S(r.msrp_pack), pack_msrp: N(r.pack_msrp), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
   ), ["appr-illiquid-v1", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();

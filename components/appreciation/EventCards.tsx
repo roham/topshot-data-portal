@@ -67,12 +67,14 @@ export function AppreciationStoryCard({ r, rank }: { r: StoryRow; rank?: number 
   );
 }
 
+const parallelsNote = (n: number | null) => (n != null && n > 1 ? ` · ${n} parallels` : "");
+
 export function FloorSmashCard({ r }: { r: FloorSmashRow }) {
   return (
     <Shell href={`/edition/${encodeURIComponent(r.edition_id)}`}>
       <div className="flex items-start gap-3">
         <Avatar src={r.image_url} />
-        <Identity player={r.player_name} tier={r.tier_name} sub={`${r.series_name ?? "—"} · /${r.mint_count?.toLocaleString() ?? "—"}`} />
+        <Identity player={r.player_name} tier={r.tier_name} sub={`${r.series_name ?? "—"} · /${r.mint_count?.toLocaleString() ?? "—"}${parallelsNote(r.n_sub)}`} />
         <span className="shrink-0 rounded-md px-2 py-0.5 text-[15px] font-bold tabular-nums" style={{ color: GOLD, background: "color-mix(in srgb, var(--tier-legendary) 14%, transparent)" }}>↑{fmtMult(r.jump_mult)}</span>
       </div>
       <div className="mt-3 flex items-baseline gap-2 font-mono text-[12px]">
@@ -90,7 +92,7 @@ export function IlliquidCard({ r }: { r: IlliquidRow }) {
     <Shell href={`/edition/${encodeURIComponent(r.edition_id)}`}>
       <div className="flex items-start gap-3">
         <Avatar src={r.image_url} />
-        <Identity player={r.player_name} tier={r.tier_name} sub={`${r.series_name ?? "—"} · /${r.mint_count?.toLocaleString() ?? "—"}`} />
+        <Identity player={r.player_name} tier={r.tier_name} sub={`${r.series_name ?? "—"} · /${r.mint_count?.toLocaleString() ?? "—"}${parallelsNote(r.n_sub)}`} />
         <span className="shrink-0 rounded-md bg-[var(--surface-2)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--text-dim)]">thinly traded</span>
       </div>
       <div className="mt-3 flex items-baseline gap-2 font-mono text-[11px] text-[var(--text-faint)]">
