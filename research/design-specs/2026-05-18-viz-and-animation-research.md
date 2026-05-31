@@ -146,7 +146,7 @@ The defense:
 
 1. **Audience match (decisive).** Pro Top Shot trader-collectors are gambler-collectors first, design-appreciators second. Per doctrine §0, the load-bearing comparables on the data side (TradingView, Bloomberg Terminal, Tensor, StockX) are all terminal-aesthetic, not marketing-aesthetic. Linear's clean motion is *correct for a developer collaboration tool*; it's *wrong for a chart you stare at for an hour deciding whether to sell.* TradingView shows you can have polish AND density.
 
-2. **Density-first reads as serious.** Stripe-marketing-tier polish — generous whitespace, big type, single hero metric — reads as "this team did not have enough data to fill the page." MBL (the named ICP per doctrine §3) will read a Stripe-aesthetic portal as a toy. TradingView-aesthetic reads as a tool he'd pay for.
+2. **Density-first reads as serious.** Stripe-marketing-tier polish — generous whitespace, big type, single hero metric — reads as "this team did not have enough data to fill the page." cuteknick (the named ICP per doctrine §3) will read a Stripe-aesthetic portal as a toy. TradingView-aesthetic reads as a tool he'd pay for.
 
 3. **Motion budget matches.** TradingView's motion is *parsimonious* — crosshair has zero animation (instant follow), pill switches are <250ms, panel reveals are <200ms hard cuts. This is the right motion budget for a data-first product. Linear is more animated than we need; Stripe is far more animated than we need. Polymarket's motion is close but the consumer-marketing-card hover (the 2px lift + shadow) is borrowed correctly without taking the whole aesthetic.
 

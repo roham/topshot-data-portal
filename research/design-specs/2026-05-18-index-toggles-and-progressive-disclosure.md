@@ -2,7 +2,7 @@
 
 **Author:** Design subagent (fresh context).
 **Doctrine:** v1.1 §0, §1.P1–P9.
-**Audience:** Pro trader-collector (MBL persona). 5% of users → 80% of secondary volume.
+**Audience:** Pro trader-collector (cuteknick persona). 5% of users → 80% of secondary volume.
 **Pre-reqs in repo today:** `TS50IndexHero` on `/` and `/market-cap`; `McapFormulaToggle` (floor vs avg_sale, URL: `?mcap=`); `INDICES` registry already lists TS500 + tier/series/team variants but no Grail; `lib/indices/ts50-synthesizer.ts` is the only synthesized index hooked into the hero.
 **Out of scope:** model code, ETL changes, table-drill-down layout (that's its own spec).
 
@@ -134,7 +134,7 @@ The Card's `methodology` prop is per-index. The `[methodology]` link in the Card
 **TS50.** Three reasons:
 1. **Onboarding gradient.** TS50 is the "the whole market" read — sets context for a new visitor before they drill into a niche.
 2. **Continuity.** Anyone with the page in a tab already sees TS50; quietly swapping their default to Grail would be a hostile change.
-3. **Persona match.** MBL's first glance is "is the market up or down today?" — TS50 answers that; Grail answers a narrower follow-up.
+3. **Persona match.** cuteknick's first glance is "is the market up or down today?" — TS50 answers that; Grail answers a narrower follow-up.
 
 Re-evaluate post-launch: if log analytics show >40% of sessions switch to Grail within 5 seconds of landing, flip the default.
 
@@ -144,7 +144,7 @@ Re-evaluate post-launch: if log analytics show >40% of sessions switch to Grail 
 
 Why:
 - Doctrine §P4 mandates URL-shareable chart state. Index choice is chart state.
-- Cookies introduce session-non-determinism (link Roham sends to MBL renders different charts in their respective sessions) — that's the OTM-style failure of "you have to be logged in / set up to see what I see."
+- Cookies introduce session-non-determinism (link Roham sends to cuteknick renders different charts in their respective sessions) — that's the OTM-style failure of "you have to be logged in / set up to see what I see."
 - nuqs already in the codebase (per `McapFormulaToggle.tsx` comment trail) — use the same param-state pattern. Slugs: `ts50` (default, omitted from URL), `grail`, `grail-curated`, `ultimates`, eventually `custom-<hash>`.
 
 Server component re-render via `<Link>` navigation (same pattern as `McapFormulaToggle` for the same reason — `getTS50Index()` and the equivalent `getGrailIndex()` will live as server-side fetches).
@@ -203,7 +203,7 @@ Rule of thumb: if a card shows ONE mcap value per row/series, the toggle applies
 Three candidates I considered:
 - "Floor / Avg Sale" — what `McapFormulaToggle` ships today. Accurate but slightly clinical.
 - "Listed / Sold" — viscerally clear ("what's listed right now" vs "what actually trades"). Pro-trader native. But "Listed" loses the lowest-ask precision — "Listed" could imply average-listing.
-- "Low ask / Avg sale" — the current label in the component code. Closest to MBL's literal voice. Maps 1:1 to the `floor` and `avg_sale` formula names.
+- "Low ask / Avg sale" — the current label in the component code. Closest to cuteknick's literal voice. Maps 1:1 to the `floor` and `avg_sale` formula names.
 
 **Recommend keep current: `Low ask` / `Avg sale (30d)`.** It's already pro-trader native. The `(30d)` qualifier is load-bearing — without it the avg-sale window is ambiguous. Optional improvement: add a subtitle inside the hover tooltip: `"Low ask = lowest open listing × circulation. Doctrine default."` and `"Avg sale = mean of last 30d sales × circulation. Smoother but not P1-faithful."`
 

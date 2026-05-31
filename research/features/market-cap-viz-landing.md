@@ -6,9 +6,9 @@
 
 ## 1. Trader's verbatim ask
 
-Roham 2026-05-17 19:00Z, paraphrasing the audience's mental model: *"You just load it, and it's just a bunch of graphs."* The trader (MBL-shaped) lands during halftime, wants to see immediately what the market looks like across the dimensions they care about — without sorting a table.
+Roham 2026-05-17 19:00Z, paraphrasing the audience's mental model: *"You just load it, and it's just a bunch of graphs."* The trader (cuteknick-shaped) lands during halftime, wants to see immediately what the market looks like across the dimensions they care about — without sorting a table.
 
-Until MBL's actual Twitter quotes are sourced (his transaction data isn't in Supabase per doctrine §3 footnote), the canonical voice is *"show me the market — visually, fast, faithful."*
+Until cuteknick's actual Twitter quotes are sourced (his transaction data isn't in Supabase per doctrine §3 footnote), the canonical voice is *"show me the market — visually, fast, faithful."*
 
 ## 2. Comparables
 

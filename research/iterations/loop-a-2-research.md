@@ -334,9 +334,9 @@ Expected output: `{ "total": ~3494001, "with_owner_flow_address": ≥3400000, "p
 **P1 (Faithful display, never smooth):** `owner_flow_address` is an immutable on-chain fact — the public Flow blockchain address that holds this moment. Displaying it faithfully requires it to be present. A NULL address is a structural lie: the moment has an owner, we just can't see it. Fixing this is a P1 requirement.
 
 **P6 (The trader's verbatim ask is the spec):** From `research/doctrine.md §3` (Roham 2026-05-17):
-> *"MBL serves the doctrine as a VERBATIM-VOICE anchor... Until either (a) we get MBL's flow_address from outside the DB and look up his moments via `moments.owner_flow_address`..."*
+> *"cuteknick serves the doctrine as a VERBATIM-VOICE anchor... Until either (a) we get cuteknick's flow_address from outside the DB and look up his moments via `moments.owner_flow_address`..."*
 
-The collector portfolio feature — the single most-requested collector capability — cannot be served without `owner_flow_address`. The source-of-truth-mapping.md §2.6 notes: "Subsequent dependencies: /u/[username] portfolio rebuild against Supabase... becomes possible once owner_flow_address is populated." The trader's verbatim ask (see Michael Levy / MBL public posts: "show me my bag") is blocked until this column is populated.
+The collector portfolio feature — the single most-requested collector capability — cannot be served without `owner_flow_address`. The source-of-truth-mapping.md §2.6 notes: "Subsequent dependencies: /u/[username] portfolio rebuild against Supabase... becomes possible once owner_flow_address is populated." The trader's verbatim ask (see cuteknick / cuteknick public posts: "show me my bag") is blocked until this column is populated.
 
 **CHARTER §6 (ETL files in Loop A's write boundary):** `scripts/etl/lib/etl-helpers.mjs` and `scripts/etl/lib/sync.mjs` are within Loop A's authorized write boundary per loop-a-rubric.md §6. No Loop B files are touched.
 

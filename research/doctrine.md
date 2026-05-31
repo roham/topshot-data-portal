@@ -6,7 +6,7 @@
 The shape is borrowed from the lore-vault GDD V2 *Eight Reframings (Opus, 2026-04-27)* that worked. Lore-vault shipped one coherent page in one PR because doctrine was tight enough that the agent had only execution choices left, not interpretation choices. Same intent here.
 
 **v1.1 changes from v1:**
-- ICP named: **Michael Levy (MBL)**. (Data-availability caveat in §3 footnote.)
+- ICP named: **cuteknick**. (Data-availability caveat in §3 footnote.)
 - P2 (Density) inverted to **Graphs first, density on drill**.
 - P9 (Scope) narrowed to **start with market cap visualizations only; expand from there**.
 - §0 adds **Polymarket** and **Card Ladder Pro** as the canonical graph-first comparables.
@@ -154,13 +154,13 @@ Each chart on this surface is its own load-bearing artifact, tested independentl
 
 ## §3 — Resolved Socratic answers (2026-05-17 19:00Z)
 
-### Q1 — The named ICP: **Michael Levy (MBL)**
+### Q1 — The named ICP: **cuteknick**
 
-Roham 2026-05-17 19:00Z: *"The one specific real person that I think you'll have the most data on is Michael Levy (MBL)."*
+Roham 2026-05-17 19:00Z: *"The one specific real person that I think you'll have the most data on is cuteknick."*
 
-**Data-availability footnote (Dexter 19:15Z):** verified against `topshot.*` Supabase tables; **MBL's transaction data is NOT currently in our DB.** `transactions.buyer_safe_name` exists in schema but ETL never populates it (every row is NULL). Same shape as the Podziemski Ultimate ETL gap. Until either (a) we get MBL's flow_address from outside the DB and look up his moments via `moments.owner_flow_address`, or (b) extend the BQ→Supabase ETL to populate `buyer_safe_name` / `seller_safe_name`, MBL serves the doctrine as a VERBATIM-VOICE anchor (his public posts on Twitter / Discord become the trader-voice source we quote) but not as an in-portal data subject yet.
+**Data-availability footnote (Dexter 19:15Z):** verified against `topshot.*` Supabase tables; **cuteknick's transaction data is NOT currently in our DB.** `transactions.buyer_safe_name` exists in schema but ETL never populates it (every row is NULL). Same shape as the Podziemski Ultimate ETL gap. Until either (a) we get cuteknick's flow_address from outside the DB and look up his moments via `moments.owner_flow_address`, or (b) extend the BQ→Supabase ETL to populate `buyer_safe_name` / `seller_safe_name`, cuteknick serves the doctrine as a VERBATIM-VOICE anchor (his public posts on Twitter / Discord become the trader-voice source we quote) but not as an in-portal data subject yet.
 
-This means P6 is enforceable by quoting MBL's public statements as the spec text. The acceptance bar: *"would Michael Levy (a) find this rendered correctly, (b) want to share the URL, (c) recognize it as the surface a pro Top Shot collector deserves?"*
+This means P6 is enforceable by quoting cuteknick's public statements as the spec text. The acceptance bar: *"would cuteknick (a) find this rendered correctly, (b) want to share the URL, (c) recognize it as the surface a pro Top Shot collector deserves?"*
 
 ### Q2 — The trade-off: **we are WORSE at instant raw-data scanning**
 

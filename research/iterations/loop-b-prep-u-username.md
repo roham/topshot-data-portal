@@ -18,7 +18,7 @@ URL identifier is `username` (the Top Shot display name), resolved server-side t
 **Three modes:**
 1. **`/u/[username]` (own portfolio, future)** — requires user auth; defer to post-Phase-B
 2. **`/u/[username]` (public collector view)** — V1 scope. Anyone can view any collector's bag publicly, since Flow addresses + moments are on-chain
-3. **Self-attestation mode** — Roham viewing MBL's bag; MBL viewing his own — same UI, no auth distinction in V1
+3. **Self-attestation mode** — Roham viewing cuteknick's bag; cuteknick viewing his own — same UI, no auth distinction in V1
 
 **Out of scope (defer):**
 - Owner authentication (we don't manage Top Shot auth)
@@ -144,7 +144,7 @@ export async function fetchCollectorPortfolio(username: string, formula: Portfol
 ```
 
 **Key invariants:**
-- `pagedFetch` for the BAG — collectors with 1000+ moments are real (MBL among them); we need to paginate.
+- `pagedFetch` for the BAG — collectors with 1000+ moments are real (cuteknick among them); we need to paginate.
 - `Promise.all` for everything that doesn't depend on the BAG result.
 - AcquiredAt is a JOIN through `transactions.buyer_flow_address = owner_flow_address` AND `moment_id = bag.moment_id`.
 - If `acquiredAt` is NULL for a row (moment acquired before transaction history coverage), render P&L column as "—" with a tooltip explaining the data coverage limit.
@@ -182,20 +182,20 @@ Example: `/u/mbl?mcap=floor&window=90d&sort=pnl_desc&tier=4`
 | **B5. Density** | ≥ 100 data points above fold |
 | **B6. Perf+a11y** | LCP < 3.5s (acceptable bump given paginated bag query); a11y ≥ 95 |
 | **B7. Cross-vendor** | PASS — gpt-5.5 evaluates against description docs (no rendered comparable image) |
-| **B8. CEO signal** | ✓ vote with MBL's bag as the test case ("would Michael Levy find this rendered correctly?") |
+| **B8. CEO signal** | ✓ vote with cuteknick's bag as the test case ("would cuteknick find this rendered correctly?") |
 
-**Acceptance test case:** MBL. Doctrine §3 names MBL as the canonical ICP. Once owner_flow_address is populated, look up MBL's flow_address, render his /u/[mbl-username], capture screenshot, ship to Roham for validation.
+**Acceptance test case:** cuteknick. Doctrine §3 names cuteknick as the canonical ICP. Once owner_flow_address is populated, look up cuteknick's flow_address, render his /u/[mbl-username], capture screenshot, ship to Roham for validation.
 
 ---
 
 ## §9 — Risk assessment
 
-1. **Username → flow_address lookup MV doesn't exist.** Decision: (a) build `collectors` table in Loop A DISCOVERY/DERIVATIVE — populated from Top Shot GraphQL `searchUsers` per known username, cached forever; (b) for V1, accept that we only support N hand-curated usernames (Roham, MBL, cuteknick, veerman per doctrine §3) — manually seeded.
+1. **Username → flow_address lookup MV doesn't exist.** Decision: (a) build `collectors` table in Loop A DISCOVERY/DERIVATIVE — populated from Top Shot GraphQL `searchUsers` per known username, cached forever; (b) for V1, accept that we only support N hand-curated usernames (Roham, cuteknick, cuteknick, veerman per doctrine §3) — manually seeded.
    **Recommendation:** ship V1 with hand-seeded `collectors` table (8-10 known usernames). Promote to dynamic lookup in DEEPENING.
 
 2. **AcquiredAt may be NULL for many rows** because `transactions.buyer_flow_address` (renamed from `buyer_user_id`?) is currently 0% populated. → Loop A §P0.2 (buyer_safe_name) may or may not solve this — depends on root cause investigation. If buyer_flow_address is the field we need (not buyer_safe_name), it's a separate gap. → Surface honestly in the BAG table: "Acquired-at not available for this moment (pre-coverage)."
 
-3. **MBL's transaction data is NOT currently in our DB** per V6 handover. Even after Loop A §P0.1 + §P0.2, MBL specifically may have no buy history if he's not in our `transactions` rows. → Surface MBL's bag without P&L; the bag itself + floors + tier mix are still valuable.
+3. **cuteknick's transaction data is NOT currently in our DB** per V6 handover. Even after Loop A §P0.1 + §P0.2, cuteknick specifically may have no buy history if he's not in our `transactions` rows. → Surface cuteknick's bag without P&L; the bag itself + floors + tier mix are still valuable.
 
 4. **Doctrine §3 footnote violation pre-existed in V5** — old `/u/[username]` route used live Top Shot GraphQL at request time. → V7's port must read only from Supabase; the old route should be deleted or rewritten. Note: don't inherit the V5 implementation; clean clone from cookbook.
 
@@ -211,10 +211,10 @@ When ALL true (this is the most-blocked of the 4 Phase B briefs):
 - [ ] Loop A handoff signal fired
 - [ ] **Loop A §P0.1 owner_flow_address backfill COMPLETE** (~3.5M rows populated)
 - [ ] Loop A §P0.2 buyer_safe_name root cause known + addressed (or formally deferred with disclosure plan)
-- [ ] `topshot.collectors` lookup table seeded with at least: roham, MBL (Michael Levy), cuteknick, veerman + a username column added — or dynamic lookup wired
+- [ ] `topshot.collectors` lookup table seeded with at least: roham, cuteknick (cuteknick), cuteknick, veerman + a username column added — or dynamic lookup wired
 - [ ] /players + /moments + /sets shipped (sequenced before /u/[username] per Loop B prompt §8)
 - [ ] Roham redlines on this brief — specifically: collectors-table-seeded vs dynamic-lookup decision
-- [ ] MBL test case identified: which username + flow_address corresponds to MBL? **Roham knows this; surface during loop-b-4-research.md authoring**
+- [ ] cuteknick test case identified: which username + flow_address corresponds to cuteknick? **Roham knows this; surface during loop-b-4-research.md authoring**
 
 ---
 
