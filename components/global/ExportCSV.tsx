@@ -1,37 +1,35 @@
 "use client";
 
 // Reusable CSV export. Pro collectors model elsewhere — export is table-stakes
-// per the constitution. Serializes provided rows client-side (no round-trip),
-// RFC-4180 quoting. Pass the same rows the table renders.
+// per the constitution. Takes ALREADY-SERIALIZED plain data (headers + 2D rows)
+// so no functions cross the server→client boundary (RSC forbids that). The
+// server component maps its data to strings before passing it here.
 
 import { useState } from "react";
 
-export interface CsvColumn<T> {
-  label: string;
-  get: (row: T) => string | number | null | undefined;
-}
+type Cellish = string | number | null | undefined;
 
-function cell(v: string | number | null | undefined): string {
+function cell(v: Cellish): string {
   if (v == null) return "";
   const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function ExportCSV<T>({
+export function ExportCSV({
+  headers,
   rows,
-  columns,
   filename,
 }: {
-  rows: T[];
-  columns: CsvColumn<T>[];
+  headers: string[];
+  rows: Cellish[][];
   filename: string;
 }) {
   const [done, setDone] = useState(false);
 
   function download() {
-    const header = columns.map((c) => cell(c.label)).join(",");
-    const body = rows.map((r) => columns.map((c) => cell(c.get(r))).join(",")).join("\n");
-    const blob = new Blob([`${header}\n${body}\n`], { type: "text/csv;charset=utf-8;" });
+    const head = headers.map(cell).join(",");
+    const body = rows.map((r) => r.map(cell).join(",")).join("\n");
+    const blob = new Blob([`${head}\n${body}\n`], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

@@ -94,16 +94,16 @@ async function VolumeBody({ window }: { window: TimeWindow }) {
       >
         <div className="flex justify-end px-3 pt-2">
           <ExportCSV
-            rows={v.rows}
             filename={`topshot-volume-${window}.csv`}
-            columns={[
-              { label: "Player", get: (r) => r.player_name ?? r.player_id },
-              { label: "Team", get: (r) => r.team_name ?? "" },
-              { label: "Volume USD", get: (r) => r.total_volume_usd.toFixed(2) },
-              { label: "Trades", get: (r) => r.tx_count },
-              { label: "Median price USD", get: (r) => r.median_price_usd ?? "" },
-              { label: "Max sale USD", get: (r) => r.max_price_usd ?? "" },
-            ]}
+            headers={["Player", "Team", "Volume USD", "Trades", "Median price USD", "Max sale USD"]}
+            rows={v.rows.map((r) => [
+              r.player_name ?? r.player_id,
+              r.team_name ?? "",
+              r.total_volume_usd.toFixed(2),
+              r.tx_count,
+              r.median_price_usd ?? "",
+              r.max_price_usd ?? "",
+            ])}
           />
         </div>
         <div className="overflow-x-auto">

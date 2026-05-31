@@ -124,19 +124,19 @@ async function TopSales({ window }: { window: TimeWindow }) {
     <div className="space-y-5">
       <div className="flex justify-end">
         <ExportCSV
-          rows={sales}
           filename={`topshot-top-sales-${window}.csv`}
-          columns={[
-            { label: "Price USD", get: (r) => Number(r.gross_amount_usd).toFixed(2) },
-            { label: "Player", get: (r) => r.player_name ?? "" },
-            { label: "Serial", get: (r) => r.serial_number ?? "" },
-            { label: "Set", get: (r) => r.set_name ?? "" },
-            { label: "Tier", get: (r) => r.tier_name ?? "" },
-            { label: "Buyer", get: (r) => r.buyer_safe_name ?? "" },
-            { label: "Seller", get: (r) => r.seller_safe_name ?? "" },
-            { label: "Sold at", get: (r) => r.sold_at ?? "" },
-            { label: "Edition id", get: (r) => r.edition_id ?? "" },
-          ]}
+          headers={["Price USD", "Player", "Serial", "Set", "Tier", "Buyer", "Seller", "Sold at", "Edition id"]}
+          rows={sales.map((r) => [
+            Number(r.gross_amount_usd).toFixed(2),
+            r.player_name ?? "",
+            r.serial_number ?? "",
+            r.set_name ?? "",
+            r.tier_name ?? "",
+            r.buyer_safe_name ?? "",
+            r.seller_safe_name ?? "",
+            r.sold_at ?? "",
+            r.edition_id ?? "",
+          ])}
         />
       </div>
       {/* Lead with the positive: the three biggest sales of the window. */}
