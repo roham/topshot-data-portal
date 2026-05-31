@@ -94,7 +94,7 @@ export default async function AppreciatingPage({ searchParams }: { searchParams:
     <main className="mx-auto max-w-[1100px] px-[22px] py-6">
       <h1 className="text-[20px] font-semibold tracking-tight">Most Appreciating</h1>
       <p className="mb-4 mt-1 text-[11px] text-[var(--text-faint)]">
-        Every edition priced from its <strong className="text-[var(--text-dim)]">MSRP</strong> (pack price ÷ moments per pack) to its current floor — the multiple a collector is up, per edition, like a physical card.
+        Every edition priced from its <strong className="text-[var(--text-dim)]">odds-based MSRP</strong> (pack price ÷ the tier&apos;s pull odds — what you&apos;d spend in packs to pull it) to its current floor. The multiple a collector is up, per edition, like a physical card.
         {view === "rookies" ? " Rookies (2024–25 draft) compared against each other." : ""}
       </p>
       <div className="mb-4 inline-flex gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
