@@ -3,6 +3,8 @@
 **Date:** 2026-05-17 19:00Z
 **Status:** DRAFT v1.1 — incorporates Roham's three Socratic answers from 19:00Z. Still awaits a final read before lock. Once locked, this is **load-bearing**: every Researcher reads it; every Builder honors it; every Judge tests against it.
 
+> **⬆ SUBORDINATE TO `constitution.md` (Dexter, 2026-05-31).** The ratified `constitution.md` (v0.1.0) is the apex spine; this doctrine is its long-form elaboration, not a peer. Where the two diverge, the **constitution wins.** Three clauses were reconciled to the ratified constitution on 2026-05-31 — see the inline `[RECONCILED 2026-05-31]` notes on **P3**, **P5**, **P7**.
+
 The shape is borrowed from the lore-vault GDD V2 *Eight Reframings (Opus, 2026-04-27)* that worked. Lore-vault shipped one coherent page in one PR because doctrine was tight enough that the agent had only execution choices left, not interpretation choices. Same intent here.
 
 **v1.1 changes from v1:**
@@ -76,6 +78,8 @@ For every shipped feature, the research note names ONE specific signature move f
 **Comparable:** the per-feature comparables catalog in `research/00-foundation-v2.md` §9.
 **Rejects:** "inspired-by" prose without naming a specific move; original UI inventions before mastering the canon; generic shadcn templates.
 
+> **[RECONCILED 2026-05-31]** The constitution **demoted** comparable-per-feature from a core principle — much of what we ship has no direct analog, and clean, positive, original visuals are welcome. This P3 survives as an **operational loop gate** (the v8/v9 loop + `features.json.comparable_primary` still require one per feature) — being stricter than the constitution is allowed. It is no longer a *constitutional* requirement.
+
 ### P4. Charts are substance, not decoration
 
 Every feature evaluates whether a chart belongs. If yes, the chart MUST: (a) render real data on a data-bearing entity; (b) be filterable; (c) have filter state in URL; (d) treat each parallel as its own series, never aggregated. Honest empty state is acceptable when the entity genuinely lacks data (brand-new collector with 0 moments; API ceiling blocking the column); honest empty state on a data-bearing entity where the page just failed to fetch IS a bug.
@@ -87,10 +91,12 @@ Every feature evaluates whether a chart belongs. If yes, the chart MUST: (a) ren
 
 ### P5. Parallels are first-class
 
-Each `(set × tier × parallel)` is its own market. Every floor, every chart, every leaderboard, every cell treats it that way. Parallel names (Base, Explosion, Diamond, Anthology, Diced, …, Omega — the 22 named ones from Top Shot GraphQL + Base sentinel) are visible everywhere a moment is shown. Aggregating across parallels in any display is structurally dishonest.
+Each `(set × tier × parallel)` is its own market. Every floor, every chart, every leaderboard, every cell treats it that way. Parallel names (Base, Explosion, Diamond, Anthology, Diced, …, Omega — the 22 named ones from Top Shot GraphQL + Base sentinel) are visible everywhere a moment is shown. The rarest of them — 1-of-1s, 5-of-5s, special ceramics — are the best of the economy and the stories to surface, not bury.
 
 **Comparable:** StockX size-as-market-segmenter. Different size = different market.
 **Rejects:** edition-aggregated floors that collapse parallels; row-grouping that hides parallel structure; "the Common floor" without specifying which parallel.
+
+> **[RECONCILED 2026-05-31]** Reframed from "aggregating is structurally *dishonest*" to **mirror the API's structure**: where the API breaks out parallels, show them as distinct markets and surface the rarest; where a moment is shown without a breakdown, **include** its parallels rather than hiding them. Don't force aggregation *or* separation the source data doesn't have. The point is the lost opportunity (the rarest are the highlight), not dishonesty.
 
 ### P6. The trader's verbatim ask is the spec
 
@@ -99,14 +105,16 @@ Every feature's acceptance text opens with a direct quote from `research/persona
 **Comparable:** Jobs-to-be-Done method (Christensen). Bring a Trailer auction listings written in the seller's voice, not a copywriter's.
 **Rejects:** paraphrased trader voice; pitch-deck framing on pro surfaces; "elevated experience" prose; marketing-shaped acceptance text.
 
-### P7. Default 30D, not 24H
+### P7. Default 30D or 1Y, not 24H
 
-Every time-window selector defaults to 30D on landing. 24H is too sparse for low-volume moments — most rows show "—" on 24H deltas. 30D captures real activity.
+Every time-window selector defaults on landing to whichever of **30D or 1Y** better represents the data for that surface. 24H is too sparse for low-volume moments — most rows show "—" on 24H deltas. 30D captures real activity; 1Y is the better default where a longer arc tells the truer story.
 
 **Verbatim from Roham, 2026-05-17 14:40Z:** *"24 hours is not a short enough window or not a long enough window. That's no problem. Let's just default to showing 30-day windows."*
 
 **Comparable:** TradingView default window for sparse-volume securities.
 **Rejects:** 24H defaults anywhere; daily-newspaper-cadence assumptions on low-volume moments; "today's movers" tiles on the homepage at 24H window.
+
+> **[RECONCILED 2026-05-31]** Per the ratified constitution, the default is **30D *or* 1Y, whichever better represents the data** — not 30D-only. Any loop-level Judge assertion that hard-checks `?h=30d` on landing must be relaxed to accept 1Y where it's the better default.
 
 ### P8. Opportunity framing on empty markets
 
