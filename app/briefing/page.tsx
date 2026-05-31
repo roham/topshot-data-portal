@@ -196,7 +196,7 @@ async function loadBriefing() {
     });
   }
 
-  // Whale accumulation — biggest single buyer in window
+  // VIP accumulation — biggest single buyer in window
   const buyerSpend = new Map<string, { spend: number; count: number; flowAddress: string | null }>();
   for (const t of bulk) {
     const u = t.buyer?.username;
@@ -209,8 +209,8 @@ async function loadBriefing() {
   const topBuyer = [...buyerSpend.entries()].sort((a, b) => b[1].spend - a[1].spend)[0];
   if (topBuyer) {
     headlines.push({
-      key: "whale-accumulation",
-      kicker: "Whale accumulation · window",
+      key: "vip-accumulation",
+      kicker: "VIP accumulation · window",
       hed: `${topBuyer[0]} spent $${topBuyer[1].spend.toLocaleString(undefined, { maximumFractionDigits: 0 })} across ${topBuyer[1].count} buys`,
       dek: (
         <>

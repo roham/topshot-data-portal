@@ -9,7 +9,7 @@ import { TimeWindowSelector } from "./global/TimeWindowSelector";
 // Five-lane IA per the 2026-05-19 senior-designer pass:
 // - Market    — the macro view (homepage, indices, market-cap, volume, movers, trends, per-tier, per-series, per-team rollups)
 // - Browse    — find a specific thing (players, sets, editions, moments, packs, parallels)
-// - Trade     — active decisions (sniper, feed, sales, portfolio, collectors, whales, compare, leaderboards, locking)
+// - Trade     — active decisions (sniper, feed, sales, portfolio, collectors, vip, compare, leaderboards, locking)
 // - Editorial — narrative + history (on-this-day, briefing, per-game retrospectives)
 // - Methodology — model + rules transparency
 //
@@ -61,7 +61,7 @@ const TABS = [
       p === "/sales" ||
       p === "/portfolio" ||
       p === "/collectors" ||
-      p === "/whales" ||
+      p === "/vip" ||
       p === "/compare" ||
       p === "/leaderboards" ||
       p === "/locking" ||

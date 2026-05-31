@@ -63,6 +63,8 @@ const nextConfig: NextConfig = {
       { source: "/anomalies", destination: "/feed", permanent: true },
       // Duplicate index detail route
       { source: "/index/:code", destination: "/indices/:code", permanent: true },
+      // Terminology lock (Roham 2026-05-31): top-holder surface is "VIP", never the W-word
+      { source: "/whales", destination: "/vip", permanent: true },
     ];
   },
 };

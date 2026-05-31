@@ -56,8 +56,8 @@ export default function Page() {
             <span className="text-[var(--text-dim)]">— directory of all known collectors ranked by activity</span>
           </li>
           <li>
-            <Link href="/whales" className="text-[var(--accent)] hover:underline">/whales</Link>{" "}
-            <span className="text-[var(--text-dim)]">— high-net-worth collectors and their recent moves</span>
+            <Link href="/vip" className="text-[var(--accent)] hover:underline">/vip</Link>{" "}
+            <span className="text-[var(--text-dim)]">— VIP collectors and their recent moves</span>
           </li>
           <li>
             <Link href="/leaderboards" className="text-[var(--accent)] hover:underline">/leaderboards</Link>{" "}
