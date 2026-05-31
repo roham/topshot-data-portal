@@ -34,12 +34,12 @@ async function RealizedHero() {
   const curMonth = new Date().toISOString().slice(0, 7);
   const complete = rows.filter((r) => r.month.slice(0, 7) < curMonth);
   const last = complete[complete.length - 1];
-  const yearAgo = complete[complete.length - 13];
+  const sixAgo = complete[complete.length - 7];
   const bottom = complete.reduce<typeof last | undefined>((m, r) => (!m || r.gmv < m.gmv ? r : m), undefined);
   const pct = (a?: number, b?: number) => (a != null && b ? ((a - b) / b) * 100 : null);
   const kpis = [
     { label: `Realized GMV · ${last?.month.slice(0, 7) ?? "—"}`, value: last?.gmv, fmt: "usdCompact" as const },
-    { label: "GMV vs 1yr ago", value: pct(last?.gmv, yearAgo?.gmv), fmt: "deltaPct" as const },
+    { label: "GMV vs 6mo ago", value: pct(last?.gmv, sixAgo?.gmv), fmt: "deltaPct" as const },
     { label: `vs bottom (${bottom?.month.slice(2, 7) ?? "—"})`, value: pct(last?.gmv, bottom?.gmv), fmt: "deltaPct" as const },
     { label: "Median sale", value: last?.median_usd, fmt: "usd" as const },
   ];
@@ -107,7 +107,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
     <main className="mx-auto max-w-[1100px] px-[22px] py-6">
       <h1 className="text-[20px] font-semibold tracking-tight">Market Trends</h1>
       <p className="mb-5 mt-1 text-[11px] text-[var(--text-faint)]">
-        Actual cleared-trade dollar volume — up off the bottom and year-over-year — the story floor/ask quotes hide.
+        Actual cleared-trade dollar volume — up sharply off the bottom — the story floor/ask quotes hide.
         Cohort floor-cap trajectories below, zoomable by window.
       </p>
       <Suspense fallback={<div className="mb-6 h-[480px] animate-pulse rounded-[14px] bg-[var(--surface-2)]" />}>
