@@ -13,7 +13,9 @@ export interface StoryRow {
   mint_count: number | null; parallel_id: number | null; series_name: string | null; image_url: string | null;
   first_sale: number | null; last_sale: number | null; hi: number | null; n: number; last_at: string | null;
   edition_floor: number | null; mult: number | null;
+  is_one: boolean; is_jersey: boolean; is_low: boolean;
 }
+export type SerialClass = "all" | "normal" | "special";
 export interface FloorSmashRow {
   edition_id: string; player_name: string | null; tier_name: string | null; mint_count: number | null;
   parallel_id: number | null; series_name: string | null; image_url: string | null;
@@ -36,13 +38,28 @@ async function read<T>(table: string, cols: string, order: string, limit: number
   } catch (e) { console.error(`[appreciation-events] ${table} threw`, e); return []; }
 }
 
-export const getAppreciationStories = (limit = 48) =>
-  unstable_cache(() => read<StoryRow>(
-    "mv_serial_appreciation",
-    "edition_id, serial_number, player_name, tier_name, mint_count, parallel_id, series_name, image_url, first_sale, last_sale, hi, n, last_at, edition_floor, mult",
-    "last_sale", limit,
-    (r) => ({ edition_id: String(r.edition_id), serial_number: N(r.serial_number), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), first_sale: N(r.first_sale), last_sale: N(r.last_sale), hi: N(r.hi), n: Number(r.n), last_at: S(r.last_at), edition_floor: N(r.edition_floor), mult: N(r.mult) }),
-  ), ["appr-stories-v1", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
+async function _stories(cls: SerialClass, limit: number): Promise<StoryRow[]> {
+  const sb = getSupabaseServerAnon();
+  if (!sb) return [];
+  try {
+    let q = sb.from("mv_serial_appreciation")
+      .select("edition_id, serial_number, player_name, tier_name, mint_count, parallel_id, series_name, image_url, first_sale, last_sale, hi, n, last_at, edition_floor, mult, is_one, is_jersey, is_low")
+      .order("last_sale", { ascending: false, nullsFirst: false }).limit(limit);
+    // Special = #1 / jersey-match / low serial; Normal = none of those (like-for-like).
+    if (cls === "special") q = q.or("is_one.eq.true,is_jersey.eq.true,is_low.eq.true");
+    else if (cls === "normal") q = q.eq("is_one", false).eq("is_jersey", false).eq("is_low", false);
+    const { data, error } = await q;
+    if (error) { console.error("[appreciation-events] stories read failed", error); return []; }
+    return ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+      edition_id: String(r.edition_id), serial_number: N(r.serial_number), player_name: S(r.player_name), tier_name: S(r.tier_name),
+      mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url),
+      first_sale: N(r.first_sale), last_sale: N(r.last_sale), hi: N(r.hi), n: Number(r.n), last_at: S(r.last_at),
+      edition_floor: N(r.edition_floor), mult: N(r.mult), is_one: Boolean(r.is_one), is_jersey: Boolean(r.is_jersey), is_low: Boolean(r.is_low),
+    }));
+  } catch (e) { console.error("[appreciation-events] stories threw", e); return []; }
+}
+export const getAppreciationStories = (cls: SerialClass = "all", limit = 48) =>
+  unstable_cache(() => _stories(cls, limit), ["appr-stories-v2", cls, String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
 
 export const getFloorSmash = (limit = 48) =>
   unstable_cache(() => read<FloorSmashRow>(

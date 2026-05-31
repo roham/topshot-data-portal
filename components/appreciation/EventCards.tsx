@@ -34,12 +34,22 @@ function Identity({ player, tier, sub }: { player: string | null; tier: string |
   );
 }
 
-export function AppreciationStoryCard({ r }: { r: StoryRow }) {
+function SerialBadge({ r }: { r: StoryRow }) {
+  const label = r.is_one ? "#1" : r.is_jersey ? "JERSEY" : r.is_low ? `LOW #${r.serial_number}` : null;
+  if (!label) return null;
+  return <span className="rounded bg-[color-mix(in_srgb,var(--tier-legendary)_16%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em]" style={{ color: GOLD }}>{label}</span>;
+}
+
+export function AppreciationStoryCard({ r, rank }: { r: StoryRow; rank?: number }) {
   return (
     <Shell href={`/edition/${encodeURIComponent(r.edition_id)}`}>
       <div className="flex items-start gap-3">
+        {rank != null && <span className="mt-0.5 shrink-0 font-mono text-[11px] tabular-nums text-[var(--text-faint)]">{rank}</span>}
         <Avatar src={r.image_url} />
-        <Identity player={r.player_name} tier={r.tier_name} sub={`#${r.serial_number ?? "—"} · /${r.mint_count?.toLocaleString() ?? "—"} · ${r.n} sales`} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2"><span className="truncate text-[14px] font-semibold">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /><SerialBadge r={r} /></div>
+          <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-faint)]">#{r.serial_number ?? "—"} · /{r.mint_count?.toLocaleString() ?? "—"} · {r.n} sales</div>
+        </div>
         <span className="shrink-0 text-[16px] font-bold tabular-nums" style={{ color: UP }}>{fmtMult(r.mult)}</span>
       </div>
       <div className="mt-3 flex items-baseline gap-2 font-mono text-[12px]">

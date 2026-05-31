@@ -23,10 +23,15 @@ lf as (select distinct on (edition_id) edition_id, lowest_ask_price as floor fro
 select m.moment_id, m.edition_id, m.serial_number, e.player_name, e.tier_name, e.mint_count, e.parallel_id, e.series_name,
        (e.image_urls)[1] as image_url,
        mt.lo, mt.hi, mt.first_sale, mt.last_sale, mt.n, mt.last_at, lf.floor as edition_floor,
-       round((mt.last_sale / nullif(mt.first_sale,0))::numeric, 2) as mult
+       round((mt.last_sale / nullif(mt.first_sale,0))::numeric, 2) as mult,
+       (m.serial_number = 1) as is_one,
+       (case when p.jersey_number_at_moment ~ '^[0-9]+$' and p.jersey_number_at_moment::int > 0
+             then m.serial_number = p.jersey_number_at_moment::int else false end) as is_jersey,
+       (m.serial_number <= 10) as is_low
 from mt
 join topshot.moments m on m.moment_id = mt.moment_id
 join topshot.editions e on e.edition_id = m.edition_id
+left join topshot.plays p on p.play_id = e.play_id
 left join lf on lf.edition_id = m.edition_id
 where mt.last_sale >= 100 and mt.last_sale >= 3 * mt.first_sale;
 create unique index if not exists mv_serial_appreciation_idx on topshot.mv_serial_appreciation (moment_id);
@@ -56,30 +61,25 @@ create index if not exists mv_edition_floor_smash_jump_idx on topshot.mv_edition
 --    $5,000,000 troll-listings with 0 sales.
 drop materialized view if exists topshot.mv_edition_illiquid_highvalue;
 create materialized view topshot.mv_edition_illiquid_highvalue as
-with hf as (  -- high-floor editions FIRST (small set); $100k cap kills the $5M troll-asks
-  select edition_id, floor from (
-    select distinct on (edition_id) edition_id, lowest_ask_price as floor
-    from topshot.market_caps where lowest_ask_price > 0 order by edition_id, date desc
-  ) z where floor >= 200 and floor <= 100000
-),
-s90 as (  -- bounded 90d window + pre-filtered to high-floor editions = fast (no all-time scan)
-  select m.edition_id, count(*) as sales_90d,
-         (array_agg(t.gross_amount_usd order by t.completed_at desc))[1] as last_sale,
-         max(t.completed_at)::date as last_at, max(t.gross_amount_usd) as max_sale_ever
+with lf as (select distinct on (edition_id) edition_id, lowest_ask_price as floor
+            from topshot.market_caps where lowest_ask_price > 0 order by edition_id, date desc),
+s90 as (  -- count + max only (NO ordered aggregate) — proven to complete fast
+  select m.edition_id, count(*) as sales_90d, max(t.gross_amount_usd) as max_sale_ever, max(t.completed_at)::date as last_at
   from topshot.transactions t join topshot.moments m on m.moment_id = t.moment_id
-  where m.edition_id in (select edition_id from hf) and t.gross_amount_usd > 0
-    and t.completed_at >= (select max(completed_at) from topshot.transactions) - interval '90 days'
+  where t.gross_amount_usd > 0 and t.completed_at >= (select max(completed_at) from topshot.transactions) - interval '90 days'
   group by 1
 )
 select e.edition_id, e.player_name, e.tier_name, e.mint_count, e.parallel_id, e.series_name,
        (e.image_urls)[1] as image_url,
-       hf.floor, coalesce(s90.sales_90d, 0) as sales_90d, s90.sales_90d as sales_ever,
-       s90.last_sale, s90.last_at, s90.max_sale_ever,
+       lf.floor, coalesce(s90.sales_90d, 0) as sales_90d, s90.sales_90d as sales_ever,
+       s90.max_sale_ever as last_sale, s90.last_at, s90.max_sale_ever,
        mt.msrp_pack, mt.msrp as pack_msrp
-from hf
+from lf
 join topshot.editions e using (edition_id)
-left join s90 using (edition_id)
+join s90 using (edition_id)  -- inner: require a real recent sale to anchor "value"
 left join topshot.mv_edition_msrp_tiered mt using (edition_id)
-where coalesce(s90.sales_90d, 0) <= 5;
+where lf.floor >= 200
+  and s90.sales_90d between 1 and 5            -- illiquid but actually traded
+  and lf.floor <= 3 * s90.max_sale_ever;        -- ask within 3x a real sale (kills aspirational $100k/$0-sale listings)
 create unique index if not exists mv_edition_illiquid_highvalue_idx on topshot.mv_edition_illiquid_highvalue (edition_id);
 create index if not exists mv_edition_illiquid_highvalue_floor_idx on topshot.mv_edition_illiquid_highvalue (floor desc nulls last);

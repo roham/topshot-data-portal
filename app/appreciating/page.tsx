@@ -9,7 +9,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getEditionGrowth } from "@/lib/supabase/queries/edition-growth";
-import { getAppreciationStories, getFloorSmash, getIlliquidHighValue } from "@/lib/supabase/queries/appreciation-events";
+import { getAppreciationStories, getFloorSmash, getIlliquidHighValue, type SerialClass } from "@/lib/supabase/queries/appreciation-events";
 import { AppreciationStoryCard, FloorSmashCard, IlliquidCard } from "@/components/appreciation/EventCards";
 import { TierChip } from "@/components/primitives/TierChip";
 import { Num } from "@/components/primitives/Num";
@@ -58,9 +58,16 @@ async function Trending() {
   );
 }
 
-async function Stories() {
-  const rows = await getAppreciationStories(48);
-  return rows.length ? <Grid>{rows.map((r) => <AppreciationStoryCard key={r.edition_id + r.serial_number} r={r} />)}</Grid> : <Empty />;
+const SERIAL_TABS: { key: SerialClass; label: string }[] = [
+  { key: "all", label: "All serials" },
+  { key: "normal", label: "Normal only" },
+  { key: "special", label: "Special (#1 / jersey / low)" },
+];
+async function Stories({ cls }: { cls: SerialClass }) {
+  const rows = await getAppreciationStories(cls, 60);
+  return rows.length
+    ? <Grid>{rows.map((r, i) => <AppreciationStoryCard key={r.edition_id + r.serial_number} r={r} rank={i + 1} />)}</Grid>
+    : <Empty />;
 }
 async function FloorSmashed() {
   const rows = await getFloorSmash(48);
@@ -71,10 +78,11 @@ async function HighValue() {
   return rows.length ? <Grid>{rows.map((r) => <IlliquidCard key={r.edition_id} r={r} />)}</Grid> : <Empty />;
 }
 
-export default async function AppreciatingPage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
+export default async function AppreciatingPage({ searchParams }: { searchParams: Promise<{ cat?: string; serial?: string }> }) {
   const sp = await searchParams;
   const cat = (TABS.some((t) => t.key === sp.cat) ? sp.cat : "trending") as Cat;
   const active = TABS.find((t) => t.key === cat)!;
+  const serialCls = (["normal", "special"].includes(sp.serial ?? "") ? sp.serial : "all") as SerialClass;
   return (
     <main className="mx-auto max-w-[1100px] px-[22px] py-6">
       <h1 className="text-[20px] font-semibold tracking-tight">Most Appreciating</h1>
@@ -87,8 +95,18 @@ export default async function AppreciatingPage({ searchParams }: { searchParams:
           </Link>
         ))}
       </div>
-      <Suspense key={cat} fallback={<div className="h-[600px] animate-pulse rounded-[14px] bg-[var(--surface-2)]" />}>
-        {cat === "trending" ? <Trending /> : cat === "stories" ? <Stories /> : cat === "floor-smashed" ? <FloorSmashed /> : <HighValue />}
+      {cat === "stories" && (
+        <div className="mb-4 inline-flex flex-wrap gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
+          {SERIAL_TABS.map((t) => (
+            <Link key={t.key} href={`/appreciating?cat=stories&serial=${t.key}`} scroll={false}
+              className={`rounded-md px-[10px] py-[5px] font-mono text-[10px] transition-colors ${t.key === serialCls ? "bg-[var(--accent)]/15 font-semibold text-[var(--accent)]" : "text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
+              {t.label}
+            </Link>
+          ))}
+        </div>
+      )}
+      <Suspense key={`${cat}-${serialCls}`} fallback={<div className="h-[600px] animate-pulse rounded-[14px] bg-[var(--surface-2)]" />}>
+        {cat === "trending" ? <Trending /> : cat === "stories" ? <Stories cls={serialCls} /> : cat === "floor-smashed" ? <FloorSmashed /> : <HighValue />}
       </Suspense>
     </main>
   );
