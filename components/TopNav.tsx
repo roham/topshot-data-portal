@@ -33,6 +33,11 @@ const TABS = [
       p.startsWith("/team/"),
   },
   {
+    label: "Appreciating",
+    href: "/appreciating",
+    match: (p: string) => p === "/appreciating" || p.startsWith("/edition/"),
+  },
+  {
     label: "Browse",
     href: "/players",
     match: (p: string) =>

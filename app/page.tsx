@@ -21,6 +21,7 @@ import { LegacyCascadeSkeleton } from "@/components/HomepageSkeletons";
 import { TS50IndexHero } from "@/components/TS50IndexHero";
 import { IndexHeroPair, IndexHeroPairSkeleton } from "@/components/IndexHeroPair";
 import { PlayersHero } from "@/components/PlayersHero";
+import { MostAppreciatingHero } from "@/components/MostAppreciatingHero";
 
 // Window-level cache for the Supabase strip + the snapshot-derived legacy
 // cascade. Page-level revalidate runs every 60s so window switches hit a
@@ -1352,6 +1353,11 @@ async function LegacyCascade() {
 
   return (
     <>
+      {/* Lead with the MSRP→floor appreciation story + entry to per-edition price charts */}
+      <Suspense fallback={<div className="h-[220px] animate-pulse rounded-[12px] bg-[var(--surface-2)] mt-4" />}>
+        <MostAppreciatingHero />
+      </Suspense>
+
       {/* V4-iter-1: aggregate-economy strip at DOM order 0 (spec acceptance #1) */}
       <AggregateEconomyStrip data={aggregateEconomy} />
 
