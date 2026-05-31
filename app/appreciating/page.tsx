@@ -43,7 +43,8 @@ async function Index({ view }: { view: ApprView }) {
         {rows.map((r, i) => {
           const m = r.mult ?? 0;
           return (
-            <li key={r.edition_id} className="grid grid-cols-[28px_1fr_auto] items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3 last:border-0 md:grid-cols-[34px_1fr_120px_84px_84px_150px]">
+            <li key={r.edition_id} className="border-b border-[var(--border-subtle)] last:border-0">
+            <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} className="grid grid-cols-[28px_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--surface-2)] md:grid-cols-[34px_1fr_120px_84px_84px_150px]">
               <div className="font-mono text-[11px] text-[var(--text-faint)] tabular-nums">{i + 1}</div>
 
               {/* edition identity */}
@@ -77,6 +78,7 @@ async function Index({ view }: { view: ApprView }) {
               <div className="hidden text-right md:block">
                 <span className="text-[17px] font-bold tabular-nums" style={{ color: multColor(m) }}>{fmtMult(m)}</span>
               </div>
+            </Link>
             </li>
           );
         })}
