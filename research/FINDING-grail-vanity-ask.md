@@ -52,3 +52,35 @@ valuation surface.
 ## Not touched
 GRAIL synthesizer + index methodology left as-is pending Roham's call (doctrine-level + adjacent
 to the other session's MSRP/appreciation work).
+
+---
+
+## Addendum — ASP basis investigation (Roham: "try replacing with ASP")
+
+Validated against data:
+- The Curry edition sat at a **flat $500K ask for 10 days with ZERO recorded sales**, then
+  snapped to $38,895. So $500K was a stale vanity ask, not a real floor → capping to listed
+  moments would NOT fix it, and a floor-*price* index would still ingest the $500K. ASP (realized
+  sales) is the only vanity-proof basis. ✅ Roham right.
+- **BUT**: `mv_edition_all_time_activity` has **3 rows total** (essentially unpopulated). Of the
+  166 GRAIL editions, **0** appear in it. So `ASP × circ` for the basket = **~$0 today** — a data
+  gap, not a market signal. Floor basis computes correctly ($5.79M @ 2026-05-31, matches /indices/grail).
+
+### Why ASP can't just drop in yet
+Per-edition realized-sale aggregates aren't materialized. `transactions` has no `edition_id`
+column; `mv_largest_sales_*` only keep top-N per window; the edition activity MVs are empty.
+Realized per-edition prices DO exist via the `edition_price_history` RPC (transactions→moments
+daily median) that powers the /edition price charts — that's the correct ASP source, but it's the
+exact surface the **other session** is actively rebuilding (appreciation / odds-based MSRP).
+
+### Recommendation
+1. Build the ASP/realized GRAIL index on a proper **per-edition realized-sale rollup**
+   (populate `mv_edition_*_activity`, or read `edition_price_history`), value = last/avg realized
+   sale × circ. Vanity-proof and non-zero. **Coordinate with the other session** (shared valuation
+   surface + ETL is theirs) — don't double-build.
+2. Until that data lands, keep floor basis but **annotate the index's largest mover**
+   ("Curry Holo MMXX ask $500K→$38,895") so a vanity swing is never a mystery headline.
+3. Drop the `×circulation` amplification regardless: report per-moment floor/last-sale, not one
+   ask imputed across all moments.
+
+Not built tonight: ASP index is blocked on the empty rollup + sits in the other session's lane.
