@@ -19,8 +19,14 @@ with mt as (
   group by 1
   having count(*) >= 2
 ),
+me as (select distinct m.edition_id from topshot.moments m where m.moment_id in (select moment_id from mt)),
+subed as (  -- per (edition, sub-edition/parallel) circulation = the parallel's TRUE scarcity
+  select edition_id, subedition_id, count(*) as subed_mint
+  from topshot.moments where edition_id in (select edition_id from me) group by 1, 2
+),
 lf as (select distinct on (edition_id) edition_id, lowest_ask_price as floor from topshot.market_caps where lowest_ask_price > 0 order by edition_id, date desc)
-select m.moment_id, m.edition_id, m.serial_number, e.player_name, e.tier_name, e.mint_count, e.parallel_id, e.series_name,
+select m.moment_id, m.edition_id, m.subedition_id, m.serial_number, e.player_name, e.tier_name,
+       e.mint_count as edition_mint, sd.subed_mint, e.parallel_id, e.series_name,
        (e.image_urls)[1] as image_url,
        mt.lo, mt.hi, mt.first_sale, mt.last_sale, mt.n, mt.last_at, lf.floor as edition_floor,
        round((mt.last_sale / nullif(mt.first_sale,0))::numeric, 2) as mult,
@@ -31,6 +37,7 @@ select m.moment_id, m.edition_id, m.serial_number, e.player_name, e.tier_name, e
 from mt
 join topshot.moments m on m.moment_id = mt.moment_id
 join topshot.editions e on e.edition_id = m.edition_id
+left join subed sd on sd.edition_id = m.edition_id and sd.subedition_id is not distinct from m.subedition_id
 left join topshot.plays p on p.play_id = e.play_id
 left join lf on lf.edition_id = m.edition_id
 where mt.last_sale >= 100 and mt.last_sale >= 3 * mt.first_sale;
