@@ -19,6 +19,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getMarketCapLanding, type PlayerMcapRow } from "@/lib/supabase/queries/market-cap-landing";
 import { getPlayerMovers, parseMoverWindow } from "@/lib/supabase/queries/player-movers";
+import { getPlayersMarketCap } from "@/lib/supabase/queries/players-marketcap";
 import { ChartCard } from "@/components/primitives/ChartCard";
 import { TopPlayersChart } from "@/components/charts/market-cap/TopPlayersChart";
 import { ByTierChart } from "@/components/charts/market-cap/ByTierChart";
@@ -29,6 +30,7 @@ import { TotalOverTimeChart } from "@/components/charts/market-cap/TotalOverTime
 import { IndexHeroPair, IndexHeroPairSkeleton } from "@/components/IndexHeroPair";
 import { MoversCardGrid } from "@/components/charts/market-cap/MoversCardGrid";
 import { ConcentrationChart } from "@/components/charts/market-cap/ConcentrationChart";
+import { MarketCapScatter } from "@/components/charts/market-cap/MarketCapScatter";
 import { McapFormulaToggle } from "@/components/market-cap/McapFormulaToggle";
 import { MoverWindowToggle } from "@/components/market-cap/MoverWindowToggle";
 import { MarketCapBodySkeleton } from "@/components/market-cap/MarketCapSkeleton";
@@ -138,9 +140,10 @@ async function MarketCapBody({
   moverWindowRaw?: string;
 }) {
   const moverWindow = parseMoverWindow(moverWindowRaw);
-  const [data, movers] = await Promise.all([
+  const [data, movers, playersMcap] = await Promise.all([
     getMarketCapLanding(windowToDays(window)),
     getPlayerMovers(moverWindow),
+    getPlayersMarketCap(),
   ]);
 
   // Choose mcap source per formula. Re-rank top players for avg-sale view.
@@ -323,6 +326,20 @@ async function MarketCapBody({
           methodology="Sum of top-N mcap divided by total. Log-scale x-axis from 10 to 1000."
         >
           <ConcentrationChart rows={concentrationRows} />
+        </ChartCard>
+
+        {/* Row 5 — full-width: the shape of the player economy (scatter). */}
+        <ChartCard
+          title="Market cap × circulation"
+          subtitle="bubble = edition count · color = 30D move · log–log"
+          asOf={data.asOfDate ?? undefined}
+          wide
+          testId="chart-mcap-scatter"
+          href="/players"
+          caption="Each bubble is a player. Top-left = scarce + valuable; bottom-right = abundant supply. Green rose over 30D, red fell."
+          methodology="mv_player_market_cap (top 200 by floor mcap). x = floor market cap, y = total moments in circulation (both log). Bubble area = edition count. Color = 30D market-cap Δ%."
+        >
+          <MarketCapScatter rows={playersMcap.rows} />
         </ChartCard>
       </div>
 
