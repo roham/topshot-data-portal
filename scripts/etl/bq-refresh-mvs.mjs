@@ -13,6 +13,7 @@ const MVS = [
   "mv_cohort_cap_daily",
   "mv_edition_msrp_tiered",
   "mv_edition_appreciation",
+  "mv_edition_growth_90d",
   "mv_market_summary_24h",
   "mv_market_summary_7d",
   "mv_market_summary_30d",
