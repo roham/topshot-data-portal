@@ -61,3 +61,48 @@ export const getLargestSales = (opts: GetLargestSalesOptions = {}) => {
     },
   )();
 };
+
+// ── Top Sales flagship (/sales) ──────────────────────────────────────────
+// Richer projection than the homepage strip: adds player_id (headshot),
+// edition_id (deep link), edition_name, play_name, sold_at for the showcase
+// surface. Same MV family, same price-desc ordering.
+async function _getTopSales({
+  window = "30d",
+  limit = 50,
+}: GetLargestSalesOptions = {}): Promise<LargestSaleRow[]> {
+  const view = windowToLargestSalesView(window);
+  try {
+    const sb = getSupabaseServerAnon();
+    if (!sb) return [];
+    const { data, error } = await sb
+      .from(view)
+      .select(
+        "transaction_id,gross_amount_usd,buyer_safe_name,seller_safe_name,serial_number,set_name,player_name,player_id,edition_id,edition_name,play_name,sold_at,tier_name,top_shot_score",
+      )
+      .order("gross_amount_usd", { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.error(`[supabase] ${view} top-sales read failed`, error);
+      return [];
+    }
+    return ((data as LargestSaleRow[] | null) ?? []).map((r) => ({
+      ...r,
+      gross_amount_usd: Number(r.gross_amount_usd),
+    }));
+  } catch (e) {
+    console.error(`[supabase] top-sales read threw`, e);
+    return [];
+  }
+}
+
+export const getTopSales = (opts: GetLargestSalesOptions = {}) => {
+  const window = opts.window ?? "30d";
+  return unstable_cache(
+    () => _getTopSales(opts),
+    ["top-sales", window, String(opts.limit ?? 50)],
+    {
+      revalidate: 60,
+      tags: ["largest-sales", windowToLargestSalesView(window)],
+    },
+  )();
+};
