@@ -11,6 +11,7 @@ const MVS = [
   "mv_edition_cap_asof",
   "mv_cohort_cap_monthly",
   "mv_cohort_cap_daily",
+  "mv_edition_msrp_tiered",
   "mv_edition_appreciation",
   "mv_market_summary_24h",
   "mv_market_summary_7d",

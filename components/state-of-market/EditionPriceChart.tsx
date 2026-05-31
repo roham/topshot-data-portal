@@ -21,9 +21,14 @@ export function EditionPriceChart({ rows, msrp }: { rows: PricePoint[]; msrp: nu
   }
   const data = rows.map((r) => ({ d: r.d, median: r.median, n: r.n, lo: r.lo, hi: r.hi }));
   const maxSale = Math.max(...rows.map((r) => r.hi));
-  // Only draw the MSRP line if it's within visual range of the sales; otherwise it
-  // crushes the price line (an Ultimate's $20K MSRP vs $5 sales). Shown as a stat regardless.
-  const showMsrpLine = msrp != null && msrp <= maxSale * 1.4 && msrp >= 0;
+  // Outlier-robust y-cap: a single high sale on a thin day shouldn't flatten the
+  // whole line. Cap the axis at ~1.4× the 95th-percentile daily median (spikes clip
+  // gracefully; tooltip still shows the true value).
+  const sortedMed = [...rows.map((r) => r.median)].sort((a, b) => a - b);
+  const p95 = sortedMed[Math.floor(sortedMed.length * 0.95)] ?? sortedMed[sortedMed.length - 1] ?? 1;
+  const yCap = Math.max(p95 * 1.4, 1);
+  // Only draw the MSRP line if it's within the visible range; otherwise it's a stat only.
+  const showMsrpLine = msrp != null && msrp <= yCap && msrp >= 0;
 
   return (
     <ResponsiveContainer width="100%" height={440}>
@@ -36,7 +41,7 @@ export function EditionPriceChart({ rows, msrp }: { rows: PricePoint[]; msrp: nu
         </defs>
         <CartesianGrid stroke="var(--border-subtle)" strokeDasharray="2 4" vertical={false} />
         <XAxis dataKey="d" tickFormatter={(d) => fmtDate(String(d), data.length)} stroke="var(--text-faint)" tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }} minTickGap={32} />
-        <YAxis tickFormatter={(v) => fmtUSD(Number(v))} stroke="var(--text-faint)" tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }} width={52} />
+        <YAxis domain={[0, yCap]} allowDataOverflow tickFormatter={(v) => fmtUSD(Number(v))} stroke="var(--text-faint)" tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }} width={52} />
         <Tooltip
           contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--border-subtle)", fontSize: 11 }}
           labelFormatter={(d) => new Date(String(d) + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}
