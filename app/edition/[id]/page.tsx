@@ -10,7 +10,7 @@ import { Sparkline } from "@/components/primitives/Sparkline";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { DepthLadder } from "@/components/DepthLadder";
 import { EntityTabs } from "@/components/EntityTabs";
-import { getEditionHeader } from "@/lib/supabase/queries/edition-detail-header";
+import { getEditionHeader, getEditionSubeditions } from "@/lib/supabase/queries/edition-detail-header";
 import { getEditionPriceHistory } from "@/lib/supabase/queries/edition-price-history";
 import { EditionPriceChart } from "@/components/state-of-market/EditionPriceChart";
 import { TimeWindowSelector } from "@/components/global/TimeWindowSelector";
@@ -46,6 +46,7 @@ async function PriceChart({ id, sinceDays, msrp }: { id: string; sinceDays: numb
 async function EditionPriceView({ id, w }: { id: string; w?: string }) {
   const h = await getEditionHeader(id);
   if (!h) notFound();
+  const subeds = await getEditionSubeditions(id);
   const { window } = parseTimeWindow(w, "1y");
   const sinceDays = window === "all" ? null : windowToDays(window);
   const mult = h.floor != null && h.msrp ? h.floor / h.msrp : null;
@@ -73,6 +74,20 @@ async function EditionPriceView({ id, w }: { id: string; w?: string }) {
           </div>
         ))}
       </div>
+      {subeds.length > 1 && (
+        <div className="mb-5 rounded-[12px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4">
+          <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--text-faint)]">Sub-editions (parallels) · each its own serial space &amp; #1</div>
+          <div className="flex flex-wrap gap-2">
+            {subeds.map((s) => (
+              <span key={s.subedition_id ?? "base"} className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2.5 py-1 font-mono text-[10px]">
+                <span className={s.subedition_id === "0" ? "text-[var(--text-dim)]" : "text-[var(--accent)]"}>{s.subedition_id === "0" ? "Base" : "Parallel"}</span>
+                <span className="text-[var(--text)]"> /{s.n.toLocaleString()}</span>
+                <span className="text-[var(--text-faint)]"> · #{s.min_sn}–{s.max_sn}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--text-faint)]">Median sale price · per day · realized trades</div>
         <TimeWindowSelector />

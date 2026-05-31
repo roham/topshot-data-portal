@@ -49,3 +49,20 @@ export const getEditionHeader = (editionId: string) =>
   unstable_cache(() => _get(editionId), ["edition-header-v1", editionId], {
     revalidate: 600, tags: ["edition-header"],
   })();
+
+export interface SubEd { subedition_id: string | null; n: number; min_sn: number | null; max_sn: number | null; }
+
+async function _subeds(editionId: string): Promise<SubEd[]> {
+  const sb = getSupabaseServerAnon();
+  if (!sb) return [];
+  try {
+    const { data, error } = await sb.rpc("edition_subeditions", { p_edition_id: editionId });
+    if (error) { console.error("[edition-subeditions] rpc failed", error); return []; }
+    return ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+      subedition_id: r.subedition_id == null ? null : String(r.subedition_id),
+      n: Number(r.n), min_sn: r.min_sn == null ? null : Number(r.min_sn), max_sn: r.max_sn == null ? null : Number(r.max_sn),
+    }));
+  } catch (e) { console.error("[edition-subeditions] threw", e); return []; }
+}
+export const getEditionSubeditions = (editionId: string) =>
+  unstable_cache(() => _subeds(editionId), ["edition-subeds-v1", editionId], { revalidate: 600, tags: ["edition-subeds"] })();
