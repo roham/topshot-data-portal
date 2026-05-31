@@ -1229,6 +1229,10 @@ export default async function Home({
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-5">
+      {/* Lead with the MSRP→floor appreciation story + entry to per-edition price charts */}
+      <Suspense fallback={<div className="h-[220px] animate-pulse rounded-[12px] bg-[var(--surface-2)]" />}>
+        <MostAppreciatingHero />
+      </Suspense>
       {/* V9 iter-1 POLISH-001 — Players-as-home-prominence.
           Surfaces /players directory as labeled entity in first viewport.
           PSA Set Registry signature: ranked entity-sidebar. */}
@@ -1353,11 +1357,6 @@ async function LegacyCascade() {
 
   return (
     <>
-      {/* Lead with the MSRP→floor appreciation story + entry to per-edition price charts */}
-      <Suspense fallback={<div className="h-[220px] animate-pulse rounded-[12px] bg-[var(--surface-2)] mt-4" />}>
-        <MostAppreciatingHero />
-      </Suspense>
-
       {/* V4-iter-1: aggregate-economy strip at DOM order 0 (spec acceptance #1) */}
       <AggregateEconomyStrip data={aggregateEconomy} />
 
