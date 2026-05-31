@@ -1,0 +1,18 @@
+{
+  "input": { "task": "appreciation-categories", "branch": "dexter/appreciation-categories" },
+  "metadata": { "branch": "dexter/appreciation-categories", "repo": "roham/topshot-data-portal" },
+  "resources": [
+    {
+      "type": "github_repository",
+      "url": "https://github.com/roham/topshot-data-portal",
+      "mount_path": "/workspace/topshot-data-portal",
+      "authorization_token": "REPLACE_AT_FIRE_TIME_JIT_GITHUB_APP_INSTALL_TOKEN",
+      "instructions": "Work on branch dexter/appreciation-categories and open a PR to main. Author code + SQL files ONLY — do NOT run psql/migrations or vercel deploy (no prod creds in the worker). Dexter applies migrations + deploys after review."
+    },
+    {
+      "type": "caller_input",
+      "text": "Implement the feature specified in research/SPEC-appreciation-categories.md in this repo. Build the four categorized appreciation lanes on /appreciating: the Trending line-chart gallery already exists (keep it as the default lane); ADD three event-driven lanes — Appreciation Stories (serial resold cheap->expensive, pattern 2), Floor-Smashed (low ask leapt >=1.5x in 30d, pattern 3), and High-Value Illiquid (floor>=$200 with <=5 sales/90d, no chart, pattern 4). Create the three materialized views, paginated read wrappers, and card components exactly as the spec defines, and add the MVs to scripts/etl/bq-refresh-mvs.mjs. The spec's constraints are HARD: code + SQL authoring + PR only; PostgREST aggregates are disabled (use MVs/SECURITY DEFINER RPCs); paginate all reads; cross-check every displayed number against an independent query and put that verification in the PR body. Open the PR to main from dexter/appreciation-categories.",
+      "instructions": "Primary goal for this run. The full brief lives at research/SPEC-appreciation-categories.md in the cloned repo — read it first."
+    }
+  ]
+}
