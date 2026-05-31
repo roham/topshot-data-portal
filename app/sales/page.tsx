@@ -11,6 +11,7 @@ import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
 import { TierChip } from "@/components/primitives/TierChip";
 import { TimeWindowSelector } from "@/components/global/TimeWindowSelector";
+import { ExportCSV } from "@/components/global/ExportCSV";
 import { parseTimeWindow, WINDOW_SPECS, type TimeWindow } from "@/components/global/window-types";
 import { getTopSales } from "@/lib/supabase/queries/largest-sales";
 import { NBA_HEADSHOT } from "@/lib/nba-team-colors";
@@ -121,6 +122,23 @@ async function TopSales({ window }: { window: TimeWindow }) {
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <ExportCSV
+          rows={sales}
+          filename={`topshot-top-sales-${window}.csv`}
+          columns={[
+            { label: "Price USD", get: (r) => Number(r.gross_amount_usd).toFixed(2) },
+            { label: "Player", get: (r) => r.player_name ?? "" },
+            { label: "Serial", get: (r) => r.serial_number ?? "" },
+            { label: "Set", get: (r) => r.set_name ?? "" },
+            { label: "Tier", get: (r) => r.tier_name ?? "" },
+            { label: "Buyer", get: (r) => r.buyer_safe_name ?? "" },
+            { label: "Seller", get: (r) => r.seller_safe_name ?? "" },
+            { label: "Sold at", get: (r) => r.sold_at ?? "" },
+            { label: "Edition id", get: (r) => r.edition_id ?? "" },
+          ]}
+        />
+      </div>
       {/* Lead with the positive: the three biggest sales of the window. */}
       <div className="grid md:grid-cols-3 gap-3">
         {podium.map((s, i) => (

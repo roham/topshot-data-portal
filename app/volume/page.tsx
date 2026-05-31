@@ -9,6 +9,7 @@ import { getPlayerVolume } from "@/lib/supabase/queries/player-volume";
 import { ChartCard } from "@/components/primitives/ChartCard";
 import { TopVolumeBar, VolumeScatter } from "@/components/charts/volume/VolumeCharts";
 import { TimeWindowSelector } from "@/components/global/TimeWindowSelector";
+import { ExportCSV } from "@/components/global/ExportCSV";
 import { parseTimeWindow, WINDOW_SPECS, type TimeWindow } from "@/components/global/window-types";
 
 export const metadata: Metadata = {
@@ -91,6 +92,20 @@ async function VolumeBody({ window }: { window: TimeWindow }) {
         href="/players"
         caption={`${v.playerCount} players traded in the ${label} window; top 50 shown.`}
       >
+        <div className="flex justify-end px-3 pt-2">
+          <ExportCSV
+            rows={v.rows}
+            filename={`topshot-volume-${window}.csv`}
+            columns={[
+              { label: "Player", get: (r) => r.player_name ?? r.player_id },
+              { label: "Team", get: (r) => r.team_name ?? "" },
+              { label: "Volume USD", get: (r) => r.total_volume_usd.toFixed(2) },
+              { label: "Trades", get: (r) => r.tx_count },
+              { label: "Median price USD", get: (r) => r.median_price_usd ?? "" },
+              { label: "Max sale USD", get: (r) => r.max_price_usd ?? "" },
+            ]}
+          />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead className="bg-[var(--surface-2)]">
