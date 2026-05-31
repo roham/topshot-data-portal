@@ -25,6 +25,7 @@ function multColor(m: number): string {
   return "#f87171";
 }
 const fmtMult = (m: number) => (m >= 10 ? `${Math.round(m)}×` : `${m.toFixed(1)}×`);
+const fmtSeries = (s: string | null) => (s == null ? "—" : /^\d+$/.test(s) ? `Series ${s}` : s);
 
 async function Index({ view }: { view: ApprView }) {
   const rows = await getEditionAppreciation(view, view === "rookies" ? 200 : 200);
@@ -53,7 +54,7 @@ async function Index({ view }: { view: ApprView }) {
                   {r.parallel_id ? <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-[9px] uppercase text-[var(--text-dim)]">Parallel</span> : null}
                 </div>
                 <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-faint)]">
-                  {r.series_name ?? "—"} · /{r.mint_count?.toLocaleString() ?? "—"}{r.draft_year ? ` · ${r.draft_year} draft` : ""}
+                  {fmtSeries(r.series_name)} · /{r.mint_count?.toLocaleString() ?? "—"}{r.draft_year ? ` · ${r.draft_year} draft` : ""}
                 </div>
               </div>
 
