@@ -270,72 +270,27 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     };
   }
 
-  // 5. History fan-out across basket
-  const sinceDate = new Date(
-    new Date(asOfDate).getTime() - lookbackDays * 86_400_000
-  )
+  // 5. Daily basket total via RPC (server-side SUM GROUP BY date). Replaces the
+  //    per-edition history fan-out + JS pivot, which TIMED OUT for 90D/1Y/2Y
+  //    windows (the chart silently went empty — "90 days says nothing"). One row
+  //    per date is exactly what the series needs; index_basket_daily uses
+  //    idx_marketcaps_edition and a 60s statement timeout.
+  // Cap the lookback: the daily RPC over the full 880-day history exceeds the
+  // statement timeout. 400 days (~13 months) covers the meaningful range and
+  // renders in <6s; 'all'/'2y' effectively show the trailing ~13 months.
+  const effLookbackDays = Math.min(lookbackDays, 400);
+  const sinceDate = new Date(new Date(asOfDate).getTime() - effLookbackDays * 86_400_000)
     .toISOString()
     .slice(0, 10);
-
-  // V9 iter-5 CORRECTIVE — fetch-until-empty pagination.
-  //
-  // Prior pattern: probe count via `select("*", { count: "exact", head: true })`
-  // then parallel-paginate based on Math.ceil(histCount / PAGE). The probe
-  // looks correct locally (returns 4412 / 5 pages for 30D Grail) but in
-  // production the count probe can return `null` under serverless function
-  // pressure (timeout, cold-start, concurrency limits). The fallback
-  // `Math.max(1, Math.ceil(0/PAGE))=1` silently degrades to a single-page
-  // fetch — exactly 1000 rows = ~6 days × 166 editions = the 7-day chart
-  // truncation Roham observed on prod.
-  //
-  // New pattern: sequential pagination with break-on-short-page. Each page
-  // fetches PAGE rows; if a page returns fewer than PAGE rows, we know that's
-  // the last page. Bounded by MAX_PAGES (60) to prevent runaway under data
-  // pathology. ~3x slower than count-then-parallel under happy path (~5
-  // sequential round-trips vs 1 batched), but correct under all conditions.
-  // 30D Grail (~5 pages × ~800ms RTT = ~4s) comfortably under the page's
-  // maxDuration=60 budget.
-  const allHistory: { date: string; edition_id: string; market_cap: number }[] = [];
-  const PAGE = 1000;
-  const MAX_PAGES = 60;
-  // Chunk editionIds (≤100 per .in() — URL-length safe) AND paginate within each
-  // chunk. Prior single-.in(editionIds) over-ran the URL limit at 199 editions.
-  for (let ci = 0; ci < editionIds.length; ci += CHUNK) {
-    const idChunk = editionIds.slice(ci, ci + CHUNK);
-    const baseQuery = () =>
-      sb
-        .from("market_caps")
-        .select("date, edition_id, market_cap")
-        .in("edition_id", idChunk)
-        .gte("date", sinceDate)
-        .not("market_cap", "is", null)
-        .gt("market_cap", 0)
-        .order("date", { ascending: true })
-        .order("edition_id", { ascending: true });
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const from = page * PAGE;
-      const to = from + PAGE - 1;
-      const { data, error } = await baseQuery().range(from, to);
-      if (error) {
-        console.error(`[grail] history chunk ${ci} page ${page} failed`, error);
-        throw error;
-      }
-      const rows =
-        (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
-      for (const r of rows) {
-        allHistory.push({
-          date: r.date,
-          edition_id: r.edition_id,
-          market_cap: Number(r.market_cap) || 0,
-        });
-      }
-      if (rows.length < PAGE) break;
-    }
-  }
-  if (allHistory.length >= MAX_PAGES * PAGE) {
-    console.warn(`[grail] MAX_PAGES=${MAX_PAGES} hit; series may be truncated. lookbackDays=${lookbackDays}`);
-  }
-  if (allHistory.length === 0) {
+  const { data: dailyData, error: dailyErr } = await sb.rpc("index_basket_daily", {
+    p_edition_ids: editionIds,
+    p_since: sinceDate,
+  });
+  if (dailyErr) console.error("[grail] index_basket_daily failed", dailyErr);
+  const daily = (((dailyData as { d: string; total_usd: number | string }[] | null) ?? [])
+    .map((r) => ({ date: r.d, total: Number(r.total_usd) || 0 }))
+    .filter((r) => r.total > 0));
+  if (daily.length === 0) {
     return {
       ...EMPTY,
       basket_canonical_count: canonicalCount,
@@ -345,160 +300,19 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
       as_of_date: asOfDate,
     };
   }
-
-  // 6. Pivot — single forward pass. Re-sort globally by date first: chunked
-  // fetch concatenates per-chunk date-sorted runs, so allHistory is NOT globally
-  // ordered until we sort it here (the pivot below requires date-ascending).
-  allHistory.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  const byEdition = new Map<string, Map<string, number>>();
-  const dates: string[] = [];
-  let prevDate = "";
-  for (const h of allHistory) {
-    if (h.date !== prevDate) {
-      dates.push(h.date);
-      prevDate = h.date;
-    }
-    if (!byEdition.has(h.edition_id)) byEdition.set(h.edition_id, new Map());
-    byEdition.get(h.edition_id)!.set(h.date, h.market_cap);
-  }
-  if (dates.length === 0) {
-    return {
-      ...EMPTY,
-      basket_canonical_count: canonicalCount,
-      basket_matched_count: matchedCount,
-      basket_target_size: basketEditionIds.length,
-      basket_resolved_size: editionIds.length,
-      as_of_date: asOfDate,
-    };
-  }
-  const seriesStartDate = dates[0];
-
-  // 7. Robust weighting:
-  //    (a) Exclude editions whose current mcap > 5× their median observed mcap
-  //        in the window — these are outliers (stuck listings, ETL artifacts).
-  //        Example: Stephen Curry Holo MMXX with stuck $500K floor produces
-  //        current_mcap=$10M vs window-median ~$134K → 75× → excluded.
-  //    (b) Among the remaining editions, cap each weight at 2%.
-  //    No redistribution of excess weight; basket sum < 1 is fine (it cancels
-  //    in the ratio).
-  const MAX_WEIGHT = 0.02;
-  const OUTLIER_RATIO = 5;
-
-  // Compute window-median per edition (robust to single-day spikes/drops).
-  const medianByEdition = new Map<string, number>();
-  for (const [eid, dmap] of byEdition.entries()) {
-    const values: number[] = [];
-    for (const v of dmap.values()) if (v > 0) values.push(v);
-    if (values.length === 0) continue;
-    values.sort((a, b) => a - b);
-    const mid = Math.floor(values.length / 2);
-    medianByEdition.set(
-      eid,
-      values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid]
-    );
-  }
-
-  const weights = new Map<string, number>();
-  const excluded: string[] = [];
-  for (const [eid, m] of currentMcap.entries()) {
-    const median = medianByEdition.get(eid);
-    if (median && median > 0 && m / median > OUTLIER_RATIO) {
-      excluded.push(eid);
-      continue;
-    }
-    const raw = m / basketMcapTotal;
-    weights.set(eid, Math.min(raw, MAX_WEIGHT));
-  }
-  if (excluded.length > 0) {
-    console.log(`[grail] excluded ${excluded.length} outlier editions (current > 5× window-median)`);
-  }
-
-  // 8. Series — basket-level normalization with BIDIRECTIONAL carry-forward.
-  //
-  // Math: index_value(d) = 100 × Σ_i w_i × mcap_i(d) / Σ_i w_i × mcap_i(d_0)
-  //
-  // Outlier handling (basket-level): one edition with a tiny baseline can't
-  // blow up the index — the weighted basket sum at d_0 absorbs it.
-  //
-  // Sparse-coverage handling (bidirectional fill): if edition i has no data
-  // at d_0 (e.g., a newer edition that didn't exist yet), its baseline gets
-  // the FIRST FORWARD value (back-filled). This keeps the basket fully
-  // composed at d_0 — without it, a basket where only 5% of editions had
-  // data 30d ago produces index values like 4282 because startWSum is tiny.
-  //
-  // ETL gaps: standard forward carry-forward (use last known value).
-  //
-  // This is the practical compromise for retrospective indices on a basket
-  // whose composition is fixed today but where individual editions may have
-  // entered the market at different historical times.
-  const firstObserved = new Map<string, number>(); // first positive mcap per edition
-  for (const h of allHistory) {
-    if (h.market_cap > 0 && !firstObserved.has(h.edition_id)) {
-      firstObserved.set(h.edition_id, h.market_cap);
-    }
-  }
-
-  // Forward-fill state initialized to first-observed (== backward-fill for dates
-  // before each edition's first appearance).
-  const lastKnown = new Map<string, number>(firstObserved);
-  const weightedSumByDate: number[] = [];
-  const rawSumByDate: number[] = [];
-  for (const d of dates) {
-    let wSum = 0;
-    let rawSum = 0;
-    for (const eid of editionIds) {
-      const w = weights.get(eid) ?? 0;
-      if (w === 0) continue;
-      const dmap = byEdition.get(eid);
-      const today = dmap?.get(d);
-      const useValRaw = today ?? lastKnown.get(eid) ?? 0;
-      if (today && today > 0) lastKnown.set(eid, today);
-      const useVal = capped(eid, useValRaw); // vanity-proof: last-sale cap
-      if (useVal > 0) {
-        wSum += w * useVal;
-        rawSum += useVal;
-      }
-    }
-    weightedSumByDate.push(wSum);
-    rawSumByDate.push(rawSum);
-  }
-  // Honest dollar series: daily sum of the basket's actual market cap — raw
-  // dollars, NO weighting, NO normalization (that's what broke the index).
-  // Per-edition carry-forward of the last-known value across days an edition's
-  // snapshot is missing, seeded with its first-observed value so day 0 isn't
-  // artificially low. A missing snapshot shouldn't make the basket dip. This is
-  // what the hero plots, so 30d is the tail of 6m and the last point equals the
-  // headline. (index_value retained for legacy /indices pages.)
-  const firstSeenUsd = new Map<string, number>();
-  for (const h of allHistory) {
-    if (h.market_cap > 0 && !firstSeenUsd.has(h.edition_id)) firstSeenUsd.set(h.edition_id, h.market_cap);
-  }
-  const editionIdsForSum = [...byEdition.keys()];
-  const lastKnownUsd = new Map(firstSeenUsd);
-  const dailyRaw = new Map<string, number>();
-  for (const d of dates) {
-    let sum = 0;
-    for (const e of editionIdsForSum) {
-      const today = byEdition.get(e)?.get(d);
-      if (today != null && today > 0) lastKnownUsd.set(e, today);
-      const use = lastKnownUsd.get(e);
-      if (use && use > 0) sum += capped(e, use);
-    }
-    dailyRaw.set(d, sum);
-  }
-  const startWSum = weightedSumByDate[0] || 0;
-  const series: GrailSeriesPoint[] = dates.map((d, i) => ({
-    date: d,
-    index_value: startWSum > 0 ? 100 * (weightedSumByDate[i] / startWSum) : 0,
-    basket_mcap_usd: dailyRaw.get(d) ?? 0,
+  const seriesStartDate = daily[0].date;
+  const baseTotal = daily[0].total;
+  // Raw edition-level series; basket_mcap_usd scaled to parallel-grain below.
+  const series: GrailSeriesPoint[] = daily.map((p) => ({
+    date: p.date,
+    index_value: baseTotal > 0 ? 100 * (p.total / baseTotal) : 100,
+    basket_mcap_usd: p.total,
   }));
-  const latestDailyRaw = dailyRaw.get(dates[dates.length - 1]) ?? basketMcapTotal;
-  const latestIndexValue = series[series.length - 1]?.index_value ?? 100;
+  const latestDailyRaw = daily[daily.length - 1].total;
+  const latestIndexValue = series[series.length - 1].index_value;
   const seriesPctChange =
     series.length >= 2 && series[0].index_value > 0
-      ? ((series[series.length - 1].index_value - series[0].index_value) /
-          series[0].index_value) *
-        100
+      ? ((latestIndexValue - series[0].index_value) / series[0].index_value) * 100
       : 0;
 
   // 10. PARALLEL-GRAIN constituents + headline. Priced per (edition × subedition)
@@ -555,9 +369,11 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
       })
       .sort((a, b) => b.current_mcap_usd - a.current_mcap_usd);
   } else {
-    headlineTotal = latestDailyRaw;
-    constituents = Array.from(currentMcap.entries())
-      .map(([eid, mcap]) => {
+    // Fallback: parallel snapshot absent → edition-level (capped) constituents.
+    const edTotals = Array.from(currentMcap.entries()).map(([eid, mcap]) => ({ eid, mcap: capped(eid, mcap) }));
+    headlineTotal = edTotals.reduce((s2, x) => s2 + x.mcap, 0);
+    constituents = edTotals
+      .map(({ eid, mcap }) => {
         const meta = editionIdToMeta.get(eid);
         return {
           edition_id: eid,
@@ -565,11 +381,11 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
           player_name: meta?.player_name ?? null,
           set_name: null,
           tier_name: meta?.tier_name ?? null,
-          weight: weights.get(eid) ?? 0,
-          current_mcap_usd: capped(eid, mcap),
+          weight: headlineTotal > 0 ? mcap / headlineTotal : 0,
+          current_mcap_usd: mcap,
         };
       })
-      .sort((a, b) => b.weight - a.weight);
+      .sort((a, b) => b.current_mcap_usd - a.current_mcap_usd);
   }
 
   // Scale the daily $ series to the parallel-grain level (shape preserved).
@@ -584,12 +400,12 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     basket_mcap_total_usd: headlineTotal,
     latest_index_value: latestIndexValue,
     series_pct_change: seriesPctChange,
-    days_of_history: dates.length,
+    days_of_history: series.length,
     basket_canonical_count: canonicalCount,
     basket_matched_count: matchedCount,
     basket_target_size: basketEditionIds.length,
     basket_resolved_size: subRows.length > 0 ? subRows.length : editionIds.length,
-    basket_active_size: byEdition.size,
+    basket_active_size: editionIds.length,
   };
 }
 
@@ -605,7 +421,7 @@ const SYNTHESIZER_VERSION = createHash("sha256")
 // source changes, BUT prod-minified comments don't affect the toString output —
 // only real code changes do. Explicit "v9-iter5" suffix forces a fresh cache
 // slot regardless of minifier behavior. Bump on future cache-stuck incidents.
-const CACHE_KEY_SUFFIX = "v12-parallel-grain-2026-06-01";
+const CACHE_KEY_SUFFIX = "v15-rpc-capped-2026-06-01";
 export const getGrailIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),
