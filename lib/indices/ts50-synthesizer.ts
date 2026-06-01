@@ -131,133 +131,34 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
   const basketMcapTotal = top.reduce((sum, t) => sum + capped(t.edition_id, t.current_mcap), 0);
   if (basketMcapTotal <= 0) return EMPTY_RESULT;
 
-  // ── Step 3: daily mcap history for the basket ────────────────────────────
-  const sinceDate = new Date(
-    new Date(asOfDate).getTime() - lookbackDays * 86_400_000,
-  )
+  // ── Step 3-6: daily basket total via the shared capped RPC. Replaces the
+  // per-edition history fan-out + JS pivot/weighting that timed out for 90D/1Y
+  // windows (chart went empty). One row/date, vanity-capped server-side.
+  const effLookbackDays = Math.min(lookbackDays, 400);
+  const sinceDate = new Date(new Date(asOfDate).getTime() - effLookbackDays * 86_400_000)
     .toISOString()
     .slice(0, 10);
-
-  // PostgREST 1000-row cap means at 50 editions × N days we paginate when
-  // N > 20. Use range pagination.
-  const allHistory: { date: string; edition_id: string; market_cap: number }[] = [];
-  const PAGE = 1000;
-  for (let page = 0; page < 100; page++) {
-    const from = page * PAGE;
-    const to = from + PAGE - 1;
-    const { data, error } = await sb
-      .from("market_caps")
-      .select("date, edition_id, market_cap")
-      .in("edition_id", basketIds)
-      .gte("date", sinceDate)
-      .not("market_cap", "is", null)
-      .gt("market_cap", 0)
-      .order("date", { ascending: true })
-      .order("edition_id", { ascending: true })
-      .range(from, to);
-    if (error) {
-      console.error("[ts50] history page error", error);
-      break;
-    }
-    type HistoryRow = { date: string; edition_id: string; market_cap: number | string };
-    const rows = (data as HistoryRow[] | null) ?? [];
-    if (rows.length === 0) break;
-    for (const r of rows) {
-      allHistory.push({
-        date: r.date,
-        edition_id: r.edition_id,
-        market_cap: Number(r.market_cap) || 0,
-      });
-    }
-    if (rows.length < PAGE) break;
-  }
-  if (allHistory.length === 0) return EMPTY_RESULT;
-
-  // ── Step 4: pivot history into per-edition series ────────────────────────
-  // Map<edition_id, Map<date, mcap>>
-  const byEdition = new Map<string, Map<string, number>>();
-  for (const h of allHistory) {
-    if (!byEdition.has(h.edition_id)) byEdition.set(h.edition_id, new Map());
-    byEdition.get(h.edition_id)!.set(h.date, h.market_cap);
-  }
-  // Distinct sorted dates across the full history
-  const dateSet = new Set<string>();
-  for (const h of allHistory) dateSet.add(h.date);
-  const dates = Array.from(dateSet).sort();
-  if (dates.length === 0) return EMPTY_RESULT;
-  const seriesStartDate = dates[0];
-  const isThin = dates.length < 7;
-
-  // ── Step 5: robust weighting — outlier exclusion + 2% per-edition cap.
-  // See grail-synthesizer.ts for full derivation + bug history.
-  const MAX_WEIGHT = 0.02;
-  const OUTLIER_RATIO = 5;
-
-  const medianByEdition = new Map<string, number>();
-  for (const [eid, dmap] of byEdition.entries()) {
-    const values: number[] = [];
-    for (const v of dmap.values()) if (v > 0) values.push(v);
-    if (values.length === 0) continue;
-    values.sort((a, b) => a - b);
-    const mid = Math.floor(values.length / 2);
-    medianByEdition.set(
-      eid,
-      values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid]
-    );
-  }
-
-  const weights = new Map<string, number>();
-  for (const t of top) {
-    const median = medianByEdition.get(t.edition_id);
-    if (median && median > 0 && t.current_mcap / median > OUTLIER_RATIO) continue;
-    const raw = t.current_mcap / basketMcapTotal;
-    weights.set(t.edition_id, Math.min(raw, MAX_WEIGHT));
-  }
-
-  // ── Step 6: index series via basket-level normalization + bidirectional fill.
-  // See grail-synthesizer.ts for full math derivation + bug history.
-  //   - Outliers wash out at basket level (vs per-edition ratios pre-fix)
-  //   - Sparse coverage at d_0 doesn't inflate index (back-fill to first observed)
-  //   - ETL gaps still use forward carry-forward
-  const firstObserved = new Map<string, number>();
-  for (const h of allHistory) {
-    if (h.market_cap > 0 && !firstObserved.has(h.edition_id)) {
-      firstObserved.set(h.edition_id, h.market_cap);
-    }
-  }
-  const lastKnown = new Map<string, number>(firstObserved);
-  const weightedSumByDate: number[] = [];
-  const rawSumByDate: number[] = [];
-  for (const d of dates) {
-    let wSum = 0;
-    let rawSum = 0;
-    for (const t of top) {
-      const w = weights.get(t.edition_id) ?? 0;
-      if (w === 0) continue;
-      const dmap = byEdition.get(t.edition_id);
-      const today = dmap?.get(d);
-      const useValRaw = today ?? lastKnown.get(t.edition_id) ?? 0;
-      if (today && today > 0) lastKnown.set(t.edition_id, today);
-      const useVal = capped(t.edition_id, useValRaw);
-      if (useVal > 0) {
-        wSum += w * useVal;
-        rawSum += useVal;
-      }
-    }
-    weightedSumByDate.push(wSum);
-    rawSumByDate.push(rawSum);
-  }
-  const startWSum = weightedSumByDate[0] || 0;
-  const series: TS50SeriesPoint[] = dates.map((d, i) => ({
-    date: d,
-    index_value: startWSum > 0 ? 100 * (weightedSumByDate[i] / startWSum) : 0,
-    basket_mcap_usd: rawSumByDate[i],
+  const { data: dailyData, error: dailyErr } = await sb.rpc("index_basket_daily", {
+    p_edition_ids: basketIds,
+    p_since: sinceDate,
+  });
+  if (dailyErr) console.error("[ts50] index_basket_daily failed", dailyErr);
+  const daily = (((dailyData as { d: string; total_usd: number | string }[] | null) ?? [])
+    .map((r) => ({ date: r.d, total: Number(r.total_usd) || 0 }))
+    .filter((r) => r.total > 0));
+  if (daily.length === 0) return EMPTY_RESULT;
+  const seriesStartDate = daily[0].date;
+  const isThin = daily.length < 7;
+  const baseTotal = daily[0].total;
+  const series: TS50SeriesPoint[] = daily.map((p) => ({
+    date: p.date,
+    index_value: baseTotal > 0 ? 100 * (p.total / baseTotal) : 100,
+    basket_mcap_usd: p.total,
   }));
-  const latestIndexValue = series[series.length - 1]?.index_value ?? 100;
+  const latestIndexValue = series[series.length - 1].index_value;
   const seriesPctChange =
     series.length >= 2 && series[0].index_value > 0
-      ? ((series[series.length - 1].index_value - series[0].index_value) /
-          series[0].index_value) * 100
+      ? ((latestIndexValue - series[0].index_value) / series[0].index_value) * 100
       : 0;
 
   // ── Step 8: build constituent rows for the table render ─────────────────
@@ -284,7 +185,7 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
       set_name: ed?.set_name ?? null,
       tier_name: ed?.tier_name ?? null,
       parallel_id: ed?.parallel_id ?? null,
-      weight: weights.get(t.edition_id) ?? 0,
+      weight: basketMcapTotal > 0 ? capped(t.edition_id, t.current_mcap) / basketMcapTotal : 0,
       current_mcap_usd: capped(t.edition_id, t.current_mcap),
     };
   });
@@ -297,7 +198,7 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
     basket_mcap_total_usd: basketMcapTotal,
     latest_index_value: latestIndexValue,
     series_pct_change: seriesPctChange,
-    days_of_history: dates.length,
+    days_of_history: series.length,
     is_thin: isThin,
   };
 }
@@ -305,6 +206,6 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
 export const getTS50Index = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchTS50Inner(lookbackDays),
-    ["ts50-index", String(lookbackDays)],
+    ["ts50-index", "v2-rpc", String(lookbackDays)],
     { revalidate: 60 * 60, tags: ["ts50-index"] },
   )();

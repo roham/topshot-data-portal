@@ -163,166 +163,35 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
   const basketMcapTotal = top.reduce((s, t) => s + capped(t.edition_id, t.current_mcap), 0);
   if (basketMcapTotal <= 0) return { ...EMPTY, draft_year_used: draftYear };
 
-  // History fan-out
-  const sinceDate = new Date(
-    new Date(asOfDate).getTime() - lookbackDays * 86_400_000
-  )
+  // Daily basket total via the shared capped RPC (replaces the per-edition
+  // history fan-out + pivot that timed out for long windows; one row/date,
+  // vanity-capped server-side).
+  const effLookbackDays = Math.min(lookbackDays, 400);
+  const sinceDate = new Date(new Date(asOfDate).getTime() - effLookbackDays * 86_400_000)
     .toISOString()
     .slice(0, 10);
-
-  // PERF: parallel-paginate + error-bubble (see grail-synthesizer.ts perf notes).
-  const allHistory: { date: string; edition_id: string; market_cap: number }[] = [];
-  const PAGE = 1000;
-  const baseQuery = () =>
-    sb
-      .from("market_caps")
-      .select("date, edition_id, market_cap")
-      .in("edition_id", basketIds)
-      .gte("date", sinceDate)
-      .not("market_cap", "is", null)
-      .gt("market_cap", 0)
-      .order("date", { ascending: true })
-      .order("edition_id", { ascending: true });
-
-  // V9 iter-5 CORRECTIVE — fetch-until-empty pagination (see grail-synthesizer for full
-  // diagnosis). The prior count-probe-then-parallel-paginate pattern silently degraded to
-  // single-page (1000 rows) when count probe returned null under serverless pressure.
-  const MAX_PAGES = 60;
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const from = page * PAGE;
-    const to = from + PAGE - 1;
-    const { data, error } = await baseQuery().range(from, to);
-    if (error) {
-      console.error(`[rookies] history page ${page} failed`, error);
-      throw error;
-    }
-    const rows =
-      (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
-    for (const r of rows) {
-      allHistory.push({
-        date: r.date,
-        edition_id: r.edition_id,
-        market_cap: Number(r.market_cap) || 0,
-      });
-    }
-    if (rows.length < PAGE) break;
-  }
-  if (allHistory.length >= MAX_PAGES * PAGE) {
-    console.warn(`[rookies] MAX_PAGES=${MAX_PAGES} hit; series may be truncated. lookbackDays=${lookbackDays}`);
-  }
-  if (allHistory.length === 0) return { ...EMPTY, draft_year_used: draftYear };
-
-  // Single forward pass: pivot + dates.
-  const byEdition = new Map<string, Map<string, number>>();
-  const dates: string[] = [];
-  let prevDate = "";
-  for (const h of allHistory) {
-    if (h.date !== prevDate) {
-      dates.push(h.date);
-      prevDate = h.date;
-    }
-    if (!byEdition.has(h.edition_id)) byEdition.set(h.edition_id, new Map());
-    byEdition.get(h.edition_id)!.set(h.date, h.market_cap);
-  }
-  if (dates.length === 0) return { ...EMPTY, draft_year_used: draftYear };
-  const seriesStartDate = dates[0];
-  const isThin = dates.length < 7;
-
-  // Robust weighting — see grail-synthesizer.ts for full math derivation.
-  // (a) Exclude editions where current_mcap > 5× window-median (outliers).
-  // (b) Cap remaining weights at 5% (rookies has fewer editions so cap is laxer).
-  const MAX_WEIGHT = 0.05;
-  const OUTLIER_RATIO = 5;
-
-  const medianByEdition = new Map<string, number>();
-  for (const [eid, dmap] of byEdition.entries()) {
-    const values: number[] = [];
-    for (const v of dmap.values()) if (v > 0) values.push(v);
-    if (values.length === 0) continue;
-    values.sort((a, b) => a - b);
-    const mid = Math.floor(values.length / 2);
-    medianByEdition.set(
-      eid,
-      values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid]
-    );
-  }
-
-  const weights = new Map<string, number>();
-  for (const t of top) {
-    const median = medianByEdition.get(t.edition_id);
-    if (median && median > 0 && t.current_mcap / median > OUTLIER_RATIO) continue;
-    const raw = t.current_mcap / basketMcapTotal;
-    weights.set(t.edition_id, Math.min(raw, MAX_WEIGHT));
-  }
-
-  // Basket-level normalization with BIDIRECTIONAL carry-forward.
-  // See grail-synthesizer.ts for math derivation + bug history (outliers, sparse-baseline).
-  const firstObserved = new Map<string, number>();
-  for (const h of allHistory) {
-    if (h.market_cap > 0 && !firstObserved.has(h.edition_id)) {
-      firstObserved.set(h.edition_id, h.market_cap);
-    }
-  }
-  const lastKnown = new Map<string, number>(firstObserved);
-  const weightedSumByDate: number[] = [];
-  const rawSumByDate: number[] = [];
-  for (const d of dates) {
-    let wSum = 0;
-    let rawSum = 0;
-    for (const t of top) {
-      const w = weights.get(t.edition_id) ?? 0;
-      if (w === 0) continue;
-      const dmap = byEdition.get(t.edition_id);
-      const today = dmap?.get(d);
-      const useValRaw = today ?? lastKnown.get(t.edition_id) ?? 0;
-      if (today && today > 0) lastKnown.set(t.edition_id, today);
-      const useVal = capped(t.edition_id, useValRaw);
-      if (useVal > 0) {
-        wSum += w * useVal;
-        rawSum += useVal;
-      }
-    }
-    weightedSumByDate.push(wSum);
-    rawSumByDate.push(rawSum);
-  }
-  // Honest dollar series: daily sum of the basket's actual market cap — raw
-  // dollars, NO weighting, NO normalization (that's what broke the index).
-  // Per-edition carry-forward of the last-known value across days an edition's
-  // snapshot is missing, seeded with its first-observed value so day 0 isn't
-  // artificially low. A missing snapshot shouldn't make the basket dip; an
-  // edition that traded yesterday still exists today. This is what the hero
-  // plots, so a 30d view is exactly the tail of the 6m view and the chart's
-  // last point equals the headline. (index_value retained for /indices pages.)
-  const firstSeenUsd = new Map<string, number>();
-  for (const h of allHistory) {
-    if (h.market_cap > 0 && !firstSeenUsd.has(h.edition_id)) firstSeenUsd.set(h.edition_id, h.market_cap);
-  }
-  const editionIds = [...byEdition.keys()];
-  const lastKnownUsd = new Map(firstSeenUsd);
-  const dailyRaw = new Map<string, number>();
-  for (const d of dates) {
-    let sum = 0;
-    for (const e of editionIds) {
-      const today = byEdition.get(e)?.get(d);
-      if (today != null && today > 0) lastKnownUsd.set(e, today);
-      const use = lastKnownUsd.get(e);
-      if (use && use > 0) sum += capped(e, use);
-    }
-    dailyRaw.set(d, sum);
-  }
-  const startWSum = weightedSumByDate[0] || 0;
-  const series: RookiesSeriesPoint[] = dates.map((d, i) => ({
-    date: d,
-    index_value: startWSum > 0 ? 100 * (weightedSumByDate[i] / startWSum) : 0,
-    basket_mcap_usd: dailyRaw.get(d) ?? 0,
+  const { data: dailyData, error: dailyErr } = await sb.rpc("index_basket_daily", {
+    p_edition_ids: basketIds,
+    p_since: sinceDate,
+  });
+  if (dailyErr) console.error("[rookies] index_basket_daily failed", dailyErr);
+  const daily = (((dailyData as { d: string; total_usd: number | string }[] | null) ?? [])
+    .map((r) => ({ date: r.d, total: Number(r.total_usd) || 0 }))
+    .filter((r) => r.total > 0));
+  if (daily.length === 0) return { ...EMPTY, draft_year_used: draftYear };
+  const seriesStartDate = daily[0].date;
+  const isThin = daily.length < 7;
+  const baseTotal = daily[0].total;
+  const series: RookiesSeriesPoint[] = daily.map((p) => ({
+    date: p.date,
+    index_value: baseTotal > 0 ? 100 * (p.total / baseTotal) : 100,
+    basket_mcap_usd: p.total,
   }));
-  const latestDailyRaw = dailyRaw.get(dates[dates.length - 1]) ?? basketMcapTotal;
-  const latestIndexValue = series[series.length - 1]?.index_value ?? 100;
+  const latestDailyRaw = daily[daily.length - 1].total;
+  const latestIndexValue = series[series.length - 1].index_value;
   const seriesPctChange =
     series.length >= 2 && series[0].index_value > 0
-      ? ((series[series.length - 1].index_value - series[0].index_value) /
-          series[0].index_value) *
-        100
+      ? ((latestIndexValue - series[0].index_value) / series[0].index_value) * 100
       : 0;
 
   const { data: edata } = await sb
@@ -345,7 +214,7 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
       player_name: ed?.player_name ?? null,
       set_name: ed?.set_name ?? null,
       tier_name: ed?.tier_name ?? null,
-      weight: weights.get(t.edition_id) ?? 0,
+      weight: basketMcapTotal > 0 ? capped(t.edition_id, t.current_mcap) / basketMcapTotal : 0,
       current_mcap_usd: capped(t.edition_id, t.current_mcap),
     };
   });
@@ -358,7 +227,7 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
     basket_mcap_total_usd: latestDailyRaw,
     latest_index_value: latestIndexValue,
     series_pct_change: seriesPctChange,
-    days_of_history: dates.length,
+    days_of_history: series.length,
     is_thin: isThin,
     draft_year_used: draftYear,
   };
@@ -375,6 +244,6 @@ export const getRookiesIndex = (
 ) =>
   unstable_cache(
     () => fetchInner(lookbackDays, draftYear),
-    ["rookies-index", SYNTHESIZER_VERSION, String(lookbackDays), draftYear],
+    ["rookies-index", "v2-rpc", SYNTHESIZER_VERSION, String(lookbackDays), draftYear],
     { revalidate: 60 * 60, tags: ["rookies-index"] }
   )();
