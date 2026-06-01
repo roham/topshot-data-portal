@@ -9,6 +9,7 @@
 import { createHash } from "node:crypto";
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
+import { getEditionLastSales } from "@/lib/supabase/queries/edition-last-sale";
 import { CURRENT_ROOKIE_YEAR } from "@/lib/indices/rookie-years";
 
 const BASKET_SIZE = 30;
@@ -114,13 +115,13 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
   // basket squeaked under it, which is why grail worked and rookies didn't).
   // 100 IDs ≈ 7.5KB, comfortably under any reasonable limit. We surface the
   // error instead of swallowing it.
-  const candidatePool: { edition_id: string; current_mcap: number }[] = [];
+  const candidatePool: { edition_id: string; current_mcap: number; circ: number }[] = [];
   const CHUNK = 100;
   for (let i = 0; i < rookieEditionIds.length; i += CHUNK) {
     const chunk = rookieEditionIds.slice(i, i + CHUNK);
     const { data: capRows, error } = await sb
       .from("market_caps")
-      .select("edition_id, market_cap")
+      .select("edition_id, market_cap, num_moments_in_circulation")
       .eq("date", asOfDate)
       .in("edition_id", chunk)
       .not("market_cap", "is", null)
@@ -131,10 +132,11 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
       console.error(`[rookies] candidate-pool chunk ${i} failed`, error);
       throw error;
     }
-    for (const r of ((capRows as { edition_id: string; market_cap: number | string }[] | null) ?? [])) {
+    for (const r of ((capRows as { edition_id: string; market_cap: number | string; num_moments_in_circulation: number | string }[] | null) ?? [])) {
       candidatePool.push({
         edition_id: r.edition_id,
         current_mcap: Number(r.market_cap) || 0,
+        circ: Number(r.num_moments_in_circulation) || 0,
       });
     }
   }
@@ -143,7 +145,22 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
   if (top.length === 0) return { ...EMPTY, draft_year_used: draftYear };
 
   const basketIds = top.map((t) => t.edition_id);
-  const basketMcapTotal = top.reduce((s, t) => s + t.current_mcap, 0);
+
+  // VANITY-PROOF CAP (2026-05-31) — same fix as grail-synthesizer: cap each
+  // edition at last realized sale × circ (mv_edition_last_sale) so a lone vanity
+  // ask can't inflate the index via lowest_ask × circ. Applied to the headline,
+  // both series, and constituents. See research/FINDING-grail-vanity-ask.md.
+  const lastSales = await getEditionLastSales(basketIds);
+  const capByEdition = new Map<string, number>();
+  for (const t of top) {
+    const ls = lastSales.get(t.edition_id);
+    if (ls && ls.last_sale_usd > 0 && t.circ > 0) capByEdition.set(t.edition_id, ls.last_sale_usd * t.circ);
+  }
+  const capped = (eid: string, v: number): number => {
+    const cap = capByEdition.get(eid);
+    return cap != null ? Math.min(v, cap) : v;
+  };
+  const basketMcapTotal = top.reduce((s, t) => s + capped(t.edition_id, t.current_mcap), 0);
   if (basketMcapTotal <= 0) return { ...EMPTY, draft_year_used: draftYear };
 
   // History fan-out
@@ -257,8 +274,9 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
       if (w === 0) continue;
       const dmap = byEdition.get(t.edition_id);
       const today = dmap?.get(d);
-      const useVal = today ?? lastKnown.get(t.edition_id) ?? 0;
+      const useValRaw = today ?? lastKnown.get(t.edition_id) ?? 0;
       if (today && today > 0) lastKnown.set(t.edition_id, today);
+      const useVal = capped(t.edition_id, useValRaw);
       if (useVal > 0) {
         wSum += w * useVal;
         rawSum += useVal;
@@ -288,7 +306,7 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
       const today = byEdition.get(e)?.get(d);
       if (today != null && today > 0) lastKnownUsd.set(e, today);
       const use = lastKnownUsd.get(e);
-      if (use && use > 0) sum += use;
+      if (use && use > 0) sum += capped(e, use);
     }
     dailyRaw.set(d, sum);
   }
@@ -328,7 +346,7 @@ async function fetchInner(lookbackDays: number, requestedYear: string): Promise<
       set_name: ed?.set_name ?? null,
       tier_name: ed?.tier_name ?? null,
       weight: weights.get(t.edition_id) ?? 0,
-      current_mcap_usd: t.current_mcap,
+      current_mcap_usd: capped(t.edition_id, t.current_mcap),
     };
   });
 

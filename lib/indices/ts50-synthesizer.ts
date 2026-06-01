@@ -23,6 +23,7 @@
 
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
+import { getEditionLastSales } from "@/lib/supabase/queries/edition-last-sale";
 
 export interface TS50SeriesPoint {
   /** ISO date string YYYY-MM-DD */
@@ -105,13 +106,29 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
     .limit(BASKET_SIZE);
   if (topErr || !topRows || topRows.length === 0) return EMPTY_RESULT;
 
-  type TopRow = { edition_id: string; market_cap: number | string };
+  type TopRow = { edition_id: string; market_cap: number | string; num_moments_in_circulation: number | string };
   const top = (topRows as TopRow[]).map((r) => ({
     edition_id: r.edition_id,
     current_mcap: Number(r.market_cap) || 0,
+    circ: Number(r.num_moments_in_circulation) || 0,
   }));
   const basketIds = top.map((t) => t.edition_id);
-  const basketMcapTotal = top.reduce((sum, t) => sum + t.current_mcap, 0);
+
+  // VANITY-PROOF CAP (2026-05-31) — same fix as grail-synthesizer: cap each
+  // edition at last realized sale × circ (mv_edition_last_sale) so a lone vanity
+  // ask can't inflate the index via lowest_ask × circ. Applied to the headline,
+  // both series, and constituents. See research/FINDING-grail-vanity-ask.md.
+  const lastSales = await getEditionLastSales(basketIds);
+  const capByEdition = new Map<string, number>();
+  for (const t of top) {
+    const ls = lastSales.get(t.edition_id);
+    if (ls && ls.last_sale_usd > 0 && t.circ > 0) capByEdition.set(t.edition_id, ls.last_sale_usd * t.circ);
+  }
+  const capped = (eid: string, v: number): number => {
+    const cap = capByEdition.get(eid);
+    return cap != null ? Math.min(v, cap) : v;
+  };
+  const basketMcapTotal = top.reduce((sum, t) => sum + capped(t.edition_id, t.current_mcap), 0);
   if (basketMcapTotal <= 0) return EMPTY_RESULT;
 
   // ── Step 3: daily mcap history for the basket ────────────────────────────
@@ -219,8 +236,9 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
       if (w === 0) continue;
       const dmap = byEdition.get(t.edition_id);
       const today = dmap?.get(d);
-      const useVal = today ?? lastKnown.get(t.edition_id) ?? 0;
+      const useValRaw = today ?? lastKnown.get(t.edition_id) ?? 0;
       if (today && today > 0) lastKnown.set(t.edition_id, today);
+      const useVal = capped(t.edition_id, useValRaw);
       if (useVal > 0) {
         wSum += w * useVal;
         rawSum += useVal;
@@ -267,7 +285,7 @@ async function fetchTS50Inner(lookbackDays: number): Promise<TS50IndexResult> {
       tier_name: ed?.tier_name ?? null,
       parallel_id: ed?.parallel_id ?? null,
       weight: weights.get(t.edition_id) ?? 0,
-      current_mcap_usd: t.current_mcap,
+      current_mcap_usd: capped(t.edition_id, t.current_mcap),
     };
   });
 
