@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
+import { getEditionLastSales } from "@/lib/supabase/queries/edition-last-sale";
 
 const CSV_RELATIVE_PATH = "research/data-schema/grail-225-with-edition-ids-2026-05-19.csv";
 const MAX_LOOKBACK_DAYS = 365;
@@ -186,20 +187,40 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
 
   // 4. Current mcap per basket edition on latest date
   const currentMcap = new Map<string, number>();
+  const circByEdition = new Map<string, number>();
   for (let i = 0; i < editionIds.length; i += CHUNK) {
     const chunk = editionIds.slice(i, i + CHUNK);
     const { data } = await sb
       .from("market_caps")
-      .select("edition_id, market_cap")
+      .select("edition_id, market_cap, num_moments_in_circulation")
       .eq("date", asOfDate)
       .in("edition_id", chunk)
       .not("market_cap", "is", null)
       .gt("market_cap", 0);
-    for (const r of (data as { edition_id: string; market_cap: number | string }[] | null) ?? []) {
+    for (const r of (data as { edition_id: string; market_cap: number | string; num_moments_in_circulation: number | string }[] | null) ?? []) {
       currentMcap.set(r.edition_id, Number(r.market_cap) || 0);
+      circByEdition.set(r.edition_id, Number(r.num_moments_in_circulation) || 0);
     }
   }
   const basketMcapTotal = Array.from(currentMcap.values()).reduce((s, v) => s + v, 0);
+
+  // VANITY-PROOF CAP (2026-05-31). Floor mcap = lowest_ask × circ imputes a single
+  // ask across every moment — one $500K vanity ask on a /50 Curry (last REAL sale
+  // $4,500) inflated the basket by ~$10M. Cap each edition's displayed value at its
+  // last realized sale × circulation (mv_edition_last_sale, 365d window, 157/166
+  // grails covered). Editions never sold keep floor. Applied to the $ headline, the
+  // $ series, and the constituents table; the index_value weighting keeps its own
+  // outlier logic. See research/FINDING-grail-vanity-ask.md.
+  const lastSales = await getEditionLastSales(editionIds);
+  const capByEdition = new Map<string, number>();
+  for (const [eid, ls] of lastSales.entries()) {
+    const circ = circByEdition.get(eid) ?? 0;
+    if (ls.last_sale_usd > 0 && circ > 0) capByEdition.set(eid, ls.last_sale_usd * circ);
+  }
+  const capped = (eid: string, v: number): number => {
+    const cap = capByEdition.get(eid);
+    return cap != null ? Math.min(v, cap) : v;
+  };
   if (basketMcapTotal <= 0) {
     return {
       ...EMPTY,
@@ -387,8 +408,9 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
       if (w === 0) continue;
       const dmap = byEdition.get(eid);
       const today = dmap?.get(d);
-      const useVal = today ?? lastKnown.get(eid) ?? 0;
+      const useValRaw = today ?? lastKnown.get(eid) ?? 0;
       if (today && today > 0) lastKnown.set(eid, today);
+      const useVal = capped(eid, useValRaw); // vanity-proof: last-sale cap
       if (useVal > 0) {
         wSum += w * useVal;
         rawSum += useVal;
@@ -417,7 +439,7 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
       const today = byEdition.get(e)?.get(d);
       if (today != null && today > 0) lastKnownUsd.set(e, today);
       const use = lastKnownUsd.get(e);
-      if (use && use > 0) sum += use;
+      if (use && use > 0) sum += capped(e, use);
     }
     dailyRaw.set(d, sum);
   }
@@ -446,7 +468,7 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
         set_name: null, // set_name lives on the `sets` table; deep view joins it
         tier_name: meta?.tier_name ?? null,
         weight: weights.get(eid) ?? 0,
-        current_mcap_usd: mcap,
+        current_mcap_usd: capped(eid, mcap),
       };
     })
     .sort((a, b) => b.weight - a.weight);
