@@ -36,6 +36,8 @@ export interface GrailSeriesPoint {
 
 export interface GrailConstituentRow {
   edition_id: string;
+  /** Sub-edition (parallel) id; null = Base. Each (edition × subedition) is its own market. */
+  subedition_id: string | null;
   player_name: string | null;
   set_name: string | null;
   tier_name: string | null;
@@ -499,34 +501,94 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
         100
       : 0;
 
-  // 10. Constituents table — sort by weight descending
-  const constituents: GrailConstituentRow[] = Array.from(currentMcap.entries())
-    .map(([eid, mcap]) => {
-      const meta = editionIdToMeta.get(eid);
-      return {
-        edition_id: eid,
-        player_name: meta?.player_name ?? null,
-        set_name: null, // set_name lives on the `sets` table; deep view joins it
-        tier_name: meta?.tier_name ?? null,
-        weight: weights.get(eid) ?? 0,
-        current_mcap_usd: capped(eid, mcap),
-      };
-    })
-    .sort((a, b) => b.weight - a.weight);
+  // 10. PARALLEL-GRAIN constituents + headline. Priced per (edition × subedition)
+  // from moments (grail-subedition-marketcap.csv) — each parallel its own market
+  // (constitution Principle IV), instead of the parallel-blind edition floor. The
+  // edition-level series above supplies the daily SHAPE (no sub-edition history
+  // exists yet); we scale it to the parallel-grain level so the chart's last point
+  // equals the headline. Base tier keeps the last-sale vanity cap; scarce parallels
+  // (low circ → low ask-amplification) sit at floor.
+  const SUB_PATH = "research/data-schema/grail-subedition-marketcap.csv";
+  const subRows: { eid: string; sub: string; circ: number; floor: number }[] = [];
+  try {
+    const t = await readFile(join(process.cwd(), SUB_PATH), "utf-8");
+    for (const line of t.split("\n").slice(1)) {
+      if (!line.trim()) continue;
+      const p = line.split(",");
+      const eid = p[0]?.trim();
+      if (!eid || !editionIdToMeta.has(eid)) continue;
+      const circ = Number(p[2]);
+      const floor = Number(p[3]);
+      if (!(circ > 0) || !(floor > 0)) continue;
+      subRows.push({ eid, sub: (p[1] ?? "").trim(), circ, floor });
+    }
+  } catch {
+    // snapshot absent — fall back to edition-level constituents below
+  }
+
+  let constituents: GrailConstituentRow[];
+  let headlineTotal: number;
+
+  if (subRows.length > 0) {
+    const priced = subRows.map((r) => {
+      const isBase = r.sub === "" || r.sub === "0";
+      let mcap = r.floor * r.circ;
+      if (isBase) {
+        const ls = lastSales.get(r.eid);
+        if (ls && ls.last_sale_usd > 0) mcap = Math.min(mcap, ls.last_sale_usd * r.circ);
+      }
+      return { r, mcap };
+    });
+    headlineTotal = priced.reduce((s, x) => s + x.mcap, 0);
+    constituents = priced
+      .map(({ r, mcap }) => {
+        const meta = editionIdToMeta.get(r.eid);
+        return {
+          edition_id: r.eid,
+          subedition_id: r.sub === "" || r.sub === "0" ? null : r.sub,
+          player_name: meta?.player_name ?? null,
+          set_name: null,
+          tier_name: meta?.tier_name ?? null,
+          weight: headlineTotal > 0 ? mcap / headlineTotal : 0,
+          current_mcap_usd: mcap,
+        };
+      })
+      .sort((a, b) => b.current_mcap_usd - a.current_mcap_usd);
+  } else {
+    headlineTotal = latestDailyRaw;
+    constituents = Array.from(currentMcap.entries())
+      .map(([eid, mcap]) => {
+        const meta = editionIdToMeta.get(eid);
+        return {
+          edition_id: eid,
+          subedition_id: null,
+          player_name: meta?.player_name ?? null,
+          set_name: null,
+          tier_name: meta?.tier_name ?? null,
+          weight: weights.get(eid) ?? 0,
+          current_mcap_usd: capped(eid, mcap),
+        };
+      })
+      .sort((a, b) => b.weight - a.weight);
+  }
+
+  // Scale the daily $ series to the parallel-grain level (shape preserved).
+  const scale = latestDailyRaw > 0 ? headlineTotal / latestDailyRaw : 1;
+  const scaledSeries = series.map((p) => ({ ...p, basket_mcap_usd: p.basket_mcap_usd * scale }));
 
   return {
-    series,
+    series: scaledSeries,
     constituents,
     as_of_date: asOfDate,
     series_start_date: seriesStartDate,
-    basket_mcap_total_usd: latestDailyRaw,
+    basket_mcap_total_usd: headlineTotal,
     latest_index_value: latestIndexValue,
     series_pct_change: seriesPctChange,
     days_of_history: dates.length,
     basket_canonical_count: canonicalCount,
     basket_matched_count: matchedCount,
     basket_target_size: basketEditionIds.length,
-    basket_resolved_size: editionIds.length,
+    basket_resolved_size: subRows.length > 0 ? subRows.length : editionIds.length,
     basket_active_size: byEdition.size,
   };
 }
@@ -543,7 +605,7 @@ const SYNTHESIZER_VERSION = createHash("sha256")
 // source changes, BUT prod-minified comments don't affect the toString output —
 // only real code changes do. Explicit "v9-iter5" suffix forces a fresh cache
 // slot regardless of minifier behavior. Bump on future cache-stuck incidents.
-const CACHE_KEY_SUFFIX = "v11-grail-decollide-2026-06-01";
+const CACHE_KEY_SUFFIX = "v12-parallel-grain-2026-06-01";
 export const getGrailIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),

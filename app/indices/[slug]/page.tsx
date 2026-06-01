@@ -38,7 +38,7 @@ const GRAIL_SHAPE: IndexShape = {
   slug: "grail",
   title: "GRAIL Index",
   subtitle: (asOf, n) =>
-    `Vaultopolis canonical basket · ${n} editions${asOf ? ` · as of ${asOf}` : ""}`,
+    `Vaultopolis canonical basket · ${n} markets (parallels priced separately)${asOf ? ` · as of ${asOf}` : ""}`,
   description:
     "The blue-chip basket — Vaultopolis community-canonical Grail list (top 225 editions by average sale price). We resolve and price every edition our data covers: the canonical compound-key matches (de-collided via candidate IDs so distinct supply variants aren't merged) plus marquee grails re-resolved by player → top editions by realized sale value. The shortfall to 225 is editions our DB doesn't yet carry — chiefly named parallels (Diamond, Anthology, etc.), which the ETL ingests as Base only. Value-weighted; the largest holdings move the index most.",
   methodology:
@@ -85,6 +85,7 @@ function deltaColor(pct: number): string {
 
 interface SharedConstituentRow {
   edition_id: string;
+  subedition_id?: string | null;
   player_name: string | null;
   set_name: string | null;
   tier_name: string | null;
@@ -108,6 +109,7 @@ function ConstituentsTable({ rows }: { rows: SharedConstituentRow[] }) {
             <th className="px-3 py-1.5 text-left w-8">#</th>
             <th className="px-3 py-1.5 text-left">Player</th>
             <th className="px-3 py-1.5 text-left">Tier</th>
+            <th className="px-3 py-1.5 text-left">Parallel</th>
             <th className="px-3 py-1.5 text-right">Mcap</th>
             <th className="px-3 py-1.5 text-right">Weight</th>
             <th className="px-3 py-1.5 text-right w-8"></th>
@@ -120,7 +122,7 @@ function ConstituentsTable({ rows }: { rows: SharedConstituentRow[] }) {
               : null;
             return (
               <tr
-                key={r.edition_id}
+                key={`${r.edition_id}#${r.subedition_id ?? ""}`}
                 className="border-b border-[var(--border-subtle)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
               >
                 <td className="px-3 py-2 text-[var(--text-faint)] tabular-nums">{i + 1}</td>
@@ -137,6 +139,11 @@ function ConstituentsTable({ rows }: { rows: SharedConstituentRow[] }) {
                 </td>
                 <td className="px-3 py-2">
                   {r.tier_name ? <TierChip tier={r.tier_name} /> : <span className="text-[var(--text-faint)]">—</span>}
+                </td>
+                <td className="px-3 py-2">
+                  {r.subedition_id
+                    ? <span className="rounded bg-[var(--accent)]/12 text-[var(--accent)] px-1.5 py-0.5 text-[10px]">parallel {r.subedition_id}</span>
+                    : <span className="text-[var(--text-faint)]">Base</span>}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-[var(--text)]">
                   <Num value={r.current_mcap_usd} format="usdCompact" />
@@ -256,6 +263,7 @@ export default async function Page({
       series = r.series;
       constituents = r.constituents.map((c: GrailConstituentRow) => ({
         edition_id: c.edition_id,
+        subedition_id: c.subedition_id,
         player_name: c.player_name,
         set_name: c.set_name,
         tier_name: c.tier_name,
@@ -275,6 +283,7 @@ export default async function Page({
       series = r.series;
       constituents = r.constituents.map((c: RookiesConstituentRow) => ({
         edition_id: c.edition_id,
+        subedition_id: null,
         player_name: c.player_name,
         set_name: c.set_name,
         tier_name: c.tier_name,
