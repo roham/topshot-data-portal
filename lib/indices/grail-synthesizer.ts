@@ -111,14 +111,25 @@ async function parseGrailBasket(): Promise<GrailBasketParse> {
   const ids = new Set<string>();
   let canonicalCount = 0;
   let matchedCount = 0;
+  // Greedy distinct-edition assignment. The matcher resolved several rows to the
+  // SAME edition_id (col 5) even though they're distinct editions (e.g. a play's
+  // /31 vs /49 supply variants) — their true edition is the SECOND candidate in
+  // col 13. Assigning each row the first of its candidates not already taken
+  // de-collides them (166 → 171), instead of naively deduping on col 5.
   for (const line of lines) {
     if (!line.trim()) continue;
     canonicalCount += 1;
     const cols = line.split(",");
-    const editionId = cols[5]?.trim();
-    if (!editionId || !editionId.includes("+")) continue;
+    const primary = cols[5]?.trim();
+    const candidates = (cols[13] ?? "")
+      .split(";")
+      .map((s) => s.trim())
+      .filter((x) => x.includes("+"));
+    const pool = candidates.length > 0 ? candidates : (primary && primary.includes("+") ? [primary] : []);
+    if (pool.length === 0) continue;
     matchedCount += 1;
-    ids.add(editionId);
+    const pick = pool.find((c) => !ids.has(c)) ?? pool[0];
+    ids.add(pick);
   }
   // Merge the re-resolved supplement (recovers the marquee grails the canonical
   // CSV failed to map — match_confidence "none"). Each supplement edition_id is
@@ -532,7 +543,7 @@ const SYNTHESIZER_VERSION = createHash("sha256")
 // source changes, BUT prod-minified comments don't affect the toString output —
 // only real code changes do. Explicit "v9-iter5" suffix forces a fresh cache
 // slot regardless of minifier behavior. Bump on future cache-stuck incidents.
-const CACHE_KEY_SUFFIX = "v10-grail-supplement+lastsale-cap-2026-05-31";
+const CACHE_KEY_SUFFIX = "v11-grail-decollide-2026-06-01";
 export const getGrailIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),

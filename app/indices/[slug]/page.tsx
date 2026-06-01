@@ -40,7 +40,7 @@ const GRAIL_SHAPE: IndexShape = {
   subtitle: (asOf, n) =>
     `Vaultopolis canonical basket · ${n} editions${asOf ? ` · as of ${asOf}` : ""}`,
   description:
-    "The blue-chip basket — Vaultopolis community-canonical Grail list (top 225 editions by average sale price). 199 resolved to live editions: 166 from the canonical mapping plus 33 re-resolved by player to their top editions by realized sale value (the canonical CSV had dropped those — mostly 2025 rookies, WNBA, and marquee veterans). The rest lack a resolvable edition. Value-weighted; the largest holdings move the index most.",
+    "The blue-chip basket — Vaultopolis community-canonical Grail list (top 225 editions by average sale price). We resolve and price every edition our data covers: the canonical compound-key matches (de-collided via candidate IDs so distinct supply variants aren't merged) plus marquee grails re-resolved by player → top editions by realized sale value. The shortfall to 225 is editions our DB doesn't yet carry — chiefly named parallels (Diamond, Anthology, etc.), which the ETL ingests as Base only. Value-weighted; the largest holdings move the index most.",
   methodology:
     "Each edition is valued at its last REALIZED sale × circulation — not lowest_ask × circulation — so a lone vanity ask can't inflate the basket (one $500K Curry ask, last real sale $4,500, had been imputing a $10M phantom). Editions never sold fall back to floor. Weight w_i = value_i / Σ value; series I(d) = 100 × Σ w_i × value_i(d) / value_i(d_0), carry-forward on gaps.",
   comparable: "Card Ladder Pro CL50 + Glassnode supply-distribution",
