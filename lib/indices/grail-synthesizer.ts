@@ -20,6 +20,12 @@ import { getSupabaseServerAnon } from "@/lib/supabase/server";
 import { getEditionLastSales } from "@/lib/supabase/queries/edition-last-sale";
 
 const CSV_RELATIVE_PATH = "research/data-schema/grail-225-with-edition-ids-2026-05-19.csv";
+// Supplement: 33 grails whose canonical-CSV rows had match_confidence "none"
+// (no edition_id — mostly 2025 rookies/WNBA + marquee veterans). Re-resolved
+// 2026-05-31 by player → top editions by realized last-sale value (≥$1K),
+// excluding the already-matched 166. Recovers LeBron/Wemby/Curry/KD/Tatum/SGA/
+// Flagg grails the stale CSV dropped. col 0 = compound edition_id.
+const SUPPLEMENT_RELATIVE_PATH = "research/data-schema/grail-supplement-resolved.csv";
 const MAX_LOOKBACK_DAYS = 365;
 
 export interface GrailSeriesPoint {
@@ -114,6 +120,22 @@ async function parseGrailBasket(): Promise<GrailBasketParse> {
     matchedCount += 1;
     ids.add(editionId);
   }
+  // Merge the re-resolved supplement (recovers the marquee grails the canonical
+  // CSV failed to map — match_confidence "none"). Each supplement edition_id is
+  // a real, priced, last-sale-backed edition. Optional file; absence is fine.
+  try {
+    const supText = await readFile(join(process.cwd(), SUPPLEMENT_RELATIVE_PATH), "utf-8");
+    for (const line of supText.split("\n").slice(1)) {
+      if (!line.trim()) continue;
+      const eid = line.split(",")[0]?.trim();
+      if (eid && eid.includes("+") && !ids.has(eid)) {
+        ids.add(eid);
+        matchedCount += 1;
+      }
+    }
+  } catch {
+    // supplement not present — basket falls back to the 166 canonical matches
+  }
   return { canonicalCount, matchedCount, uniqueIds: Array.from(ids) };
 }
 
@@ -146,7 +168,10 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     edition_name: string | null;
   };
   const edLookup: EdLookup[] = [];
-  const CHUNK = 500;
+  // 100, not 500: a 199-edition basket's compound ids in one .in() exceed
+  // Supabase's request-URL length limit (intermittent "fetch failed"). 100
+  // compound ids ≈ 7KB URL — comfortably safe. Applies to every .in(editionIds).
+  const CHUNK = 100;
   for (let i = 0; i < basketEditionIds.length; i += CHUNK) {
     const chunk = basketEditionIds.slice(i, i + CHUNK);
     const { data } = await sb
@@ -260,36 +285,39 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
   const allHistory: { date: string; edition_id: string; market_cap: number }[] = [];
   const PAGE = 1000;
   const MAX_PAGES = 60;
-  const baseQuery = () =>
-    sb
-      .from("market_caps")
-      .select("date, edition_id, market_cap")
-      .in("edition_id", editionIds)
-      .gte("date", sinceDate)
-      .not("market_cap", "is", null)
-      .gt("market_cap", 0)
-      .order("date", { ascending: true })
-      .order("edition_id", { ascending: true });
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const from = page * PAGE;
-    const to = from + PAGE - 1;
-    const { data, error } = await baseQuery().range(from, to);
-    if (error) {
-      console.error(`[grail] history page ${page} failed`, error);
-      throw error;
+  // Chunk editionIds (≤100 per .in() — URL-length safe) AND paginate within each
+  // chunk. Prior single-.in(editionIds) over-ran the URL limit at 199 editions.
+  for (let ci = 0; ci < editionIds.length; ci += CHUNK) {
+    const idChunk = editionIds.slice(ci, ci + CHUNK);
+    const baseQuery = () =>
+      sb
+        .from("market_caps")
+        .select("date, edition_id, market_cap")
+        .in("edition_id", idChunk)
+        .gte("date", sinceDate)
+        .not("market_cap", "is", null)
+        .gt("market_cap", 0)
+        .order("date", { ascending: true })
+        .order("edition_id", { ascending: true });
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const from = page * PAGE;
+      const to = from + PAGE - 1;
+      const { data, error } = await baseQuery().range(from, to);
+      if (error) {
+        console.error(`[grail] history chunk ${ci} page ${page} failed`, error);
+        throw error;
+      }
+      const rows =
+        (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
+      for (const r of rows) {
+        allHistory.push({
+          date: r.date,
+          edition_id: r.edition_id,
+          market_cap: Number(r.market_cap) || 0,
+        });
+      }
+      if (rows.length < PAGE) break;
     }
-    const rows =
-      (data as { date: string; edition_id: string; market_cap: number | string }[] | null) ?? [];
-    for (const r of rows) {
-      allHistory.push({
-        date: r.date,
-        edition_id: r.edition_id,
-        market_cap: Number(r.market_cap) || 0,
-      });
-    }
-    // Break when page returned fewer than PAGE rows — that's the last page.
-    if (rows.length < PAGE) break;
   }
   if (allHistory.length >= MAX_PAGES * PAGE) {
     console.warn(`[grail] MAX_PAGES=${MAX_PAGES} hit; series may be truncated. lookbackDays=${lookbackDays}`);
@@ -305,8 +333,10 @@ async function fetchInner(lookbackDays: number): Promise<GrailIndexResult> {
     };
   }
 
-  // 6. Pivot — single forward pass. allHistory comes pre-sorted by
-  // (date ASC, edition_id ASC) from the query above.
+  // 6. Pivot — single forward pass. Re-sort globally by date first: chunked
+  // fetch concatenates per-chunk date-sorted runs, so allHistory is NOT globally
+  // ordered until we sort it here (the pivot below requires date-ascending).
+  allHistory.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const byEdition = new Map<string, Map<string, number>>();
   const dates: string[] = [];
   let prevDate = "";
@@ -502,7 +532,7 @@ const SYNTHESIZER_VERSION = createHash("sha256")
 // source changes, BUT prod-minified comments don't affect the toString output —
 // only real code changes do. Explicit "v9-iter5" suffix forces a fresh cache
 // slot regardless of minifier behavior. Bump on future cache-stuck incidents.
-const CACHE_KEY_SUFFIX = "v9-iter5-2026-05-19";
+const CACHE_KEY_SUFFIX = "v10-grail-supplement+lastsale-cap-2026-05-31";
 export const getGrailIndex = (lookbackDays = MAX_LOOKBACK_DAYS) =>
   unstable_cache(
     () => fetchInner(lookbackDays),

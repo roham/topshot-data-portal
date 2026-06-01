@@ -40,9 +40,9 @@ const GRAIL_SHAPE: IndexShape = {
   subtitle: (asOf, n) =>
     `Vaultopolis canonical basket · ${n} editions${asOf ? ` · as of ${asOf}` : ""}`,
   description:
-    "The blue-chip basket — Vaultopolis community-canonical Grail list as of April 2026 (top 225 editions by average sale price; 166 unique compound keys after dedup, all 166 resolved to live editions). Value-weighted; the largest-mcap editions move the index the most.",
+    "The blue-chip basket — Vaultopolis community-canonical Grail list (top 225 editions by average sale price). 199 resolved to live editions: 166 from the canonical mapping plus 33 re-resolved by player to their top editions by realized sale value (the canonical CSV had dropped those — mostly 2025 rookies, WNBA, and marquee veterans). The rest lack a resolvable edition. Value-weighted; the largest holdings move the index most.",
   methodology:
-    "Weight w_i = current mcap of edition i / Σ current mcap across the basket. Series I(d) = 100 × Σ w_i × mcap_i(d) / mcap_i(d_0), where d_0 is the first observed snapshot for each edition. Editions missing on date d carry forward last known value. Faithful — no smoothing, vanity 1-of-1s included.",
+    "Each edition is valued at its last REALIZED sale × circulation — not lowest_ask × circulation — so a lone vanity ask can't inflate the basket (one $500K Curry ask, last real sale $4,500, had been imputing a $10M phantom). Editions never sold fall back to floor. Weight w_i = value_i / Σ value; series I(d) = 100 × Σ w_i × value_i(d) / value_i(d_0), carry-forward on gaps.",
   comparable: "Card Ladder Pro CL50 + Glassnode supply-distribution",
 };
 
