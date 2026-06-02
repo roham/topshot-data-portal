@@ -1,11 +1,22 @@
-// /sales — Top Sales flagship. Leads with the positive: the genuine standout
-// sales in the window, podium for the top 3 (real NBA headshots, never
-// synthesized), then a ranked table. The homepage "Largest sales · see all →"
-// deep-links here. Default window 30D per the constitution time-window standard
-// (90D/6M collapse to the 30D MV; selector offers 24H/7D/30D/1Y/All).
+// /sales — Top Sales, reframed as a special-serial showcase.
+//
+// The old surface was a podium + a flat ranked table — a spreadsheet that never
+// said WHY a sale mattered. The collector audience cares about the story behind
+// the serial: #1 first mints, serials that match the player's jersey number, and
+// the scarcest parallels (Omega, Galactic). This page leads with those.
+//
+// Structure:
+//   1. Featured hero — the single greatest special sale in the window.
+//   2. Stat strip — counts per category (anchors into the sections).
+//   3. Category sections — First Mint / Jersey Match / Omega / Galactic / Low Serials,
+//      each a themed rail of rich cards (real NBA headshots, team-color washes).
+//   4. All Top Sales — the comprehensive ranked table + CSV for power users.
+//
+// Default window is 1Y (the showcase wants depth — the rarest categories like
+// Omega are thin over 30D). Selector offers 24H…All. Sales shown as-is per the
+// constitution (settled marks, no vanity cap).
 
 import Link from "next/link";
-import Image from "next/image";
 import { Suspense } from "react";
 import { Card } from "@/components/primitives/Card";
 import { Num } from "@/components/primitives/Num";
@@ -14,12 +25,18 @@ import { TimeWindowSelector } from "@/components/global/TimeWindowSelector";
 import { ExportCSV } from "@/components/global/ExportCSV";
 import { parseTimeWindow, WINDOW_SPECS, type TimeWindow } from "@/components/global/window-types";
 import { getTopSales } from "@/lib/supabase/queries/largest-sales";
-import { NBA_HEADSHOT } from "@/lib/nba-team-colors";
+import { getSpecialSales } from "@/lib/supabase/queries/special-sales";
 import { windowToLargestSalesView } from "@/lib/supabase/helpers";
+import {
+  FeaturedHero,
+  SpecialSection,
+  THEMES,
+  type ThemeKey,
+} from "@/components/sales/special-sales-ui";
 
 export const revalidate = 120;
 export const maxDuration = 30;
-export const metadata = { title: "Top Sales · TS·PORTAL" };
+export const metadata = { title: "Top Sales · Special Serials · TS·PORTAL" };
 
 const TIER_NAME_TO_RAW: Record<string, string> = {
   Common: "MOMENT_TIER_COMMON",
@@ -32,7 +49,6 @@ const TIER_NAME_TO_RAW: Record<string, string> = {
 function rawTier(name: string | null | undefined): string | null {
   return name ? (TIER_NAME_TO_RAW[name] ?? null) : null;
 }
-
 function soldDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   const t = new Date(iso).getTime();
@@ -40,89 +56,76 @@ function soldDate(iso: string | null | undefined): string {
   return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function editionHref(editionId: string | null | undefined): string | null {
-  return editionId ? `/edition/${editionId}` : null;
-}
+// Ordered category render list.
+const SECTION_ORDER: ThemeKey[] = ["serial_one", "jersey", "omega", "galactic", "low_serial"];
 
-function PodiumCard({
-  rank,
-  sale,
-}: {
-  rank: number;
-  sale: Awaited<ReturnType<typeof getTopSales>>[number];
-}) {
-  const href = editionHref(sale.edition_id);
-  const medal = rank === 1 ? "text-[var(--accent)]" : "text-[var(--text-dim)]";
-  const inner = (
-    <div className="flex items-center gap-3">
-      <div className="relative w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-[var(--surface-2)] border border-[var(--border-subtle)]">
-        {sale.player_id ? (
-          <Image
-            src={NBA_HEADSHOT(sale.player_id)}
-            alt={sale.player_name ?? "player"}
-            fill
-            sizes="56px"
-            className="object-cover object-top"
-            unoptimized
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className={`font-mono text-[16px] font-semibold tabular-nums ${medal}`}>#{rank}</span>
-          <span className="font-mono text-[18px] font-semibold tabular-nums text-[var(--up)]">
-            <Num value={Number(sale.gross_amount_usd)} format="usd" />
-          </span>
-        </div>
-        <div className="truncate text-[13px] text-[var(--text)] mt-0.5">
-          {sale.player_name ?? "—"}
-          {sale.serial_number != null && (
-            <span className="text-[var(--text-faint)]"> #{sale.serial_number}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 mt-1">
-          <TierChip tier={rawTier(sale.tier_name)} />
-          <span className="truncate text-[11px] text-[var(--text-dim)] font-mono">
-            {sale.set_name ?? sale.edition_name ?? "—"}
-          </span>
-        </div>
-        <div className="text-[10px] text-[var(--text-faint)] font-mono mt-1">{soldDate(sale.sold_at)}</div>
-      </div>
-    </div>
-  );
-  return (
-    <Card variant="inset">
-      <div className="p-3">
-        {href ? (
-          <Link href={href} className="block hover:opacity-90 transition-opacity">
-            {inner}
-          </Link>
-        ) : (
-          inner
-        )}
-      </div>
-    </Card>
-  );
-}
+// ── The special-serial showcase ─────────────────────────────────────────────
+async function Showcase({ window }: { window: TimeWindow }) {
+  const data = await getSpecialSales(window);
+  const sections = {
+    serial_one: data.serial_one,
+    jersey: data.jersey,
+    omega: data.omega,
+    galactic: data.galactic,
+    low_serial: data.low_serial,
+  };
+  const hasAny = data.hero.length > 0;
 
-async function TopSales({ window }: { window: TimeWindow }) {
-  const sales = await getTopSales({ window, limit: 50 });
-  const label = WINDOW_SPECS[window].label;
-
-  if (sales.length === 0) {
+  if (!hasAny) {
     return (
-      <div className="p-8 text-center text-[12px] text-[var(--text-dim)] font-mono">
-        No sales recorded in the {label} window yet.
+      <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-8 text-center font-mono text-[12px] text-[var(--text-dim)]">
+        No special-serial sales recorded in the {data.windowLabel} window yet. Widen the window above.
       </div>
     );
   }
 
-  const podium = sales.slice(0, 3);
-  const rest = sales.slice(3);
+  return (
+    <div className="space-y-6">
+      {/* Featured hero */}
+      <FeaturedHero sale={data.hero[0]} />
+
+      {/* Stat strip — counts per category, click to jump */}
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+        {SECTION_ORDER.map((key) => {
+          const t = THEMES[key];
+          const c = sections[key].count;
+          return (
+            <Link
+              key={key}
+              href={`#${t.id}`}
+              className="group rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 transition-colors hover:border-[var(--border-strong)]"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-[13px]" style={{ color: t.accent }}>{t.glyph}</span>
+                <span className="font-mono text-[9px] tracking-data-label text-[var(--text-faint)]">{t.title}</span>
+              </div>
+              <div className="mt-1 font-mono text-[22px] font-semibold tabular-nums text-[var(--text)]">
+                {c.toLocaleString("en-US")}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Category sections */}
+      {SECTION_ORDER.map((key) => (
+        <SpecialSection key={key} theme={THEMES[key]} count={sections[key].count} rows={sections[key].rows} />
+      ))}
+    </div>
+  );
+}
+
+// ── Comprehensive ranked table (the full "biggest sales" list + CSV) ─────────
+async function AllTopSales({ window }: { window: TimeWindow }) {
+  const sales = await getTopSales({ window, limit: 50 });
+  if (sales.length === 0) return null;
 
   return (
-    <div className="space-y-5">
-      <div className="flex justify-end">
+    <Card
+      variant="inset"
+      title="ALL TOP SALES"
+      subtitle={`${sales.length} biggest settled sales`}
+      right={
         <ExportCSV
           filename={`topshot-top-sales-${window}.csv`}
           headers={["Price USD", "Player", "Serial", "Set", "Tier", "Buyer", "Seller", "Sold at", "Edition id"]}
@@ -138,101 +141,80 @@ async function TopSales({ window }: { window: TimeWindow }) {
             r.edition_id ?? "",
           ])}
         />
-      </div>
-      {/* Lead with the positive: the three biggest sales of the window. */}
-      <div className="grid md:grid-cols-3 gap-3">
-        {podium.map((s, i) => (
-          <PodiumCard key={s.transaction_id} rank={i + 1} sale={s} />
-        ))}
-      </div>
-
-      {rest.length > 0 && (
-        <Card variant="inset">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead className="bg-[var(--surface-2)]">
-                <tr className="text-left text-[10px] tracking-data-label text-[var(--text-faint)] uppercase">
-                  <th className="px-3 py-1.5 w-8 text-right">#</th>
-                  <th className="px-3 py-1.5 text-right w-[110px]">Price</th>
-                  <th className="px-3 py-1.5">Moment</th>
-                  <th className="px-3 py-1.5 w-[110px]">Tier</th>
-                  <th className="px-3 py-1.5">Buyer</th>
-                  <th className="px-3 py-1.5">Seller</th>
-                  <th className="px-3 py-1.5 text-right w-[90px]">Sold</th>
+      }
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px]">
+          <thead className="bg-[var(--surface-2)]">
+            <tr className="text-left text-[10px] uppercase tracking-data-label text-[var(--text-faint)]">
+              <th className="w-8 px-3 py-1.5 text-right">#</th>
+              <th className="w-[110px] px-3 py-1.5 text-right">Price</th>
+              <th className="px-3 py-1.5">Moment</th>
+              <th className="w-[110px] px-3 py-1.5">Tier</th>
+              <th className="px-3 py-1.5">Buyer</th>
+              <th className="px-3 py-1.5">Seller</th>
+              <th className="w-[90px] px-3 py-1.5 text-right">Sold</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border-subtle)]">
+            {sales.map((s, i) => {
+              const href = s.edition_id ? `/edition/${s.edition_id}` : null;
+              return (
+                <tr key={s.transaction_id} className="transition-colors hover:bg-[var(--surface-2)]">
+                  <td className="px-3 py-1.5 text-right tabular-nums text-[var(--text-faint)]">{i + 1}</td>
+                  <td className="px-3 py-1.5 text-right font-semibold tabular-nums text-[var(--up)]">
+                    <Num value={Number(s.gross_amount_usd)} format="usd" />
+                  </td>
+                  <td className="px-3 py-1.5 text-[var(--text)]">
+                    {href ? (
+                      <Link href={href} className="hover:text-[var(--accent)]">
+                        {s.player_name ?? "—"}
+                        {s.serial_number != null && <span className="text-[var(--text-faint)]"> #{s.serial_number}</span>}
+                        {s.set_name && <span className="text-[var(--text-dim)]"> · {s.set_name}</span>}
+                      </Link>
+                    ) : (
+                      <>
+                        {s.player_name ?? "—"}
+                        {s.serial_number != null && <span className="text-[var(--text-faint)]"> #{s.serial_number}</span>}
+                      </>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <TierChip tier={rawTier(s.tier_name)} />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    {s.buyer_safe_name ? (
+                      <Link href={`/u/${encodeURIComponent(s.buyer_safe_name)}`} className="text-[var(--text-dim)] hover:text-[var(--accent)]">
+                        {s.buyer_safe_name}
+                      </Link>
+                    ) : (
+                      <span className="text-[var(--text-faint)]">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    {s.seller_safe_name ? (
+                      <Link href={`/u/${encodeURIComponent(s.seller_safe_name)}`} className="text-[var(--text-dim)] hover:text-[var(--accent)]">
+                        {s.seller_safe_name}
+                      </Link>
+                    ) : (
+                      <span className="text-[var(--text-faint)]">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-[11px] tabular-nums text-[var(--text-faint)]">
+                    {soldDate(s.sold_at)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {rest.map((s, i) => {
-                  const href = editionHref(s.edition_id);
-                  return (
-                    <tr key={s.transaction_id} className="hover:bg-[var(--surface-2)] transition-colors">
-                      <td className="px-3 py-1.5 text-right tabular-nums text-[var(--text-faint)]">{i + 4}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-[var(--up)]">
-                        <Num value={Number(s.gross_amount_usd)} format="usd" />
-                      </td>
-                      <td className="px-3 py-1.5 text-[var(--text)]">
-                        {href ? (
-                          <Link href={href} className="hover:text-[var(--accent)]">
-                            {s.player_name ?? "—"}
-                            {s.serial_number != null && (
-                              <span className="text-[var(--text-faint)]"> #{s.serial_number}</span>
-                            )}
-                            {s.set_name && <span className="text-[var(--text-dim)]"> · {s.set_name}</span>}
-                          </Link>
-                        ) : (
-                          <>
-                            {s.player_name ?? "—"}
-                            {s.serial_number != null && (
-                              <span className="text-[var(--text-faint)]"> #{s.serial_number}</span>
-                            )}
-                          </>
-                        )}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <TierChip tier={rawTier(s.tier_name)} />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        {s.buyer_safe_name ? (
-                          <Link
-                            href={`/u/${encodeURIComponent(s.buyer_safe_name)}`}
-                            className="text-[var(--text-dim)] hover:text-[var(--accent)]"
-                          >
-                            {s.buyer_safe_name}
-                          </Link>
-                        ) : (
-                          <span className="text-[var(--text-faint)]">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        {s.seller_safe_name ? (
-                          <Link
-                            href={`/u/${encodeURIComponent(s.seller_safe_name)}`}
-                            className="text-[var(--text-dim)] hover:text-[var(--accent)]"
-                          >
-                            {s.seller_safe_name}
-                          </Link>
-                        ) : (
-                          <span className="text-[var(--text-faint)]">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-1.5 text-right tabular-nums text-[var(--text-faint)] font-mono text-[11px]">
-                        {soldDate(s.sold_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      <p className="text-[10px] text-[var(--text-faint)] font-mono leading-relaxed max-w-2xl">
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 max-w-2xl px-3 pb-3 font-mono text-[10px] leading-relaxed text-[var(--text-faint)]">
         Real, settled sales — price descending — from{" "}
-        <span className="text-[var(--text-dim)]">{windowToLargestSalesView(window)}</span>. Headshots are
-        official NBA marks (cdn.nba.com). Click any row to open the edition&apos;s price history.
+        <span className="text-[var(--text-dim)]">{windowToLargestSalesView(window)}</span>. Headshots are official
+        NBA marks (cdn.nba.com). Click any row to open the edition&apos;s price history.
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -242,15 +224,15 @@ export default async function Page({
   searchParams?: Promise<{ w?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const { window } = parseTimeWindow(sp.w, "30d");
+  const { window } = parseTimeWindow(sp.w, "1y");
   const label = WINDOW_SPECS[window].label;
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 py-6 space-y-5">
-      <header className="flex items-baseline gap-4">
-        <h1 className="font-mono text-[14px] tracking-section-header">TOP SALES · {label}</h1>
-        <p className="text-[11px] text-[var(--text-dim)] font-mono">
-          The biggest settled sales in the window — the best of the market.
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6">
+      <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h1 className="font-mono text-[14px] tracking-section-header">TOP SALES · SPECIAL SERIALS</h1>
+        <p className="text-[11px] text-[var(--text-dim)]">
+          The biggest settled sales — and what makes each serial special: first mints, jersey matches, and the rarest parallels.
         </p>
         <div className="ml-auto">
           <TimeWindowSelector />
@@ -258,10 +240,14 @@ export default async function Page({
       </header>
 
       <Suspense
-        key={window}
-        fallback={<div className="p-8 text-[12px] text-[var(--text-dim)] font-mono">Loading top sales…</div>}
+        key={`showcase-${window}`}
+        fallback={<div className="p-8 font-mono text-[12px] text-[var(--text-dim)]">Loading the {label} showcase…</div>}
       >
-        <TopSales window={window} />
+        <Showcase window={window} />
+      </Suspense>
+
+      <Suspense key={`all-${window}`} fallback={null}>
+        <AllTopSales window={window} />
       </Suspense>
     </div>
   );

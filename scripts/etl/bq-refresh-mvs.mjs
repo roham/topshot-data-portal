@@ -28,6 +28,7 @@ const MVS = [
   "mv_largest_sales_30d",
   "mv_largest_sales_1y",
   "mv_largest_sales_all_time",
+  "mv_special_sales",
   "mv_player_24h_volume",
   "mv_player_7d_volume",
   "mv_player_30d_volume",

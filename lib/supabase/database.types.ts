@@ -258,6 +258,36 @@ export interface Tables {
   mv_largest_sales_30d: Tables["mv_largest_sales_24h"];
   mv_largest_sales_1y: Tables["mv_largest_sales_24h"];
   mv_largest_sales_all_time: Tables["mv_largest_sales_24h"];
+  // migration 0034 — special-serial sales showcase source for /sales.
+  mv_special_sales: {
+    transaction_id: string;
+    gross_amount_usd: number;
+    completed_at: string | null;
+    buyer_safe_name: string | null;
+    seller_safe_name: string | null;
+    moment_id: string | null;
+    moment_flow_id: string | null;
+    serial_number: number | null;
+    subedition_id: string | null;
+    edition_id: string | null;
+    edition_name: string | null;
+    set_name: string | null;
+    series_number: number | null;
+    play_name: string | null;
+    player_id: string | null;
+    player_name: string | null;
+    jersey_number: string | null;
+    tier_name: string | null;
+    circulation: number | null;
+    team_id: string | null;
+    parallel_name: string | null;
+    is_serial_one: boolean;
+    is_omega: boolean;
+    is_galactic: boolean;
+    is_jersey_match: boolean;
+    is_low_serial: boolean;
+    is_last_serial: boolean;
+  };
   mv_set_completion_distribution: {
     set_id: string;
     set_name: string | null;

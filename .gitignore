@@ -52,3 +52,4 @@ next-env.d.ts
 # v5 loop runner — transient per-iteration state
 /loop/runner/state/
 
+.superpowers/
