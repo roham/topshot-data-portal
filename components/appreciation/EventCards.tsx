@@ -4,7 +4,6 @@
 import Link from "next/link";
 import { TierChip } from "@/components/primitives/TierChip";
 import { Num } from "@/components/primitives/Num";
-import { StoryClimbSpark } from "@/components/appreciation/StoryClimbSpark";
 import type { StoryRow, FloorSmashRow, IlliquidRow, SalePoint } from "@/lib/supabase/queries/appreciation-events";
 
 const UP = "#34d399";
@@ -48,115 +47,77 @@ function Identity({ player, tier, sub }: { player: string | null; tier: string |
 // A sub-edition (parallel) is anything that isn't the base subedition "0".
 const isParallel = (r: StoryRow) => r.subedition_id != null && r.subedition_id !== "0";
 
-// A graph only earns its place with ≥3 real sale points; otherwise it's a
-// 2-point diagonal that says nothing — so 2-sale stories go full card format
-// (image-forward, auction-lot style à la Goldin / Panini / Topps).
-const hasPath = (path: SalePoint[]) => path.filter((p) => p.price > 0).length >= 3;
+// Every story reads as a shareable social image: the moment is the backdrop,
+// the price journey ($X → $Y, multiple) is stamped across it. SAME treatment on
+// the hero and the grid — the hero is just larger. No free-standing-card look.
+const fmtUsdShort = (v: number | null): string => {
+  if (v == null) return "—";
+  if (v >= 1000) return `$${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}K`;
+  return `$${Math.round(v)}`;
+};
 
-// Big moment image with overlay badges + name plate — the "card front".
-function StoryImage({ r, children }: { r: StoryRow; children?: React.ReactNode }) {
+// Top-corner badges: special-serial pill (left) + multiple pill (right).
+function StoryBadges({ r, big }: { r: StoryRow; big?: boolean }) {
   const badge = r.is_one ? "#1" : r.is_jersey ? "JERSEY" : r.is_low ? `#${r.serial_number}` : null;
   return (
-    <div className="relative aspect-[4/5] w-full overflow-hidden bg-[var(--surface-2)]">
-      {r.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={r.image_url} alt={r.player_name ?? ""} loading="lazy" className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]" />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-1)]" />
-      )}
-      {/* top badges */}
-      <div className="absolute left-2 top-2 flex items-center gap-1">
-        {badge && <span className="rounded bg-[color-mix(in_srgb,var(--tier-legendary)_88%,black)] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-black shadow">{badge}</span>}
+    <>
+      <div className={`absolute ${big ? "left-3 top-3" : "left-2.5 top-2.5"} flex items-center gap-1`}>
+        {badge && <span className="rounded bg-[var(--tier-legendary)] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-black shadow">{badge}</span>}
         {isParallel(r) && <span className="rounded bg-black/55 px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)] backdrop-blur">parallel</span>}
       </div>
-      <span className="absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[15px] font-bold tabular-nums shadow" style={{ color: "#052e1a", background: UP }}>{fmtMult(r.mult)}</span>
-      {/* bottom name plate */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-2 pt-8">
+      <span className={`absolute ${big ? "right-3 top-3 text-[22px]" : "right-2.5 top-2.5 text-[15px]"} rounded-md px-1.5 py-0.5 font-bold tabular-nums shadow`} style={{ color: "#052e1a", background: UP }}>{fmtMult(r.mult)}</span>
+    </>
+  );
+}
+
+// The universal appreciation line — bought $X → now $Y. The star of every card.
+function PriceJourney({ r, big }: { r: StoryRow; big?: boolean }) {
+  return (
+    <div className="flex items-baseline gap-2 font-mono">
+      <span className={`tabular-nums text-white/55 ${big ? "text-[18px]" : "text-[13px]"}`}>{fmtUsdShort(r.first_sale)}</span>
+      <span className={`text-white/45 ${big ? "text-[18px]" : "text-[13px]"}`}>→</span>
+      <span className={`font-bold tabular-nums text-white ${big ? "text-[40px] leading-none" : "text-[24px] leading-none"}`}>{fmtUsdShort(r.last_sale)}</span>
+    </div>
+  );
+}
+
+function StoryImg({ src, alt }: { src: string | null; alt: string }) {
+  return src ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} loading="lazy" className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]" />
+  ) : (
+    <div className="absolute inset-0 bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-1)]" />
+  );
+}
+
+export function AppreciationStoryCard({ r, rank }: { r: StoryRow; rank?: number; path?: SalePoint[] }) {
+  return (
+    <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} className="group relative block aspect-[4/5] overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-2)]">
+      <StoryImg src={r.image_url} alt={r.player_name ?? ""} />
+      <StoryBadges r={r} />
+      {rank != null && <span className="absolute bottom-2.5 right-2.5 rounded bg-black/45 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-white/75 backdrop-blur">#{rank}</span>}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/65 to-transparent px-3 pb-3 pt-16">
         <div className="flex items-center gap-1.5"><span className="truncate text-[14px] font-semibold text-white">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /></div>
-        <div className="truncate font-mono text-[9.5px] text-white/70">#{r.serial_number ?? "—"} · /{(r.subed_mint ?? r.edition_mint)?.toLocaleString() ?? "—"} · {r.series_name ?? ""}</div>
+        <div className="mt-1"><PriceJourney r={r} /></div>
+        <div className="mt-1 truncate font-mono text-[9px] text-white/50">#{r.serial_number ?? "—"} · /{(r.subed_mint ?? r.edition_mint)?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
       </div>
-      {children}
-    </div>
-  );
-}
-
-// Realized-price plate — auction-house "SOLD" treatment.
-function SoldPlate({ r }: { r: StoryRow }) {
-  return (
-    <div className="flex items-end justify-between gap-2 px-3 py-2.5">
-      <div className="min-w-0">
-        <div className="font-mono text-[8.5px] uppercase tracking-[0.16em] text-[var(--text-faint)]">last sold · {ago(r.last_at)}</div>
-        <div className="text-[20px] font-bold leading-tight tabular-nums text-[var(--text)]"><Num value={r.last_sale} format="usd" /></div>
-      </div>
-      <div className="text-right">
-        <div className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--text-faint)]">acquired</div>
-        <div className="font-mono text-[12px] tabular-nums text-[var(--text-dim)]"><Num value={r.first_sale} format="usd" /></div>
-      </div>
-    </div>
-  );
-}
-
-export function AppreciationStoryCard({ r, rank, path = [] }: { r: StoryRow; rank?: number; path?: SalePoint[] }) {
-  return (
-    <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} className="group block overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] transition-colors hover:border-[var(--border-strong)]">
-      <StoryImage r={r}>
-        {rank != null && <span className="absolute right-2 bottom-2 font-mono text-[10px] tabular-nums text-white/60">#{rank}</span>}
-      </StoryImage>
-      <SoldPlate r={r} />
-      {/* graph only when ≥3 sales make a real path */}
-      {hasPath(path) && (
-        <div className="border-t border-[var(--border-subtle)] px-1 pt-1">
-          <StoryClimbSpark path={path} id={r.moment_id} color={UP} height={40} />
-        </div>
-      )}
     </Link>
   );
 }
 
-// Hero — the single best story as a featured auction lot: large card image,
-// big SOLD price, and (only if it has a real path) the climb.
-export function StoryHero({ r, path = [] }: { r: StoryRow; path?: SalePoint[] }) {
+// Hero — the same social image, featured: full-width, larger, with the price
+// journey huge. Identical message to the grid cards, just bigger.
+export function StoryHero({ r }: { r: StoryRow; path?: SalePoint[] }) {
   const scarcity = r.subed_mint ?? r.edition_mint;
-  const badge = r.is_one ? "#1 of /" + (scarcity?.toLocaleString() ?? "—") : r.is_jersey ? "JERSEY MATCH" : r.is_low ? `LOW SERIAL #${r.serial_number}` : null;
-  const showPath = hasPath(path);
   return (
-    <Link
-      href={`/edition/${encodeURIComponent(r.edition_id)}`}
-      className="group mb-4 grid grid-cols-1 overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-gradient-to-br from-[var(--surface-1)] to-[color-mix(in_srgb,#34d399_5%,var(--surface-1))] transition-colors hover:border-[var(--border-strong)] sm:grid-cols-[minmax(0,260px)_1fr]"
-    >
-      {/* card front */}
-      <div className="relative aspect-[4/5] sm:aspect-auto sm:min-h-[300px] overflow-hidden bg-[var(--surface-2)]">
-        {r.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={r.image_url} alt={r.player_name ?? ""} className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]" />
-        ) : <div className="absolute inset-0 bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-1)]" />}
-        <span className="absolute right-3 top-3 rounded-md px-2 py-0.5 text-[20px] font-bold tabular-nums shadow" style={{ color: "#052e1a", background: UP }}>{fmtMult(r.mult)}</span>
-      </div>
-      {/* lot details */}
-      <div className="flex flex-col justify-between gap-4 p-5">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-faint)]">Top story</span>
-            {badge && <span className="rounded bg-[color-mix(in_srgb,var(--tier-legendary)_18%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em]" style={{ color: GOLD }}>{badge}</span>}
-            {isParallel(r) && <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)]">parallel</span>}
-          </div>
-          <div className="mt-2 flex items-center gap-2"><span className="truncate text-[22px] font-semibold leading-tight">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /></div>
-          <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-faint)]">#{r.serial_number ?? "—"} · /{scarcity?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
-        </div>
-        {showPath && <StoryClimbSpark path={path} id={`hero-${r.moment_id}`} color={UP} height={96} />}
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-faint)]">acquired → last sold</div>
-            <div className="mt-1 flex items-baseline gap-2 font-mono">
-              <span className="text-[15px] text-[var(--text-dim)]"><Num value={r.first_sale} format="usd" /></span>
-              <span className="text-[var(--text-faint)]">→</span>
-              <span className="text-[30px] font-bold tabular-nums text-[var(--text)]"><Num value={r.last_sale} format="usd" /></span>
-            </div>
-          </div>
-          {r.hi != null && r.last_sale != null && r.hi > r.last_sale && (
-            <span className="font-mono text-[10px] text-[var(--text-faint)]">peak <Num value={r.hi} format="usd" /></span>
-          )}
-        </div>
+    <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} className="group relative mb-4 block aspect-[4/5] overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface-2)] sm:aspect-[16/7]">
+      <StoryImg src={r.image_url} alt={r.player_name ?? ""} />
+      <StoryBadges r={r} big />
+      <span className="absolute left-3 top-3 mt-7 hidden font-mono text-[9px] uppercase tracking-[0.18em] text-white/70 sm:block">Top story</span>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent px-5 pb-5 pt-24">
+        <div className="flex items-center gap-2"><span className="truncate text-[24px] font-semibold text-white">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /></div>
+        <div className="mt-2"><PriceJourney r={r} big /></div>
+        <div className="mt-1.5 truncate font-mono text-[10px] text-white/60">#{r.serial_number ?? "—"} · /{scarcity?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
       </div>
     </Link>
   );

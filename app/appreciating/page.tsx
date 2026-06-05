@@ -9,7 +9,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getEditionGrowth } from "@/lib/supabase/queries/edition-growth";
-import { getAppreciationStories, getStorySalePaths, getFloorSmash, getIlliquidHighValue, type SerialClass, type StorySort } from "@/lib/supabase/queries/appreciation-events";
+import { getAppreciationStories, getFloorSmash, getIlliquidHighValue, type SerialClass, type StorySort } from "@/lib/supabase/queries/appreciation-events";
 import { AppreciationStoryCard, StoryHero, FloorSmashCard, IlliquidCard } from "@/components/appreciation/EventCards";
 import { TierChip } from "@/components/primitives/TierChip";
 import { Num } from "@/components/primitives/Num";
@@ -72,14 +72,13 @@ const SORT_TABS: { key: StorySort; label: string }[] = [
 async function Stories({ cls, sort }: { cls: SerialClass; sort: StorySort }) {
   const rows = await getAppreciationStories(cls, sort, 36);
   if (!rows.length) return <Empty />;
-  const paths = await getStorySalePaths(rows.map((r) => r.moment_id));
   const [hero, ...rest] = rows;
   return (
     <>
-      <StoryHero r={hero} path={paths[hero.moment_id] ?? []} />
+      <StoryHero r={hero} />
       <Grid>
         {rest.map((r, i) => (
-          <AppreciationStoryCard key={r.moment_id} r={r} rank={i + 2} path={paths[r.moment_id] ?? []} />
+          <AppreciationStoryCard key={r.moment_id} r={r} rank={i + 2} />
         ))}
       </Grid>
     </>
