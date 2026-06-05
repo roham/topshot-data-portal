@@ -111,7 +111,7 @@ export default async function PortfolioPage({
       <Card variant="inset">
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
           <div className="p-3" data-testid="bag-size-kpi">
-            <KPI label="Bag size" value={totalCount} format="int" size="lg" />
+            <KPI label="# of Assets" value={totalCount} format="int" size="lg" />
           </div>
           <div className="p-3">
             <KPI label="Est. listed value" value={valueListedUsd} format="usdCompact" size="lg" hint={`${listedCount} listed`} />

@@ -135,19 +135,26 @@ export function StoryHero({ r }: { r: StoryRow; path?: SalePoint[] }) {
 
 const parallelsNote = (n: number | null) => (n != null && n > 1 ? ` · ${n} parallels` : "");
 
-// Shared immersive edition shell: full-bleed edition image, link to the edition,
+// dapper.market moment detail (confirmed route): /nba/moment/{moment_flow_id}.
+export const dapperMomentUrl = (flowId: string) => `https://dapper.market/nba/moment/${encodeURIComponent(flowId)}`;
+
+// Shared immersive edition shell: full-bleed edition image, a card-wide link,
 // top-left tier/parallel chips, a top-right stat badge, and a bottom overlay.
+// `href` overrides the default internal edition link (e.g. an external
+// dapper.market moment URL); `external` opens it in a new tab.
 function EditionImmersive({
-  editionId, imageUrl, playerName, tierName, parallelId, topRight, big, children, aria,
+  editionId, imageUrl, playerName, tierName, parallelId, topRight, big, children, aria, href, external,
 }: {
   editionId: string; imageUrl: string | null; playerName: string | null; tierName: string | null;
   parallelId: number | null; topRight: React.ReactNode; big?: boolean; children: React.ReactNode; aria: string;
+  href?: string; external?: boolean;
 }) {
   const isPar = parallelId != null && parallelId !== 0;
+  const target = href ?? `/edition/${encodeURIComponent(editionId)}`;
   return (
     <div className={`group relative overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-2)] ${big ? "aspect-[4/5] rounded-[18px] sm:aspect-[16/7]" : "aspect-[4/5] rounded-[14px]"}`}>
       <StoryImg src={imageUrl} alt={playerName ?? ""} />
-      <Link href={`/edition/${encodeURIComponent(editionId)}`} aria-label={aria} className="absolute inset-0 z-10" />
+      <Link href={target} aria-label={aria} className="absolute inset-0 z-10" {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})} />
       <div className="pointer-events-none absolute left-2.5 top-2.5 z-10 flex items-center gap-1">
         <span className="rounded bg-black/55 px-1.5 py-0.5 backdrop-blur"><TierChip tier={tierName} /></span>
         {isPar && <span className="rounded bg-black/55 px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)] backdrop-blur">parallel</span>}
@@ -165,8 +172,11 @@ const smashBadge = (mult: number | null, big?: boolean) => (
 );
 
 export function FloorSmashCard({ r, big }: { r: FloorSmashRow; big?: boolean }) {
+  // Click → the crown-jewel moment's detail on dapper.market (confirmed route);
+  // falls back to the internal edition page when the moment isn't in the mirror.
+  const href = r.owner_moment_flow_id ? dapperMomentUrl(r.owner_moment_flow_id) : undefined;
   return (
-    <EditionImmersive editionId={r.edition_id} imageUrl={r.image_url} playerName={r.player_name} tierName={r.tier_name} parallelId={r.parallel_id} topRight={smashBadge(r.jump_mult, big)} big={big} aria={`${r.player_name ?? "edition"} floor history`}>
+    <EditionImmersive editionId={r.edition_id} imageUrl={r.image_url} playerName={r.player_name} tierName={r.tier_name} parallelId={r.parallel_id} topRight={smashBadge(r.jump_mult, big)} big={big} href={href} external={!!href} aria={`${r.player_name ?? "edition"} on dapper.market`}>
       <div className={`flex items-center gap-2 ${big ? "" : ""}`}><span className={`truncate font-semibold text-white ${big ? "text-[24px]" : "text-[14px]"}`}>{r.player_name ?? "—"}</span></div>
       <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">board smash</div>
       <div className="mt-0.5 flex items-baseline gap-2 font-mono">

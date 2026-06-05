@@ -13,6 +13,7 @@ export interface EditionOwner {
   serial: number | null;
   username: string | null;
   flow_address: string | null;
+  moment_flow_id: string | null; // on-chain id → dapper.market/nba/moment/{id}
 }
 
 export async function resolveEditionOwners(editionIds: string[]): Promise<Record<string, EditionOwner>> {
@@ -24,13 +25,13 @@ export async function resolveEditionOwners(editionIds: string[]): Promise<Record
       editionIds.map(async (id) => {
         const { data } = await sb
           .from("moments")
-          .select("serial_number, owner_flow_address")
+          .select("serial_number, owner_flow_address, moment_flow_id")
           .eq("edition_id", id)
           .not("owner_flow_address", "is", null)
           .order("serial_number", { ascending: true })
           .limit(1);
-        const row = (data as { serial_number: number | null; owner_flow_address: string }[] | null)?.[0];
-        return { id, serial: row?.serial_number ?? null, flow: row?.owner_flow_address ?? null };
+        const row = (data as { serial_number: number | null; owner_flow_address: string; moment_flow_id: string | null }[] | null)?.[0];
+        return { id, serial: row?.serial_number ?? null, flow: row?.owner_flow_address ?? null, momentFlowId: row?.moment_flow_id ?? null };
       }),
     );
 
@@ -43,7 +44,7 @@ export async function resolveEditionOwners(editionIds: string[]): Promise<Record
 
     const out: Record<string, EditionOwner> = {};
     for (const l of lowest) {
-      out[l.id] = { serial: l.serial, flow_address: l.flow, username: l.flow ? nameByAddr.get(l.flow) ?? null : null };
+      out[l.id] = { serial: l.serial, flow_address: l.flow, username: l.flow ? nameByAddr.get(l.flow) ?? null : null, moment_flow_id: l.momentFlowId };
     }
     return out;
   } catch (e) {
