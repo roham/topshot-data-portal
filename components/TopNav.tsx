@@ -24,6 +24,7 @@ const TABS = [
       p === "/" ||
       p.startsWith("/indices") ||
       p.startsWith("/market-cap") ||
+      p === "/supply" ||
       p.startsWith("/volume") ||
       p.startsWith("/movers") ||
       p.startsWith("/trends") ||

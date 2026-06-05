@@ -55,6 +55,7 @@ const VERBS: VerbDef[] = [
   { verb: "indices", hint: "indices index", resolve: () => "/indices" },
   { verb: "editions", hint: "editions index", resolve: () => "/editions" },
   { verb: "collectors", aliases: ["co"], hint: "collectors", resolve: () => "/collectors" },
+  { verb: "supply", aliases: ["minted", "burned"], hint: "supply over time · minted/burned/locked", resolve: () => "/supply" },
   { verb: "home", aliases: ["/", "h"], hint: "home", resolve: () => "/" },
 ];
 

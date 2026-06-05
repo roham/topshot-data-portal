@@ -52,6 +52,10 @@ jobs:
         if: success()
         run: node scripts/etl/bq-refresh-mvs.mjs
 
+      - name: Refresh supply timeline
+        if: success()
+        run: node scripts/etl/bq-refresh-supply-timeline.mjs
+
       - name: Upload run log
         if: always()
         uses: actions/upload-artifact@v4
