@@ -1,9 +1,8 @@
-// Cards for the three event-driven appreciation lanes. Server components — static,
-// no chart. Each links to the edition's price page. Money via <Num>.
+// Cards for the appreciation lanes. Server components; immersive image-forward
+// treatment with overlaid stats. Trending uses StockXScatter (client) instead.
 
 import Link from "next/link";
 import { TierChip } from "@/components/primitives/TierChip";
-import { Num } from "@/components/primitives/Num";
 import type { StoryRow, FloorSmashRow, IlliquidRow, SalePoint } from "@/lib/supabase/queries/appreciation-events";
 
 const UP = "#34d399";
@@ -18,30 +17,6 @@ function ago(dateStr: string | null): string {
   if (days < 30) return `${days}d ago`;
   if (days < 365) return `${Math.round(days / 30)}mo ago`;
   return `${(days / 365).toFixed(1)}y ago`;
-}
-
-function Avatar({ src }: { src: string | null }) {
-  return src
-    ? // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-[var(--border-subtle)]" />
-    : <div className="h-10 w-10 shrink-0 rounded-full bg-[var(--surface-2)]" />;
-}
-
-function Shell({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link href={href} className="block rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)]">
-      {children}
-    </Link>
-  );
-}
-
-function Identity({ player, tier, sub }: { player: string | null; tier: string | null; sub: string }) {
-  return (
-    <div className="min-w-0 flex-1">
-      <div className="flex items-center gap-2"><span className="truncate text-[14px] font-semibold">{player ?? "—"}</span><TierChip tier={tier} /></div>
-      <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-faint)]">{sub}</div>
-    </div>
-  );
 }
 
 // A sub-edition (parallel) is anything that isn't the base subedition "0".
@@ -159,37 +134,61 @@ export function StoryHero({ r }: { r: StoryRow; path?: SalePoint[] }) {
 
 const parallelsNote = (n: number | null) => (n != null && n > 1 ? ` · ${n} parallels` : "");
 
-export function FloorSmashCard({ r }: { r: FloorSmashRow }) {
+// Shared immersive edition shell: full-bleed edition image, link to the edition,
+// top-left tier/parallel chips, a top-right stat badge, and a bottom overlay.
+function EditionImmersive({
+  editionId, imageUrl, playerName, tierName, parallelId, topRight, big, children, aria,
+}: {
+  editionId: string; imageUrl: string | null; playerName: string | null; tierName: string | null;
+  parallelId: number | null; topRight: React.ReactNode; big?: boolean; children: React.ReactNode; aria: string;
+}) {
+  const isPar = parallelId != null && parallelId !== 0;
   return (
-    <Shell href={`/edition/${encodeURIComponent(r.edition_id)}`}>
-      <div className="flex items-start gap-3">
-        <Avatar src={r.image_url} />
-        <Identity player={r.player_name} tier={r.tier_name} sub={`${r.series_name ?? "—"} · /${r.mint_count?.toLocaleString() ?? "—"}${parallelsNote(r.n_sub)}`} />
-        <span className="shrink-0 rounded-md px-2 py-0.5 text-[15px] font-bold tabular-nums" style={{ color: GOLD, background: "color-mix(in srgb, var(--tier-legendary) 14%, transparent)" }}>↑{fmtMult(r.jump_mult)}</span>
+    <div className={`group relative overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-2)] ${big ? "aspect-[4/5] rounded-[18px] sm:aspect-[16/7]" : "aspect-[4/5] rounded-[14px]"}`}>
+      <StoryImg src={imageUrl} alt={playerName ?? ""} />
+      <Link href={`/edition/${encodeURIComponent(editionId)}`} aria-label={aria} className="absolute inset-0 z-10" />
+      <div className="pointer-events-none absolute left-2.5 top-2.5 z-10 flex items-center gap-1">
+        <span className="rounded bg-black/55 px-1.5 py-0.5 backdrop-blur"><TierChip tier={tierName} /></span>
+        {isPar && <span className="rounded bg-black/55 px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)] backdrop-blur">parallel</span>}
       </div>
-      <div className="mt-3 flex items-baseline gap-2 font-mono text-[12px]">
-        <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-faint)]">floor smashed</span>
-        <span className="ml-auto text-[var(--text-dim)]"><Num value={r.floor_before} format="usd" /></span>
-        <span className="text-[var(--text-faint)]">→</span>
-        <span className="text-[17px] font-semibold tabular-nums" style={{ color: GOLD }}><Num value={r.floor_now} format="usd" /></span>
+      <div className="pointer-events-none absolute right-2.5 top-2.5 z-10">{topRight}</div>
+      <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/95 via-black/60 to-transparent ${big ? "px-5 pb-5 pt-24" : "px-3 pb-3 pt-16"}`}>
+        {children}
       </div>
-    </Shell>
+    </div>
   );
 }
 
-export function IlliquidCard({ r }: { r: IlliquidRow }) {
+const smashBadge = (mult: number | null, big?: boolean) => (
+  <span className={`rounded-md px-1.5 py-0.5 font-bold tabular-nums shadow ${big ? "text-[22px]" : "text-[15px]"}`} style={{ color: "#3a2400", background: GOLD }}>↑{fmtMult(mult)}</span>
+);
+
+export function FloorSmashCard({ r, big }: { r: FloorSmashRow; big?: boolean }) {
   return (
-    <Shell href={`/edition/${encodeURIComponent(r.edition_id)}`}>
-      <div className="flex items-start gap-3">
-        <Avatar src={r.image_url} />
-        <Identity player={r.player_name} tier={r.tier_name} sub={`${r.series_name ?? "—"} · /${r.mint_count?.toLocaleString() ?? "—"}${parallelsNote(r.n_sub)}`} />
-        <span className="shrink-0 rounded-md bg-[var(--surface-2)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--text-dim)]">thinly traded</span>
+    <EditionImmersive editionId={r.edition_id} imageUrl={r.image_url} playerName={r.player_name} tierName={r.tier_name} parallelId={r.parallel_id} topRight={smashBadge(r.jump_mult, big)} big={big} aria={`${r.player_name ?? "edition"} floor history`}>
+      <div className={`flex items-center gap-2 ${big ? "" : ""}`}><span className={`truncate font-semibold text-white ${big ? "text-[24px]" : "text-[14px]"}`}>{r.player_name ?? "—"}</span></div>
+      <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">floor smashed</div>
+      <div className="mt-0.5 flex items-baseline gap-2 font-mono">
+        <span className={`tabular-nums text-white/55 ${big ? "text-[18px]" : "text-[13px]"}`}>{fmtUsdShort(r.floor_before)}</span>
+        <span className={`text-white/45 ${big ? "text-[18px]" : "text-[13px]"}`}>→</span>
+        <span className={`font-bold tabular-nums ${big ? "text-[40px] leading-none" : "text-[24px] leading-none"}`} style={{ color: GOLD }}>{fmtUsdShort(r.floor_now)}</span>
       </div>
-      <div className="mt-3 flex items-baseline gap-2 font-mono text-[11px] text-[var(--text-faint)]">
-        <span>floor <span className="text-[15px] font-semibold tabular-nums text-[var(--text)]"><Num value={r.floor} format="usd" /></span></span>
-        <span className="ml-auto">{r.sales_90d} sales · 90d · last <Num value={r.last_sale} format="usd" /></span>
+      <div className={`mt-1.5 truncate font-mono text-white/50 ${big ? "text-[10px]" : "text-[9px]"}`}>{r.series_name ?? "—"} · /{r.mint_count?.toLocaleString() ?? "—"}{parallelsNote(r.n_sub)}</div>
+    </EditionImmersive>
+  );
+}
+
+export function IlliquidCard({ r, big }: { r: IlliquidRow; big?: boolean }) {
+  const topRight = <span className="rounded bg-black/55 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-white/80 backdrop-blur">thinly traded</span>;
+  return (
+    <EditionImmersive editionId={r.edition_id} imageUrl={r.image_url} playerName={r.player_name} tierName={r.tier_name} parallelId={r.parallel_id} topRight={topRight} big={big} aria={`${r.player_name ?? "edition"} edition`}>
+      <div className="flex items-center gap-2"><span className={`truncate font-semibold text-white ${big ? "text-[24px]" : "text-[14px]"}`}>{r.player_name ?? "—"}</span></div>
+      <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-white/45">floor / ask</div>
+      <div className={`font-bold tabular-nums text-white ${big ? "text-[40px] leading-none" : "text-[26px] leading-none"}`}>{fmtUsdShort(r.floor)}</div>
+      <div className={`mt-1 truncate font-mono text-white/55 ${big ? "text-[11px]" : "text-[9.5px]"}`}>
+        {r.sales_90d} sale{r.sales_90d === 1 ? "" : "s"}/90d · last {fmtUsdShort(r.last_sale)} · /{r.mint_count?.toLocaleString() ?? "—"}{parallelsNote(r.n_sub)}
       </div>
-      {r.msrp_pack && <div className="mt-1 truncate font-mono text-[9.5px] text-[var(--text-faint)]">pulled from {r.msrp_pack}</div>}
-    </Shell>
+      {r.msrp_pack && <div className={`mt-0.5 truncate font-mono text-white/40 ${big ? "text-[10px]" : "text-[9px]"}`}>pulled from {r.msrp_pack}</div>}
+    </EditionImmersive>
   );
 }

@@ -8,25 +8,21 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getEditionGrowth } from "@/lib/supabase/queries/edition-growth";
 import { getAppreciationStories, getFloorSmash, getIlliquidHighValue, type SerialClass, type StorySort } from "@/lib/supabase/queries/appreciation-events";
+import { getTrendingScatter } from "@/lib/supabase/queries/trending-scatter";
 import { AppreciationStoryCard, StoryHero, FloorSmashCard, IlliquidCard } from "@/components/appreciation/EventCards";
-import { TierChip } from "@/components/primitives/TierChip";
-import { Num } from "@/components/primitives/Num";
-import { MiniSpark } from "@/components/MiniSpark";
+import { TrendingScatterCard, TrendingScatterHero } from "@/components/appreciation/TrendingScatterCard";
 
 export const metadata: Metadata = { title: "Most Appreciating · TS·PORTAL" };
 export const revalidate = 600;
 
 type Cat = "trending" | "stories" | "floor-smashed" | "high-value";
 const TABS: { key: Cat; label: string; blurb: string }[] = [
-  { key: "trending", label: "Trending", blurb: "Real 90-day price growth from cleared sales — the liquid movers." },
+  { key: "trending", label: "Trending", blurb: "The most-traded editions — every individual sale plotted, StockX style." },
   { key: "stories", label: "Stories", blurb: "A single serial that climbed — sold cheap, now sells expensive." },
   { key: "floor-smashed", label: "Floor-Smashed", blurb: "A purchase cleared the floor and the next ask leapt." },
-  { key: "high-value", label: "High-Value", blurb: "Expensive and rarely trades — scarcity, not deadness." },
+  { key: "high-value", label: "High-Value", blurb: "Expensive and rarely trades — the trophies." },
 ];
-const UP = "#34d399", DOWN = "#f87171";
-const fmtPct = (p: number) => `${p >= 0 ? "+" : ""}${p >= 1000 ? `${(p / 100).toFixed(0)}×` : `${Math.round(p)}%`}`;
 
 const Grid = ({ children }: { children: React.ReactNode }) => (
   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
@@ -34,27 +30,14 @@ const Grid = ({ children }: { children: React.ReactNode }) => (
 const Empty = () => <div className="flex h-[300px] items-center justify-center text-[12px] text-[var(--text-faint)]">No data yet.</div>;
 
 async function Trending() {
-  const rows = await getEditionGrowth("all", 12, 60);
-  if (!rows.length) return <Empty />;
+  const editions = await getTrendingScatter("all", 10);
+  if (!editions.length) return <Empty />;
+  const [hero, ...rest] = editions;
   return (
-    <Grid>
-      {rows.map((r) => {
-        const g = r.growth_pct ?? 0; const color = g >= 0 ? UP : DOWN;
-        return (
-          <Link key={r.edition_id} href={`/edition/${encodeURIComponent(r.edition_id)}`} className="overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] transition-colors hover:border-[var(--border-strong)]">
-            <div className="flex items-center justify-between gap-2 px-4 pt-3">
-              <div className="flex min-w-0 items-center gap-2"><span className="truncate text-[14px] font-semibold">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /></div>
-              <span className="shrink-0 text-[16px] font-bold tabular-nums" style={{ color }}>{fmtPct(g)}</span>
-            </div>
-            <div className="px-1 pt-1"><MiniSpark data={r.sparkline} color={color} height={52} /></div>
-            <div className="flex items-baseline justify-between gap-2 px-4 pb-3">
-              <span className="text-[18px] font-semibold tabular-nums"><Num value={r.price_now} format="usd" /></span>
-              <span className="font-mono text-[9px] text-[var(--text-faint)]">{r.series_name ?? ""} · /{r.mint_count?.toLocaleString() ?? "—"}</span>
-            </div>
-          </Link>
-        );
-      })}
-    </Grid>
+    <>
+      <TrendingScatterHero e={hero} />
+      <Grid>{rest.map((e) => <TrendingScatterCard key={e.edition_id} e={e} />)}</Grid>
+    </>
   );
 }
 
@@ -85,12 +68,26 @@ async function Stories({ cls, sort }: { cls: SerialClass; sort: StorySort }) {
   );
 }
 async function FloorSmashed() {
-  const rows = await getFloorSmash(48);
-  return rows.length ? <Grid>{rows.map((r) => <FloorSmashCard key={r.edition_id} r={r} />)}</Grid> : <Empty />;
+  const rows = await getFloorSmash(36);
+  if (!rows.length) return <Empty />;
+  const [hero, ...rest] = rows;
+  return (
+    <>
+      <div className="mb-4"><FloorSmashCard r={hero} big /></div>
+      <Grid>{rest.map((r) => <FloorSmashCard key={r.edition_id} r={r} />)}</Grid>
+    </>
+  );
 }
 async function HighValue() {
-  const rows = await getIlliquidHighValue(48);
-  return rows.length ? <Grid>{rows.map((r) => <IlliquidCard key={r.edition_id} r={r} />)}</Grid> : <Empty />;
+  const rows = await getIlliquidHighValue(36);
+  if (!rows.length) return <Empty />;
+  const [hero, ...rest] = rows;
+  return (
+    <>
+      <div className="mb-4"><IlliquidCard r={hero} big /></div>
+      <Grid>{rest.map((r) => <IlliquidCard key={r.edition_id} r={r} />)}</Grid>
+    </>
+  );
 }
 
 export default async function AppreciatingPage({ searchParams }: { searchParams: Promise<{ cat?: string; serial?: string; sort?: string }> }) {

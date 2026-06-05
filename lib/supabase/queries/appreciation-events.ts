@@ -164,18 +164,32 @@ async function _storyPaths(momentIds: string[]): Promise<Record<string, SalePoin
 export const getStorySalePaths = (momentIds: string[]) =>
   unstable_cache(() => _storyPaths(momentIds), ["appr-story-paths-v1", ...momentIds.slice(0, 60).sort()], { revalidate: 600, tags: ["appreciation-events"] })();
 
-export const getFloorSmash = (limit = 48) =>
-  unstable_cache(() => read<FloorSmashRow>(
-    "mv_edition_floor_smash",
-    "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor_before, floor_now, jump_mult, n_sub, scarcest_sub",
-    "jump_mult", limit,
-    (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor_before: N(r.floor_before), floor_now: N(r.floor_now), jump_mult: N(r.jump_mult), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
-  ), ["appr-floorsmash-v1", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
+// Highlight ranking: a big floor leap matters more when the dollars are real.
+// score = log10(floor_now) × jump_mult → a $750→$7,500 (10×) beats a $50→$150 (3×).
+const floorSmashScore = (r: FloorSmashRow) => Math.log10((r.floor_now ?? 0) + 1) * (r.jump_mult ?? 0);
 
-export const getIlliquidHighValue = (limit = 48) =>
-  unstable_cache(() => read<IlliquidRow>(
-    "mv_edition_illiquid_highvalue",
-    "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor, sales_90d, sales_ever, last_sale, last_at, max_sale_ever, msrp_pack, pack_msrp, n_sub, scarcest_sub",
-    "floor", limit,
-    (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor: N(r.floor), sales_90d: Number(r.sales_90d), sales_ever: N(r.sales_ever), last_sale: N(r.last_sale), last_at: S(r.last_at), max_sale_ever: N(r.max_sale_ever), msrp_pack: S(r.msrp_pack), pack_msrp: N(r.pack_msrp), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
-  ), ["appr-illiquid-v1", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
+export const getFloorSmash = (limit = 36) =>
+  unstable_cache(async () => {
+    const rows = await read<FloorSmashRow>(
+      "mv_edition_floor_smash",
+      "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor_before, floor_now, jump_mult, n_sub, scarcest_sub",
+      "jump_mult", 117,
+      (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor_before: N(r.floor_before), floor_now: N(r.floor_now), jump_mult: N(r.jump_mult), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
+    );
+    return rows.sort((a, b) => floorSmashScore(b) - floorSmashScore(a)).slice(0, limit);
+  }, ["appr-floorsmash-v2", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
+
+// High-value highlight: the trophies — rank by floor, but require the floor to be
+// backed by a real sale (max_sale_ever) so it's value, not an aspirational ask.
+const illiquidScore = (r: IlliquidRow) => (r.floor ?? 0) + (r.max_sale_ever ?? 0) * 0.5;
+
+export const getIlliquidHighValue = (limit = 36) =>
+  unstable_cache(async () => {
+    const rows = await read<IlliquidRow>(
+      "mv_edition_illiquid_highvalue",
+      "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor, sales_90d, sales_ever, last_sale, last_at, max_sale_ever, msrp_pack, pack_msrp, n_sub, scarcest_sub",
+      "floor", 300,
+      (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor: N(r.floor), sales_90d: Number(r.sales_90d), sales_ever: N(r.sales_ever), last_sale: N(r.last_sale), last_at: S(r.last_at), max_sale_ever: N(r.max_sale_ever), msrp_pack: S(r.msrp_pack), pack_msrp: N(r.pack_msrp), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
+    );
+    return rows.sort((a, b) => illiquidScore(b) - illiquidScore(a)).slice(0, limit);
+  }, ["appr-illiquid-v2", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();

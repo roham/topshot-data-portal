@@ -56,6 +56,12 @@ jobs:
         if: success()
         run: node scripts/etl/bq-refresh-supply-timeline.mjs
 
+      - name: Refresh trending sales (StockX scatter source)
+        if: success()
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/etl/refresh-trending-sales.mjs
+
       - name: Upload run log
         if: always()
         uses: actions/upload-artifact@v4
