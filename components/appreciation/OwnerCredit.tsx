@@ -1,5 +1,5 @@
 // OwnerCredit — the named, proud-making human behind an edition highlight:
-// "#1 held by @username", the @ deep-linking to their bag. Pointer-events are
+// "#1 held by @username", the @ deep-linking to their collection. Pointer-events are
 // scoped so it works inside an image overlay that has a full-card link beneath
 // (the @username stays clickable; everything else falls through to the card).
 

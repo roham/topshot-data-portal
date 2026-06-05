@@ -136,7 +136,7 @@ export default async function CollectorsPage({
           across all Top Shot players are equal to or greater than the number shown. A
           full backfill is in progress; the column will become definitive once every
           player has been sampled. Non-custodial wallets are filtered out (named
-          collectors only). Click any username to open their bag.
+          collectors only). Click any username to open their assets.
         </p>
       </footer>
     </div>

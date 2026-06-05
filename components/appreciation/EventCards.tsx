@@ -67,7 +67,7 @@ function StoryImg({ src, alt }: { src: string | null; alt: string }) {
 }
 
 // The named provenance — the real person who holds the moment now (= who bought
-// it at the last-sale price). @username deep-links to their bag; this is what
+// it at the last-sale price). @username deep-links to their collection; this is what
 // makes the story a social moment rather than abstract numbers. Falls back to
 // the on-chain address (still real, just not custodial) when no username.
 function OwnerLine({ r, big }: { r: StoryRow; big?: boolean }) {
@@ -178,7 +178,7 @@ export function FloorSmashCard({ r, big }: { r: FloorSmashRow; big?: boolean }) 
   return (
     <EditionImmersive editionId={r.edition_id} imageUrl={r.image_url} playerName={r.player_name} tierName={r.tier_name} parallelId={r.parallel_id} topRight={smashBadge(r.jump_mult, big)} big={big} href={href} external={!!href} aria={`${r.player_name ?? "edition"} on dapper.market`}>
       <div className={`flex items-center gap-2 ${big ? "" : ""}`}><span className={`truncate font-semibold text-white ${big ? "text-[24px]" : "text-[14px]"}`}>{r.player_name ?? "—"}</span></div>
-      <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">board smash</div>
+      <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">floor smashed</div>
       <div className="mt-0.5 flex items-baseline gap-2 font-mono">
         <span className={`tabular-nums text-white/55 ${big ? "text-[18px]" : "text-[13px]"}`}>{fmtUsdShort(r.floor_before)}</span>
         <span className={`text-white/45 ${big ? "text-[18px]" : "text-[13px]"}`}>→</span>

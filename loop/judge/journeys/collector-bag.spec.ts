@@ -44,7 +44,7 @@ test("J2 — portfolio review: /u/roham renders bag table with required columns,
 
   // Wait for either the bag table or the empty-state to appear.
   // The bag-size KPI div is server-rendered and visible on first paint.
-  await page.locator('[data-testid="bag-size-kpi"]').waitFor({ state: "visible", timeout: 60_000 });
+  await page.locator('[data-testid="asset-count-kpi"]').waitFor({ state: "visible", timeout: 60_000 });
   const ttiMs = Date.now() - navStart;
 
   await page.screenshot({ path: path.join(CAPTURE_DIR, "00-land.png"), fullPage: true });
@@ -54,7 +54,7 @@ test("J2 — portfolio review: /u/roham renders bag table with required columns,
 
   // ── Step 1 — KPI "Bag size" is visible and > 0 ───────────────────────
   // KPI renders: "BAG SIZE\n<number>" (the label span + the Num span).
-  const kpiText = await page.locator('[data-testid="bag-size-kpi"]').innerText();
+  const kpiText = await page.locator('[data-testid="asset-count-kpi"]').innerText();
   const kpiMatch = kpiText.replace(/,/g, "").match(/(\d+)/);
   expect(kpiMatch, `"Bag size" KPI must render an integer; got: "${kpiText}"`).not.toBeNull();
   const kpiCount = Number(kpiMatch![1]);
@@ -149,7 +149,7 @@ test("J2 — portfolio review: /u/roham renders bag table with required columns,
 
   // ── Step 8 — Navigate back and verify URL state preserved ─────────────
   await page.goBack();
-  await page.locator('[data-testid="bag-size-kpi"]').waitFor({ state: "visible", timeout: 30_000 });
+  await page.locator('[data-testid="asset-count-kpi"]').waitFor({ state: "visible", timeout: 30_000 });
   await page.screenshot({ path: path.join(CAPTURE_DIR, "06-back-to-portfolio.png"), fullPage: true });
 
   // Pass marker for the judge runner.

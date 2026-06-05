@@ -12,7 +12,7 @@ export default async function Page({
       title="Sets · per-user set-completion · coming soon"
       scope={scope}
       job="Per-collector set-completion view — % complete, missing pieces at floor, total cost-to-complete, +20% squeeze projection per set this collector touches."
-      data="Cross-join of the user's bag with setDetail.plays + editionsInSet + editionListedSerials for cost-to-complete."
+      data="Cross-join of the user's assets with setDetail.plays + editionsInSet + editionListedSerials for cost-to-complete."
       status="Scheduled for iter-9+."
     />
   );

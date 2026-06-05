@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { getUserByUsername, getUserByFlow, fetchBagPage } from "@/lib/topshot/queries";
 import { Card } from "@/components/primitives/Card";
@@ -22,6 +24,14 @@ async function loadFullBag(flowAddress: string): Promise<MintedMoment[]> {
   }
   return all;
 }
+
+// Cache the expensive multi-page asset pull per address (5 min). The pull is
+// up to 30 sequential GraphQL round-trips; without this every visit re-paid it.
+const loadAssetsCached = (flowAddress: string) =>
+  unstable_cache(() => loadFullBag(flowAddress), ["user-assets-v1", flowAddress], {
+    revalidate: 300,
+    tags: ["user-assets"],
+  })();
 
 function toBagRows(items: MintedMoment[]): BagRow[] {
   return items.map((m) => ({
@@ -51,32 +61,55 @@ export default async function PortfolioPage({
   const { vs } = await searchParams;
   const username = decodeURIComponent(raw);
 
-  // Resolve identity: try username first, then flow-address.
+  // Resolve identity (one fast call) so the header paints immediately; the heavy
+  // asset pull streams in behind a Suspense boundary instead of blocking it.
   let user = await getUserByUsername(username);
   if (!user && /^0x[0-9a-fA-F]+$/.test(username)) {
     user = await getUserByFlow(username);
   }
   if (!user) notFound();
 
-  // Bag (live ownership) stays on the GraphQL path — Supabase
-  // `topshot.moments.owner_flow_address` lags ETL cadence and may not always
-  // reflect current owner. Activity (purchases / sales) comes from Supabase.
+  return (
+    <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-4">
+      <header className="flex items-baseline gap-4 flex-wrap">
+        <h1 className="text-[20px] font-semibold tracking-tight">{user.username ?? user.flowAddress}</h1>
+        <span className="text-[11px] text-[var(--text-faint)] font-mono">{user.flowAddress}</span>
+        {vs && (
+          <span className="text-[11px] text-[var(--accent)] tracking-data-label">
+            ↔ comparing to {decodeURIComponent(vs)} (compare iter pending)
+          </span>
+        )}
+      </header>
+
+      <Suspense fallback={<PortfolioSkeleton />}>
+        <PortfolioData flowAddress={user.flowAddress} username={user.username} />
+      </Suspense>
+    </div>
+  );
+}
+
+function PortfolioSkeleton() {
+  return (
+    <div className="space-y-4" data-testid="portfolio-skeleton">
+      <div className="h-[92px] animate-pulse rounded-md bg-[var(--surface-2)]" />
+      <div className="grid lg:grid-cols-[1fr_360px] gap-4">
+        <div className="h-[520px] animate-pulse rounded-md bg-[var(--surface-2)]" />
+        <div className="h-[520px] animate-pulse rounded-md bg-[var(--surface-2)]" />
+      </div>
+      <p className="text-[11px] text-[var(--text-faint)] font-mono">Loading assets · this collector’s full holdings…</p>
+    </div>
+  );
+}
+
+async function PortfolioData({ flowAddress, username }: { flowAddress: string; username: string | null }) {
   const [items, purchases, sales] = await Promise.all([
-    loadFullBag(user.flowAddress),
-    getRecentTransactions({ buyerSafeName: user.username, limit: 50 }),
-    getRecentTransactions({ limit: 50 }).then((all) =>
-      all.filter((t) => t.seller_safe_name === user.username),
-    ),
+    loadAssetsCached(flowAddress),
+    getRecentTransactions({ buyerSafeName: username ?? "", limit: 50 }),
+    getRecentTransactions({ limit: 50 }).then((all) => all.filter((t) => t.seller_safe_name === username)),
   ]);
   const rows = toBagRows(items);
-  const purchasesSpend = purchases.reduce(
-    (s, t) => s + (t.gross_amount_usd ?? 0),
-    0,
-  );
-  const salesProceeds = sales.reduce(
-    (s, t) => s + (t.gross_amount_usd ?? 0),
-    0,
-  );
+  const purchasesSpend = purchases.reduce((s, t) => s + (t.gross_amount_usd ?? 0), 0);
+  const salesProceeds = sales.reduce((s, t) => s + (t.gross_amount_usd ?? 0), 0);
 
   const totalCount = rows.length;
   const valueListedUsd = rows.reduce((s, r) => s + (r.lowAskUsd ?? 0), 0);
@@ -85,32 +118,17 @@ export default async function PortfolioPage({
   for (const r of rows) tierMix.set(r.tier, (tierMix.get(r.tier) ?? 0) + 1);
   const topTier = [...tierMix.entries()].sort((a, b) => b[1] - a[1])[0];
   const distinctPlayers = new Set(rows.map((r) => r.playerName)).size;
-  // pnl across rows where we have both numbers
   let pnlSum = 0;
   for (const r of rows) {
-    if (r.lowAskUsd != null && r.lastPurchaseUsd != null) {
-      pnlSum += r.lowAskUsd - r.lastPurchaseUsd;
-    }
+    if (r.lowAskUsd != null && r.lastPurchaseUsd != null) pnlSum += r.lowAskUsd - r.lastPurchaseUsd;
   }
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 pt-4 pb-10 space-y-4">
-      <header className="flex items-baseline gap-4 flex-wrap">
-        <h1 className="text-[20px] font-semibold tracking-tight">{user.username ?? user.flowAddress}</h1>
-        <span className="text-[11px] text-[var(--text-faint)] font-mono">
-          {user.flowAddress}
-        </span>
-        {vs && (
-          <span className="text-[11px] text-[var(--accent)] tracking-data-label">
-            ↔ comparing to {decodeURIComponent(vs)} (compare iter pending)
-          </span>
-        )}
-      </header>
-
+    <div className="space-y-4">
       {/* KPI strip */}
       <Card variant="inset">
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-subtle)]">
-          <div className="p-3" data-testid="bag-size-kpi">
+          <div className="p-3" data-testid="asset-count-kpi">
             <KPI label="# of Assets" value={totalCount} format="int" size="lg" />
           </div>
           <div className="p-3">
@@ -126,11 +144,10 @@ export default async function PortfolioPage({
       </Card>
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-4">
-        {/* Bag table */}
-        <Card title="Bag" subtitle={`${totalCount} moments · click column to sort · click row to drill`} variant="inset" methodology="All moments owned by this collector. Floor is the lowest active ask per moment. P&L = current floor − last purchase price (not adjusted for fees).">
-
+        {/* Assets table */}
+        <Card title="Assets" subtitle={`${totalCount} moments · click column to sort · click row to drill`} variant="inset" methodology="All moments owned by this collector. Floor is the lowest active ask per moment. P&L = current floor − last purchase price (not adjusted for fees).">
           {rows.length === 0 ? (
-            <EmptyState title="Bag is empty" body="This collector doesn't own any moments right now." />
+            <EmptyState title="No assets" body="This collector doesn't own any moments right now." />
           ) : (
             <PortfolioBagTable rows={rows} />
           )}
@@ -154,17 +171,12 @@ export default async function PortfolioPage({
         methodology="50 most-recent completed transactions on each side (buys and sells)."
       >
         {purchases.length === 0 && sales.length === 0 ? (
-          <EmptyState
-            title="No recent on-chain activity"
-            body="No recent transactions for this collector."
-          />
+          <EmptyState title="No recent on-chain activity" body="No recent transactions for this collector." />
         ) : (
           <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[var(--border-subtle)]">
             {/* Buys */}
             <div className="p-3 space-y-1">
-              <h3 className="text-[11px] tracking-data-label text-[var(--text-faint)] font-mono">
-                Recent buys
-              </h3>
+              <h3 className="text-[11px] tracking-data-label text-[var(--text-faint)] font-mono">Recent buys</h3>
               {purchases.length === 0 ? (
                 <p className="text-[11px] text-[var(--text-faint)]">None.</p>
               ) : (
@@ -174,28 +186,11 @@ export default async function PortfolioPage({
                       <tr key={t.transaction_id}>
                         <td className="py-1 pr-2 text-[var(--text)]">
                           {t.player_name ?? "—"}
-                          {t.serial_number != null && (
-                            <span className="text-[var(--text-faint)]">
-                              {" "}
-                              #{t.serial_number}
-                            </span>
-                          )}
-                          {t.set_name && (
-                            <span className="text-[var(--text-dim)]">
-                              {" "}
-                              · {t.set_name}
-                            </span>
-                          )}
+                          {t.serial_number != null && <span className="text-[var(--text-faint)]"> #{t.serial_number}</span>}
+                          {t.set_name && <span className="text-[var(--text-dim)]"> · {t.set_name}</span>}
                         </td>
                         <td className="py-1 text-right tnum font-semibold">
-                          <Num
-                            value={
-                              t.gross_amount_usd != null
-                                ? Number(t.gross_amount_usd)
-                                : null
-                            }
-                            format="usd"
-                          />
+                          <Num value={t.gross_amount_usd != null ? Number(t.gross_amount_usd) : null} format="usd" />
                         </td>
                       </tr>
                     ))}
@@ -205,9 +200,7 @@ export default async function PortfolioPage({
             </div>
             {/* Sells */}
             <div className="p-3 space-y-1">
-              <h3 className="text-[11px] tracking-data-label text-[var(--text-faint)] font-mono">
-                Recent sells
-              </h3>
+              <h3 className="text-[11px] tracking-data-label text-[var(--text-faint)] font-mono">Recent sells</h3>
               {sales.length === 0 ? (
                 <p className="text-[11px] text-[var(--text-faint)]">None.</p>
               ) : (
@@ -217,28 +210,11 @@ export default async function PortfolioPage({
                       <tr key={t.transaction_id}>
                         <td className="py-1 pr-2 text-[var(--text)]">
                           {t.player_name ?? "—"}
-                          {t.serial_number != null && (
-                            <span className="text-[var(--text-faint)]">
-                              {" "}
-                              #{t.serial_number}
-                            </span>
-                          )}
-                          {t.set_name && (
-                            <span className="text-[var(--text-dim)]">
-                              {" "}
-                              · {t.set_name}
-                            </span>
-                          )}
+                          {t.serial_number != null && <span className="text-[var(--text-faint)]"> #{t.serial_number}</span>}
+                          {t.set_name && <span className="text-[var(--text-dim)]"> · {t.set_name}</span>}
                         </td>
                         <td className="py-1 text-right tnum font-semibold text-[var(--up)]">
-                          <Num
-                            value={
-                              t.gross_amount_usd != null
-                                ? Number(t.gross_amount_usd)
-                                : null
-                            }
-                            format="usd"
-                          />
+                          <Num value={t.gross_amount_usd != null ? Number(t.gross_amount_usd) : null} format="usd" />
                         </td>
                       </tr>
                     ))}

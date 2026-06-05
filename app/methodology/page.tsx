@@ -65,7 +65,7 @@ export default function MethodologyPage() {
               <tr><td className="py-1.5 font-mono">warm</td><td className="py-1.5 font-mono">0 * * * *</td><td className="py-1.5">sets at ranks 30–200 by 500-tx-window count</td></tr>
               <tr><td className="py-1.5 font-mono">market</td><td className="py-1.5 font-mono">*/30 * * * *</td><td className="py-1.5">30-minute market aggregate — tx count, unique buyers/sellers, median/mean price, top players/sets by volume</td></tr>
               <tr><td className="py-1.5 font-mono">players</td><td className="py-1.5 font-mono">5,35 * * * *</td><td className="py-1.5">per-player rollup — distinct editions, median recent sale, recent sale count</td></tr>
-              <tr><td className="py-1.5 font-mono">portfolios</td><td className="py-1.5 font-mono">10,40 * * * *</td><td className="py-1.5">watchlist portfolios — first-page bag pull, estimated value, top holdings (only fires when PORTFOLIO_WATCHLIST is set)</td></tr>
+              <tr><td className="py-1.5 font-mono">portfolios</td><td className="py-1.5 font-mono">10,40 * * * *</td><td className="py-1.5">watchlist portfolios — first-page asset pull, estimated value, top holdings (only fires when PORTFOLIO_WATCHLIST is set)</td></tr>
               <tr><td className="py-1.5 font-mono">nba-games</td><td className="py-1.5 font-mono">0 */6 * * *</td><td className="py-1.5">prior-day NBA games and scores via balldontlie.io</td></tr>
             </tbody>
           </table>
