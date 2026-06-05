@@ -7,7 +7,7 @@
 // produce the true curve — that's why supply lives in dedicated aggregate tables.
 
 import type { Metadata } from "next";
-import { getSupplyTimeline } from "@/lib/supabase/queries/supply-timeline";
+import { getSupplyTimeline, rebaseLastMonths } from "@/lib/supabase/queries/supply-timeline";
 import { Card } from "@/components/primitives/Card";
 import { KPI } from "@/components/primitives/KPI";
 import { EmptyState } from "@/components/primitives/EmptyState";
@@ -70,13 +70,13 @@ export default async function SupplyPage({
     day: "numeric",
   });
 
-  // ── Window crop. Cumulative curves keep absolute values (the lines start
-  // partway up and continue rising) — honest zoom, not a rebase. The KPI strip
-  // stays all-time current state; the windowed flow line below reports the
-  // period's own minted/burned/lock activity.
+  // ── Window. When windowed, cumulative curves are REBASED TO ZERO at the
+  // window start (start from 0, accumulate from there). All-time keeps absolute
+  // levels. The KPI strip stays all-time current state; the windowed flow line
+  // below reports the period's own minted/burned/lock activity.
   const months = WINDOW_MONTHS[win];
-  const monthlyView = months ? monthly.slice(-months) : monthly;
-  const minYear = monthlyView.length ? Number(monthlyView[0].month.slice(0, 4)) : 0;
+  const monthlyView = months ? rebaseLastMonths(monthly, months) : monthly;
+  const minYear = months ? Number(monthlyView[0]?.month.slice(0, 4) ?? 0) : 0;
   const yearlyView = months ? yearly.filter((y) => y.year >= minYear) : yearly;
 
   // Period activity (only meaningful when windowed).
@@ -189,7 +189,13 @@ export default async function SupplyPage({
       {/* Deflation — cumulative burned (permanent) + locked (temporary) */}
       <Card
         title="Deflation"
-        subtitle={`${burnedPct}% burned (permanent) · ${lockedPct}% locked (temporary)`}
+        subtitle={
+          win === "all"
+            ? `${burnedPct}% burned (permanent) · ${lockedPct}% locked (temporary)`
+            : `${WINDOW_LABEL[win]} · burned ${periodBurned.toLocaleString("en-US")} · net locked ${
+                periodLockChange >= 0 ? "+" : "−"
+              }${Math.abs(periodLockChange).toLocaleString("en-US")} · from zero`
+        }
         className="mb-3"
         methodology="Cumulative moments burned vs locked. Gray = burned — permanent supply destruction, the true deflation (since burns began). Amber = net locked (locks minus unlocks) — temporary; locked moments still exist and return to circulation when unlocked. Kept separate on purpose: burns are deflation, locks are immobilization."
       >

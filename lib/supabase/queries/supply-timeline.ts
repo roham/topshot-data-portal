@@ -177,3 +177,50 @@ export const getSupplyTimeline = () =>
     revalidate: 3600,
     tags: ["supply-timeline"],
   })();
+
+/**
+ * Rebase the cumulative curves to ZERO at `fromMonth`: every cumulative field
+ * is offset by the value at the month just before the window, and a synthetic
+ * zero anchor is prepended so the lines visibly start at 0. Use this for
+ * windowed/"since X" views where the question is "how much has accumulated
+ * since then," not the absolute all-time level.
+ *
+ * `fromMonth` is matched as the first month >= it (YYYY-MM-DD).
+ */
+export function rebaseMonthly(monthly: SupplyMonth[], fromMonth: string): SupplyMonth[] {
+  const startIdx = monthly.findIndex((m) => m.month >= fromMonth);
+  if (startIdx < 0) return [];
+  const base = startIdx > 0 ? monthly[startIdx - 1] : null;
+  const bM = base?.cumMinted ?? 0;
+  const bB = base?.cumBurned ?? 0;
+  const bL = base?.netLocked ?? 0;
+
+  const rebased: SupplyMonth[] = monthly.slice(startIdx).map((m) => ({
+    ...m,
+    cumMinted: m.cumMinted - bM,
+    cumBurned: m.cumBurned - bB,
+    netLocked: m.netLocked - bL,
+    circulating: m.cumMinted - bM - (m.cumBurned - bB),
+  }));
+
+  if (!base) return rebased;
+  // Zero anchor at the pre-window month so curves start from 0.
+  const anchor: SupplyMonth = {
+    month: base.month,
+    minted: 0,
+    burned: 0,
+    lockEvents: 0,
+    lockExits: 0,
+    cumMinted: 0,
+    cumBurned: 0,
+    circulating: 0,
+    netLocked: 0,
+  };
+  return [anchor, ...rebased];
+}
+
+/** Rebase to zero starting `n` months back from the end. */
+export function rebaseLastMonths(monthly: SupplyMonth[], n: number): SupplyMonth[] {
+  if (monthly.length <= n) return rebaseMonthly(monthly, monthly[0]?.month ?? "");
+  return rebaseMonthly(monthly, monthly[monthly.length - n].month);
+}
