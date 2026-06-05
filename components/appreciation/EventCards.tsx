@@ -84,42 +84,76 @@ function PriceJourney({ r, big }: { r: StoryRow; big?: boolean }) {
 function StoryImg({ src, alt }: { src: string | null; alt: string }) {
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} loading="lazy" className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]" />
+    <img src={src} alt={alt} loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]" />
   ) : (
-    <div className="absolute inset-0 bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-1)]" />
+    <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--surface-2)] to-[var(--surface-1)]" />
   );
+}
+
+// The named provenance — the real person who holds the moment now (= who bought
+// it at the last-sale price). @username deep-links to their bag; this is what
+// makes the story a social moment rather than abstract numbers. Falls back to
+// the on-chain address (still real, just not custodial) when no username.
+function OwnerLine({ r, big }: { r: StoryRow; big?: boolean }) {
+  const size = big ? "text-[12px]" : "text-[10px]";
+  if (r.owner_username) {
+    return (
+      <div className={`pointer-events-none mt-1.5 flex items-center gap-1 font-mono ${size}`}>
+        <span className="text-white/45">held by</span>
+        <Link
+          href={`/u/${encodeURIComponent(r.owner_username)}`}
+          className="pointer-events-auto relative z-20 font-semibold text-[var(--accent)] hover:underline"
+        >
+          @{r.owner_username}
+        </Link>
+      </div>
+    );
+  }
+  if (r.owner_flow_address) {
+    return (
+      <div className={`pointer-events-none mt-1.5 font-mono text-white/40 ${size}`}>
+        held by {r.owner_flow_address.slice(0, 6)}…{r.owner_flow_address.slice(-4)}
+      </div>
+    );
+  }
+  return null;
 }
 
 export function AppreciationStoryCard({ r, rank }: { r: StoryRow; rank?: number; path?: SalePoint[] }) {
   return (
-    <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} className="group relative block aspect-[4/5] overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-2)]">
+    <div className="group relative aspect-[4/5] overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-2)]">
       <StoryImg src={r.image_url} alt={r.player_name ?? ""} />
-      <StoryBadges r={r} />
-      {rank != null && <span className="absolute bottom-2.5 right-2.5 rounded bg-black/45 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-white/75 backdrop-blur">#{rank}</span>}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/65 to-transparent px-3 pb-3 pt-16">
+      {/* full-card click → the moment's edition (sits behind the overlay) */}
+      <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} aria-label={`${r.player_name ?? "moment"} price history`} className="absolute inset-0 z-10" />
+      <div className="pointer-events-none"><StoryBadges r={r} /></div>
+      {rank != null && <span className="pointer-events-none absolute right-2.5 top-2.5 mt-7 rounded bg-black/45 px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-white/70 backdrop-blur">#{rank}</span>}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/95 via-black/65 to-transparent px-3 pb-3 pt-16">
         <div className="flex items-center gap-1.5"><span className="truncate text-[14px] font-semibold text-white">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /></div>
         <div className="mt-1"><PriceJourney r={r} /></div>
-        <div className="mt-1 truncate font-mono text-[9px] text-white/50">#{r.serial_number ?? "—"} · /{(r.subed_mint ?? r.edition_mint)?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
+        <OwnerLine r={r} />
+        <div className="mt-1 truncate font-mono text-[9px] text-white/45">#{r.serial_number ?? "—"} · /{(r.subed_mint ?? r.edition_mint)?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
       </div>
-    </Link>
+    </div>
   );
 }
 
-// Hero — the same social image, featured: full-width, larger, with the price
-// journey huge. Identical message to the grid cards, just bigger.
+// Hero — the same social image, featured: full-width, larger, price journey
+// huge. Identical message to the grid cards, just bigger.
 export function StoryHero({ r }: { r: StoryRow; path?: SalePoint[] }) {
   const scarcity = r.subed_mint ?? r.edition_mint;
   return (
-    <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} className="group relative mb-4 block aspect-[4/5] overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface-2)] sm:aspect-[16/7]">
+    <div className="group relative mb-4 aspect-[4/5] overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface-2)] sm:aspect-[16/7]">
       <StoryImg src={r.image_url} alt={r.player_name ?? ""} />
-      <StoryBadges r={r} big />
-      <span className="absolute left-3 top-3 mt-7 hidden font-mono text-[9px] uppercase tracking-[0.18em] text-white/70 sm:block">Top story</span>
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent px-5 pb-5 pt-24">
+      <Link href={`/edition/${encodeURIComponent(r.edition_id)}`} aria-label={`${r.player_name ?? "moment"} price history`} className="absolute inset-0 z-10" />
+      <div className="pointer-events-none"><StoryBadges r={r} big /></div>
+      <span className="pointer-events-none absolute left-3 top-3 mt-7 hidden font-mono text-[9px] uppercase tracking-[0.18em] text-white/70 sm:block">Top story</span>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/95 via-black/60 to-transparent px-5 pb-5 pt-24">
         <div className="flex items-center gap-2"><span className="truncate text-[24px] font-semibold text-white">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /></div>
         <div className="mt-2"><PriceJourney r={r} big /></div>
-        <div className="mt-1.5 truncate font-mono text-[10px] text-white/60">#{r.serial_number ?? "—"} · /{scarcity?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
+        <OwnerLine r={r} big />
+        <div className="mt-1.5 truncate font-mono text-[10px] text-white/55">#{r.serial_number ?? "—"} · /{scarcity?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
       </div>
-    </Link>
+    </div>
   );
 }
 

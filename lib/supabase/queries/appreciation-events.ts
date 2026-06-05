@@ -16,6 +16,7 @@ export interface StoryRow {
   edition_floor: number | null; mult: number | null;
   is_one: boolean; is_jersey: boolean; is_low: boolean;
   score: number;
+  owner_flow_address: string | null; owner_username: string | null;
 }
 export type SerialClass = "all" | "normal" | "special";
 export type StorySort = "hot" | "gain" | "mult" | "recent";
@@ -99,11 +100,41 @@ async function _stories(cls: SerialClass, sort: StorySort, limit: number): Promi
         edition_mint: N(r.edition_mint), subed_mint: N(r.subed_mint), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url),
         hi: N(r.hi), edition_floor: N(r.edition_floor), mult: N(r.mult),
         ...base, score: storyScore(base),
+        owner_flow_address: null, owner_username: null,
       };
     });
     rows.sort(SORT_CMP[sort] ?? SORT_CMP.hot);
-    return rows.slice(0, limit);
+    const top = rows.slice(0, limit);
+    await attachOwners(sb, top);
+    return top;
   } catch (e) { console.error("[appreciation-events] stories threw", e); return []; }
+}
+
+// Resolve the CURRENT owner (the named collector who holds the appreciated
+// moment now — i.e. who bought it at the last-sale price). Real provenance:
+// moments.owner_flow_address → collectors.username, two small indexed reads.
+async function attachOwners(sb: NonNullable<ReturnType<typeof getSupabaseServerAnon>>, rows: StoryRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  try {
+    const { data: moms } = await sb.from("moments").select("moment_id, owner_flow_address").in("moment_id", rows.map((r) => r.moment_id));
+    const ownerByMoment = new Map<string, string>();
+    for (const m of (moms as { moment_id: string; owner_flow_address: string | null }[] | null) ?? []) {
+      if (m.owner_flow_address) ownerByMoment.set(m.moment_id, m.owner_flow_address);
+    }
+    const addrs = [...new Set(ownerByMoment.values())];
+    const nameByAddr = new Map<string, string>();
+    if (addrs.length) {
+      const { data: cols } = await sb.from("collectors").select("flow_address, username").in("flow_address", addrs).not("username", "is", null);
+      for (const c of (cols as { flow_address: string; username: string }[] | null) ?? []) nameByAddr.set(c.flow_address, c.username);
+    }
+    for (const r of rows) {
+      const addr = ownerByMoment.get(r.moment_id) ?? null;
+      r.owner_flow_address = addr;
+      r.owner_username = addr ? nameByAddr.get(addr) ?? null : null;
+    }
+  } catch (e) {
+    console.error("[appreciation-events] attachOwners threw", e);
+  }
 }
 export const getAppreciationStories = (cls: SerialClass = "all", sort: StorySort = "hot", limit = 48) =>
   unstable_cache(() => _stories(cls, sort, limit), ["appr-stories-v3", cls, sort, String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
