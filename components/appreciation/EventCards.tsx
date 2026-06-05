@@ -4,11 +4,22 @@
 import Link from "next/link";
 import { TierChip } from "@/components/primitives/TierChip";
 import { Num } from "@/components/primitives/Num";
-import type { StoryRow, FloorSmashRow, IlliquidRow } from "@/lib/supabase/queries/appreciation-events";
+import { StoryClimbSpark } from "@/components/appreciation/StoryClimbSpark";
+import type { StoryRow, FloorSmashRow, IlliquidRow, SalePoint } from "@/lib/supabase/queries/appreciation-events";
 
 const UP = "#34d399";
 const GOLD = "var(--tier-legendary)";
 const fmtMult = (m: number | null) => (m == null ? "—" : m >= 10 ? `${Math.round(m)}×` : `${m.toFixed(1)}×`);
+
+function ago(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1d ago";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.round(days / 30)}mo ago`;
+  return `${(days / 365).toFixed(1)}y ago`;
+}
 
 function Avatar({ src }: { src: string | null }) {
   return src
@@ -42,28 +53,78 @@ function SerialBadge({ r }: { r: StoryRow }) {
 // A sub-edition (parallel) is anything that isn't the base subedition "0".
 const isParallel = (r: StoryRow) => r.subedition_id != null && r.subedition_id !== "0";
 
-export function AppreciationStoryCard({ r, rank }: { r: StoryRow; rank?: number }) {
+export function AppreciationStoryCard({ r, rank, path = [] }: { r: StoryRow; rank?: number; path?: SalePoint[] }) {
   const scarcity = r.subed_mint ?? r.edition_mint; // TRUE scarcity = the sub-edition's own mint
   return (
     <Shell href={`/edition/${encodeURIComponent(r.edition_id)}`}>
       <div className="flex items-start gap-3">
-        {rank != null && <span className="mt-0.5 shrink-0 font-mono text-[11px] tabular-nums text-[var(--text-faint)]">{rank}</span>}
+        {rank != null && <span className="mt-1 shrink-0 font-mono text-[11px] tabular-nums text-[var(--text-faint)]">{rank}</span>}
         <Avatar src={r.image_url} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2"><span className="truncate text-[14px] font-semibold">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /><SerialBadge r={r} />
             {isParallel(r) && <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)]">parallel</span>}
           </div>
-          <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-faint)]">#{r.serial_number ?? "—"} · /{scarcity?.toLocaleString() ?? "—"}{isParallel(r) ? " sub-edition" : ""} · {r.n} sales</div>
+          <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-faint)]">#{r.serial_number ?? "—"} · /{scarcity?.toLocaleString() ?? "—"}{isParallel(r) ? " sub-edition" : ""} · {r.n} sales · {ago(r.last_at)}</div>
         </div>
-        <span className="shrink-0 text-[16px] font-bold tabular-nums" style={{ color: UP }}>{fmtMult(r.mult)}</span>
+        <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[16px] font-bold tabular-nums" style={{ color: UP, background: "color-mix(in srgb, #34d399 12%, transparent)" }}>{fmtMult(r.mult)}</span>
       </div>
-      <div className="mt-3 flex items-baseline gap-2 font-mono text-[12px]">
+      {/* The climb — real cleared-sale path */}
+      <div className="mt-3"><StoryClimbSpark path={path} id={r.moment_id} color={UP} height={56} /></div>
+      <div className="mt-2 flex items-baseline gap-2 font-mono text-[12px]">
         <span className="text-[var(--text-dim)]"><Num value={r.first_sale} format="usd" /></span>
         <span className="text-[var(--text-faint)]">→</span>
         <span className="text-[17px] font-semibold tabular-nums text-[var(--text)]"><Num value={r.last_sale} format="usd" /></span>
+        {r.hi != null && r.last_sale != null && r.hi > r.last_sale && (
+          <span className="text-[9px] text-[var(--text-faint)]">peak <Num value={r.hi} format="usd" /></span>
+        )}
         {r.edition_floor != null && <span className="ml-auto text-[10px] text-[var(--text-faint)]">floor <Num value={r.edition_floor} format="usd" /></span>}
       </div>
     </Shell>
+  );
+}
+
+// Hero — the single best story, rendered large with a wide climb chart.
+export function StoryHero({ r, path = [] }: { r: StoryRow; path?: SalePoint[] }) {
+  const scarcity = r.subed_mint ?? r.edition_mint;
+  const badge = r.is_one ? "#1" : r.is_jersey ? "JERSEY MATCH" : r.is_low ? `LOW SERIAL #${r.serial_number}` : null;
+  return (
+    <Link
+      href={`/edition/${encodeURIComponent(r.edition_id)}`}
+      className="group mb-4 block overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-gradient-to-br from-[var(--surface-1)] to-[color-mix(in_srgb,#34d399_5%,var(--surface-1))] transition-colors hover:border-[var(--border-strong)]"
+    >
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-stretch">
+        {/* Left: identity + numbers */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-faint)]">Top story</span>
+            {badge && <span className="rounded bg-[color-mix(in_srgb,var(--tier-legendary)_18%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em]" style={{ color: GOLD }}>{badge}</span>}
+            {isParallel(r) && <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)]">parallel</span>}
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <Avatar src={r.image_url} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2"><span className="truncate text-[20px] font-semibold leading-tight">{r.player_name ?? "—"}</span><TierChip tier={r.tier_name} /></div>
+              <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--text-faint)]">#{r.serial_number ?? "—"} · /{scarcity?.toLocaleString() ?? "—"} · {r.n} sales · {ago(r.last_at)}</div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-end gap-3">
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-faint)]">bought → sold</div>
+              <div className="mt-1 flex items-baseline gap-2 font-mono">
+                <span className="text-[15px] text-[var(--text-dim)]"><Num value={r.first_sale} format="usd" /></span>
+                <span className="text-[var(--text-faint)]">→</span>
+                <span className="text-[28px] font-bold tabular-nums text-[var(--text)]"><Num value={r.last_sale} format="usd" /></span>
+              </div>
+            </div>
+            <span className="ml-auto rounded-lg px-2.5 py-1 text-[26px] font-bold tabular-nums" style={{ color: UP, background: "color-mix(in srgb, #34d399 14%, transparent)" }}>{fmtMult(r.mult)}</span>
+          </div>
+        </div>
+        {/* Right: the big climb */}
+        <div className="flex w-full flex-col justify-end sm:w-[52%]">
+          <StoryClimbSpark path={path} id={`hero-${r.moment_id}`} color={UP} height={150} />
+        </div>
+      </div>
+    </Link>
   );
 }
 

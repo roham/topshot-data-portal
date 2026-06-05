@@ -9,8 +9,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getEditionGrowth } from "@/lib/supabase/queries/edition-growth";
-import { getAppreciationStories, getFloorSmash, getIlliquidHighValue, type SerialClass } from "@/lib/supabase/queries/appreciation-events";
-import { AppreciationStoryCard, FloorSmashCard, IlliquidCard } from "@/components/appreciation/EventCards";
+import { getAppreciationStories, getStorySalePaths, getFloorSmash, getIlliquidHighValue, type SerialClass, type StorySort } from "@/lib/supabase/queries/appreciation-events";
+import { AppreciationStoryCard, StoryHero, FloorSmashCard, IlliquidCard } from "@/components/appreciation/EventCards";
 import { TierChip } from "@/components/primitives/TierChip";
 import { Num } from "@/components/primitives/Num";
 import { MiniSpark } from "@/components/MiniSpark";
@@ -63,11 +63,27 @@ const SERIAL_TABS: { key: SerialClass; label: string }[] = [
   { key: "normal", label: "Normal only" },
   { key: "special", label: "Special (#1 / jersey / low)" },
 ];
-async function Stories({ cls }: { cls: SerialClass }) {
-  const rows = await getAppreciationStories(cls, 60);
-  return rows.length
-    ? <Grid>{rows.map((r, i) => <AppreciationStoryCard key={r.edition_id + r.serial_number} r={r} rank={i + 1} />)}</Grid>
-    : <Empty />;
+const SORT_TABS: { key: StorySort; label: string }[] = [
+  { key: "hot", label: "Hottest" },
+  { key: "gain", label: "Biggest gain" },
+  { key: "mult", label: "Highest multiple" },
+  { key: "recent", label: "Most recent" },
+];
+async function Stories({ cls, sort }: { cls: SerialClass; sort: StorySort }) {
+  const rows = await getAppreciationStories(cls, sort, 36);
+  if (!rows.length) return <Empty />;
+  const paths = await getStorySalePaths(rows.map((r) => r.moment_id));
+  const [hero, ...rest] = rows;
+  return (
+    <>
+      <StoryHero r={hero} path={paths[hero.moment_id] ?? []} />
+      <Grid>
+        {rest.map((r, i) => (
+          <AppreciationStoryCard key={r.moment_id} r={r} rank={i + 2} path={paths[r.moment_id] ?? []} />
+        ))}
+      </Grid>
+    </>
+  );
 }
 async function FloorSmashed() {
   const rows = await getFloorSmash(48);
@@ -78,11 +94,13 @@ async function HighValue() {
   return rows.length ? <Grid>{rows.map((r) => <IlliquidCard key={r.edition_id} r={r} />)}</Grid> : <Empty />;
 }
 
-export default async function AppreciatingPage({ searchParams }: { searchParams: Promise<{ cat?: string; serial?: string }> }) {
+export default async function AppreciatingPage({ searchParams }: { searchParams: Promise<{ cat?: string; serial?: string; sort?: string }> }) {
   const sp = await searchParams;
   const cat = (TABS.some((t) => t.key === sp.cat) ? sp.cat : "trending") as Cat;
   const active = TABS.find((t) => t.key === cat)!;
   const serialCls = (["normal", "special"].includes(sp.serial ?? "") ? sp.serial : "all") as SerialClass;
+  const sort = (SORT_TABS.some((t) => t.key === sp.sort) ? sp.sort : "hot") as StorySort;
+  const sortLabel = SORT_TABS.find((t) => t.key === sort)!.label.toLowerCase();
   return (
     <main className="mx-auto max-w-[1100px] px-[22px] py-6">
       <h1 className="text-[20px] font-semibold tracking-tight">Most Appreciating</h1>
@@ -96,17 +114,28 @@ export default async function AppreciatingPage({ searchParams }: { searchParams:
         ))}
       </div>
       {cat === "stories" && (
-        <div className="mb-4 inline-flex flex-wrap gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
-          {SERIAL_TABS.map((t) => (
-            <Link key={t.key} href={`/appreciating?cat=stories&serial=${t.key}`} scroll={false}
-              className={`rounded-md px-[10px] py-[5px] font-mono text-[10px] transition-colors ${t.key === serialCls ? "bg-[var(--accent)]/15 font-semibold text-[var(--accent)]" : "text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
-              {t.label}
-            </Link>
-          ))}
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="inline-flex flex-wrap gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
+            {SORT_TABS.map((t) => (
+              <Link key={t.key} href={`/appreciating?cat=stories&serial=${serialCls}&sort=${t.key}`} scroll={false}
+                className={`rounded-md px-[10px] py-[5px] font-mono text-[10px] transition-colors ${t.key === sort ? "bg-[var(--accent)]/15 font-semibold text-[var(--accent)]" : "text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
+                {t.label}
+              </Link>
+            ))}
+          </div>
+          <div className="inline-flex flex-wrap gap-0.5 rounded-[9px] bg-[var(--surface-1)] p-1">
+            {SERIAL_TABS.map((t) => (
+              <Link key={t.key} href={`/appreciating?cat=stories&serial=${t.key}&sort=${sort}`} scroll={false}
+                className={`rounded-md px-[10px] py-[5px] font-mono text-[10px] transition-colors ${t.key === serialCls ? "bg-[var(--accent)]/15 font-semibold text-[var(--accent)]" : "text-[var(--text-dim)] hover:text-[var(--text)]"}`}>
+                {t.label}
+              </Link>
+            ))}
+          </div>
+          <span className="font-mono text-[10px] text-[var(--text-faint)]">sorted by {sortLabel}</span>
         </div>
       )}
-      <Suspense key={`${cat}-${serialCls}`} fallback={<div className="h-[600px] animate-pulse rounded-[14px] bg-[var(--surface-2)]" />}>
-        {cat === "trending" ? <Trending /> : cat === "stories" ? <Stories cls={serialCls} /> : cat === "floor-smashed" ? <FloorSmashed /> : <HighValue />}
+      <Suspense key={`${cat}-${serialCls}-${sort}`} fallback={<div className="h-[600px] animate-pulse rounded-[14px] bg-[var(--surface-2)]" />}>
+        {cat === "trending" ? <Trending /> : cat === "stories" ? <Stories cls={serialCls} sort={sort} /> : cat === "floor-smashed" ? <FloorSmashed /> : <HighValue />}
       </Suspense>
     </main>
   );
