@@ -1,10 +1,13 @@
 // Trending card — graph-forward (StockX style): every individual sale plotted,
-// with a trend line, plus the edition's growth + liquidity context. Server
-// component wrapping the client StockXScatter.
+// with a trend line, the edition's growth/liquidity context, AND the named
+// collector who holds its crown-jewel serial (proud-making, social). The chart
+// stays interactive (tooltips), so the player name + @username are the links —
+// not a covering anchor.
 
 import Link from "next/link";
 import { TierChip } from "@/components/primitives/TierChip";
 import { StockXScatter } from "@/components/appreciation/StockXScatter";
+import { OwnerCredit } from "@/components/appreciation/OwnerCredit";
 import type { TrendingEdition } from "@/lib/supabase/queries/trending-scatter";
 
 const UP = "#34d399";
@@ -27,12 +30,13 @@ function Header({ e, big }: { e: TrendingEdition; big?: boolean }) {
     <div className="flex items-start justify-between gap-3 px-4 pt-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className={`truncate font-semibold ${big ? "text-[18px]" : "text-[14px]"}`}>{e.player_name ?? "—"}</span>
+          <Link href={`/edition/${encodeURIComponent(e.edition_id)}`} className={`truncate font-semibold hover:underline ${big ? "text-[18px]" : "text-[14px]"}`}>{e.player_name ?? "—"}</Link>
           <TierChip tier={e.tier_name} />
         </div>
         <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
           {e.series_name ?? ""} · /{e.mint_count?.toLocaleString() ?? "—"} · {e.n_sales.toLocaleString()} sales
         </div>
+        <OwnerCredit serial={e.owner_serial} username={e.owner_username} flow={e.owner_flow_address} tone="dark" />
       </div>
       <div className="shrink-0 text-right">
         <div className={`font-bold tabular-nums ${big ? "text-[20px]" : "text-[16px]"}`} style={{ color }}>{fmtPct(e.growth_pct)}</div>
@@ -44,21 +48,21 @@ function Header({ e, big }: { e: TrendingEdition; big?: boolean }) {
 
 export function TrendingScatterCard({ e }: { e: TrendingEdition }) {
   return (
-    <Link href={`/edition/${encodeURIComponent(e.edition_id)}`} className="group block overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] transition-colors hover:border-[var(--border-strong)]">
+    <div className="overflow-hidden rounded-[14px] border border-[var(--border-subtle)] bg-[var(--surface-1)] transition-colors hover:border-[var(--border-strong)]">
       <Header e={e} />
       <div className="px-1 pb-2 pt-2"><StockXScatter sales={e.sales} height={180} /></div>
-    </Link>
+    </div>
   );
 }
 
 export function TrendingScatterHero({ e }: { e: TrendingEdition }) {
   return (
-    <Link href={`/edition/${encodeURIComponent(e.edition_id)}`} className="group mb-4 block overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface-1)] transition-colors hover:border-[var(--border-strong)]">
+    <div className="mb-4 overflow-hidden rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface-1)]">
       <div className="flex items-center justify-between gap-3 px-5 pt-4">
         <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--text-faint)]">Most traded · trending</span>
       </div>
       <Header e={e} big />
       <div className="px-2 pb-3 pt-3"><StockXScatter sales={e.sales} height={320} /></div>
-    </Link>
+    </div>
   );
 }

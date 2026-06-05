@@ -5,6 +5,7 @@
 
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
+import { resolveEditionOwners } from "@/lib/supabase/queries/edition-owner";
 
 export interface SaleDot {
   t: number; // unix ms
@@ -25,6 +26,7 @@ export interface TrendingEdition {
   price_now: number | null;
   growth_pct: number | null;
   sales: SaleDot[]; // individual cleared sales (most-recent-first from RPC)
+  owner_serial: number | null; owner_username: string | null; owner_flow_address: string | null;
 }
 
 const MIN_PRICE = 20; // skip $2-common noise — the scatter needs a real dollar range
@@ -78,13 +80,22 @@ async function _trending(view: "all" | "rookies", count: number): Promise<Trendi
           price_now: r.price_now == null ? null : Number(r.price_now),
           growth_pct: r.growth_pct == null ? null : Number(r.growth_pct),
           sales: dots,
+          owner_serial: null, owner_username: null, owner_flow_address: null,
         } as TrendingEdition;
       }),
     );
 
     // Keep only editions whose scatter is actually rich (≥ 20 dots in window),
     // then take the requested count.
-    return enriched.filter((e) => e.sales.length >= 20).slice(0, count);
+    const top = enriched.filter((e) => e.sales.length >= 20).slice(0, count);
+
+    // Name the crown-jewel holder of each — make the collector proud.
+    const owners = await resolveEditionOwners(top.map((e) => e.edition_id));
+    for (const e of top) {
+      const o = owners[e.edition_id];
+      if (o) { e.owner_serial = o.serial; e.owner_username = o.username; e.owner_flow_address = o.flow_address; }
+    }
+    return top;
   } catch (e) {
     console.error("[trending-scatter] threw", e);
     return [];

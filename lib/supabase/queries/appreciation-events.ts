@@ -4,6 +4,7 @@
 
 import { unstable_cache } from "next/cache";
 import { getSupabaseServerAnon } from "@/lib/supabase/server";
+import { resolveEditionOwners } from "@/lib/supabase/queries/edition-owner";
 
 const S = (v: unknown) => (v == null ? null : String(v));
 const N = (v: unknown) => (v == null ? null : Number(v));
@@ -49,6 +50,7 @@ export interface FloorSmashRow {
   parallel_id: number | null; series_name: string | null; image_url: string | null;
   floor_before: number | null; floor_now: number | null; jump_mult: number | null;
   n_sub: number | null; scarcest_sub: number | null;
+  owner_serial: number | null; owner_username: string | null; owner_flow_address: string | null;
 }
 export interface IlliquidRow {
   edition_id: string; player_name: string | null; tier_name: string | null; mint_count: number | null;
@@ -56,6 +58,17 @@ export interface IlliquidRow {
   floor: number | null; sales_90d: number; sales_ever: number | null; last_sale: number | null; last_at: string | null;
   max_sale_ever: number | null; msrp_pack: string | null; pack_msrp: number | null;
   n_sub: number | null; scarcest_sub: number | null;
+  owner_serial: number | null; owner_username: string | null; owner_flow_address: string | null;
+}
+
+// Attach the crown-jewel owner (lowest owned serial → username) to edition rows.
+async function withEditionOwners<T extends { edition_id: string; owner_serial: number | null; owner_username: string | null; owner_flow_address: string | null }>(rows: T[]): Promise<T[]> {
+  const owners = await resolveEditionOwners(rows.map((r) => r.edition_id));
+  for (const r of rows) {
+    const o = owners[r.edition_id];
+    if (o) { r.owner_serial = o.serial; r.owner_username = o.username; r.owner_flow_address = o.flow_address; }
+  }
+  return rows;
 }
 
 async function read<T>(table: string, cols: string, order: string, limit: number, map: (r: Record<string, unknown>) => T): Promise<T[]> {
@@ -174,10 +187,11 @@ export const getFloorSmash = (limit = 36) =>
       "mv_edition_floor_smash",
       "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor_before, floor_now, jump_mult, n_sub, scarcest_sub",
       "jump_mult", 117,
-      (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor_before: N(r.floor_before), floor_now: N(r.floor_now), jump_mult: N(r.jump_mult), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
+      (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor_before: N(r.floor_before), floor_now: N(r.floor_now), jump_mult: N(r.jump_mult), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub), owner_serial: null, owner_username: null, owner_flow_address: null }),
     );
-    return rows.sort((a, b) => floorSmashScore(b) - floorSmashScore(a)).slice(0, limit);
-  }, ["appr-floorsmash-v2", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
+    const top = rows.sort((a, b) => floorSmashScore(b) - floorSmashScore(a)).slice(0, limit);
+    return withEditionOwners(top);
+  }, ["appr-floorsmash-v3", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
 
 // High-value highlight: the trophies — rank by floor, but require the floor to be
 // backed by a real sale (max_sale_ever) so it's value, not an aspirational ask.
@@ -189,7 +203,8 @@ export const getIlliquidHighValue = (limit = 36) =>
       "mv_edition_illiquid_highvalue",
       "edition_id, player_name, tier_name, mint_count, parallel_id, series_name, image_url, floor, sales_90d, sales_ever, last_sale, last_at, max_sale_ever, msrp_pack, pack_msrp, n_sub, scarcest_sub",
       "floor", 300,
-      (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor: N(r.floor), sales_90d: Number(r.sales_90d), sales_ever: N(r.sales_ever), last_sale: N(r.last_sale), last_at: S(r.last_at), max_sale_ever: N(r.max_sale_ever), msrp_pack: S(r.msrp_pack), pack_msrp: N(r.pack_msrp), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub) }),
+      (r) => ({ edition_id: String(r.edition_id), player_name: S(r.player_name), tier_name: S(r.tier_name), mint_count: N(r.mint_count), parallel_id: N(r.parallel_id), series_name: S(r.series_name), image_url: S(r.image_url), floor: N(r.floor), sales_90d: Number(r.sales_90d), sales_ever: N(r.sales_ever), last_sale: N(r.last_sale), last_at: S(r.last_at), max_sale_ever: N(r.max_sale_ever), msrp_pack: S(r.msrp_pack), pack_msrp: N(r.pack_msrp), n_sub: N(r.n_sub), scarcest_sub: N(r.scarcest_sub), owner_serial: null, owner_username: null, owner_flow_address: null }),
     );
-    return rows.sort((a, b) => illiquidScore(b) - illiquidScore(a)).slice(0, limit);
-  }, ["appr-illiquid-v2", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();
+    const top = rows.sort((a, b) => illiquidScore(b) - illiquidScore(a)).slice(0, limit);
+    return withEditionOwners(top);
+  }, ["appr-illiquid-v3", String(limit)], { revalidate: 600, tags: ["appreciation-events"] })();

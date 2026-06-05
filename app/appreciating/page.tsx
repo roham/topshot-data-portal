@@ -18,10 +18,10 @@ export const revalidate = 600;
 
 type Cat = "trending" | "stories" | "floor-smashed" | "high-value";
 const TABS: { key: Cat; label: string; blurb: string }[] = [
-  { key: "trending", label: "Trending", blurb: "The most-traded editions — every individual sale plotted, StockX style." },
-  { key: "stories", label: "Stories", blurb: "A single serial that climbed — sold cheap, now sells expensive." },
-  { key: "floor-smashed", label: "Floor-Smashed", blurb: "A purchase cleared the floor and the next ask leapt." },
-  { key: "high-value", label: "High-Value", blurb: "Expensive and rarely trades — the trophies." },
+  { key: "trending", label: "Trending", blurb: "The most-traded editions — every sale plotted, and the collector who owns the crown jewel." },
+  { key: "stories", label: "Stories", blurb: "A serial that climbed — bought cheap, now worth a fortune — and who holds it now." },
+  { key: "floor-smashed", label: "Board Smash", blurb: "The floor just leapt — and the collectors holding it are sitting pretty." },
+  { key: "high-value", label: "High-Value", blurb: "The trophies — and the collectors who own them." },
 ];
 
 const Grid = ({ children }: { children: React.ReactNode }) => (

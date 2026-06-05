@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { TierChip } from "@/components/primitives/TierChip";
+import { OwnerCredit } from "@/components/appreciation/OwnerCredit";
 import type { StoryRow, FloorSmashRow, IlliquidRow, SalePoint } from "@/lib/supabase/queries/appreciation-events";
 
 const UP = "#34d399";
@@ -167,13 +168,14 @@ export function FloorSmashCard({ r, big }: { r: FloorSmashRow; big?: boolean }) 
   return (
     <EditionImmersive editionId={r.edition_id} imageUrl={r.image_url} playerName={r.player_name} tierName={r.tier_name} parallelId={r.parallel_id} topRight={smashBadge(r.jump_mult, big)} big={big} aria={`${r.player_name ?? "edition"} floor history`}>
       <div className={`flex items-center gap-2 ${big ? "" : ""}`}><span className={`truncate font-semibold text-white ${big ? "text-[24px]" : "text-[14px]"}`}>{r.player_name ?? "—"}</span></div>
-      <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">floor smashed</div>
+      <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--accent)]">board smash</div>
       <div className="mt-0.5 flex items-baseline gap-2 font-mono">
         <span className={`tabular-nums text-white/55 ${big ? "text-[18px]" : "text-[13px]"}`}>{fmtUsdShort(r.floor_before)}</span>
         <span className={`text-white/45 ${big ? "text-[18px]" : "text-[13px]"}`}>→</span>
         <span className={`font-bold tabular-nums ${big ? "text-[40px] leading-none" : "text-[24px] leading-none"}`} style={{ color: GOLD }}>{fmtUsdShort(r.floor_now)}</span>
       </div>
       <div className={`mt-1.5 truncate font-mono text-white/50 ${big ? "text-[10px]" : "text-[9px]"}`}>{r.series_name ?? "—"} · /{r.mint_count?.toLocaleString() ?? "—"}{parallelsNote(r.n_sub)}</div>
+      <OwnerCredit serial={r.owner_serial} username={r.owner_username} flow={r.owner_flow_address} tone="image" big={big} />
     </EditionImmersive>
   );
 }
@@ -189,6 +191,7 @@ export function IlliquidCard({ r, big }: { r: IlliquidRow; big?: boolean }) {
         {r.sales_90d} sale{r.sales_90d === 1 ? "" : "s"}/90d · last {fmtUsdShort(r.last_sale)} · /{r.mint_count?.toLocaleString() ?? "—"}{parallelsNote(r.n_sub)}
       </div>
       {r.msrp_pack && <div className={`mt-0.5 truncate font-mono text-white/40 ${big ? "text-[10px]" : "text-[9px]"}`}>pulled from {r.msrp_pack}</div>}
+      <OwnerCredit serial={r.owner_serial} username={r.owner_username} flow={r.owner_flow_address} tone="image" big={big} />
     </EditionImmersive>
   );
 }
