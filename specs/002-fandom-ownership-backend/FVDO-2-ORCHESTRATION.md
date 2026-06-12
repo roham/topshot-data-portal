@@ -18,21 +18,22 @@ Agent dispatch or Bash block. **Never collapse the pipeline.** Commit at every p
 
 ```
 VM workdir: /home/ro/builds/fandom-ownership/
-├── portal/   ← git clone https://x-access-token:${GH_TOKEN}@github.com/roham/topshot-data-portal.git
-└── convos/   ← git clone https://x-access-token:${GH_TOKEN}@github.com/roham/claude-conversations.git
-                 (fandom-v3 lives at convos/dapperlabs-v2-i/fandom-v3)
+├── .env      ← this run's scoped creds (NOT the personal daemon's /opt/kaaos-daemon/.env)
+├── portal/   ← git clone roham/topshot-data-portal → checkout spec/002-fandom-ownership-backend
+└── convos/   ← git clone roham/claude-conversations → main (fandom-v3 at convos/dapperlabs-v2-i/fandom-v3)
 ```
 
 **Deploy targets:**
 - Portal MV/RPC → applied directly to Supabase `wewmolsrxrpajrzjqvim` (service-role). Migration file
-  also committed to `portal/supabase/migrations/`.
+  committed to `portal/supabase/migrations/` on branch `spec/002-fandom-ownership-backend` (PR #13).
 - `fandom-v3` → `https://fandom-v3.vercel.app` auto-deploys on push to `claude-conversations` main.
 
-**Env (loaded from `/opt/kaaos-daemon/.env`):**
-- `ANTHROPIC_API_KEY` — Agent dispatches.
+**Env:** `source /opt/kaaos-daemon/.env` (for `ANTHROPIC_API_KEY` — the claude auth the box already uses)
+then `source /home/ro/builds/fandom-ownership/.env` (this run's scoped creds). The scoped `.env` holds:
 - `GH_TOKEN` — scoped to BOTH `roham/topshot-data-portal` and `roham/claude-conversations` (push).
-- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — portal Supabase (DDL + RPC + reads).
+- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — portal Supabase (RPC + REST reads).
 - `SUPABASE_DB_URL` — direct Postgres (for `CREATE FUNCTION` / `REFRESH MATERIALIZED VIEW` via `psql`).
+- `SUPABASE_SECRET_KEY` — alias of the service-role key (portal's local name).
 
 Git identity: `user.email=kaaos-daemon@dapperlabs.com`, `user.name=fandom-ownership daemon`.
 
@@ -57,16 +58,20 @@ Git identity: `user.email=kaaos-daemon@dapperlabs.com`, `user.name=fandom-owners
 
 ### Phase 0 — Bootstrap + provision (run once)
 ```bash
-mkdir -p /home/ro/builds/fandom-ownership && cd /home/ro/builds/fandom-ownership
-for r in topshot-data-portal claude-conversations; do
-  [ -d "$r" ] || git clone https://x-access-token:${GH_TOKEN}@github.com/roham/$r.git "$r"
-  (cd "$r" && git checkout main && git pull --rebase \
-     && git config user.email kaaos-daemon@dapperlabs.com && git config user.name "fandom-ownership daemon")
-done
+cd /home/ro/builds/fandom-ownership
+command -v psql >/dev/null || sudo apt-get update -y && sudo apt-get install -y postgresql-client
+[ -d topshot-data-portal ] || git clone https://x-access-token:${GH_TOKEN}@github.com/roham/topshot-data-portal.git
+( cd topshot-data-portal && git fetch origin && git checkout spec/002-fandom-ownership-backend && git pull --rebase \
+  && git config user.email kaaos-daemon@dapperlabs.com && git config user.name "fandom-ownership daemon" )
+[ -d claude-conversations ] || git clone https://x-access-token:${GH_TOKEN}@github.com/roham/claude-conversations.git
+( cd claude-conversations && git checkout main && git pull --rebase \
+  && git config user.email kaaos-daemon@dapperlabs.com && git config user.name "fandom-ownership daemon" )
 ln -sfn topshot-data-portal portal; ln -sfn claude-conversations convos
 ```
-Verify: Supabase reachable (`count=exact` HEAD on `topshot.moments` returns ~8.58M); both repos
-`git push --dry-run` OK. Write `phase0-provision.md` (receipts, NO secrets). **Gate:** all green or STOP.
+Verify: `psql "$SUPABASE_DB_URL" -c 'select 1'` OK; Supabase REST reachable (`count=exact` HEAD on
+`topshot.moments` ~8.58M); both repos `git push --dry-run` OK. Write `phase0-provision.md` (receipts,
+NO secrets). **Gate:** all green or STOP. Portal commits/pushes go to `spec/002-fandom-ownership-backend`
+(PR #13); convos data pushes go to `main` (the Vercel deploy path).
 
 ### Phase 1 — Ownership MV + RPC  (Agent: general-purpose, sonnet) · LOAD-BEARING
 Author `portal/supabase/migrations/00XX_mv_holders_by_player.sql` per plan FR-1/FR-2:
