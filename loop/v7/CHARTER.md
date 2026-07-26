@@ -196,9 +196,9 @@ The lore-vault loop succeeded partly because paralle daemons had non-overlapping
 
 ---
 
-## §8 — /verification-before-completion (gpt-5.5, no fallback) — LOAD-BEARING GATE
+## §8 — /verification-before-completion (cross-vendor, model cascade) — LOAD-BEARING GATE
 
-**This is the ONE step every iteration MUST pass before commit.** Named explicitly: `/verification-before-completion`. Implemented via `loop/v7/scripts/verify-via-openai.py`. Model: **gpt-5.5 ONLY — NO FALLBACK** (per Roham 2026-05-17). If gpt-5.5 is unavailable, the verdict is FAIL.
+**This is the ONE step every iteration MUST pass before commit.** Named explicitly: `/verification-before-completion`. Implemented via `loop/v7/scripts/verify-via-openai.py`. Model: **cascades gpt-5.6-sol → gpt-5.1 → gpt-4o** (the 2026-05-17 "gpt-5.6-sol ONLY — NO FALLBACK" decision is reverted per Roham 2026-07-25). Cross-vendor independence is the load-bearing property, not any single model. **Iteration cap: after 3 non-PASS verdicts on the same (loop, track) within 6h, the script refuses to verify — surface to Roham and STOP.**
 
 The structural rationale (per V4 meta-analysis): single in-loop evaluator with a known blind spot is the V4 failure mode. /verification-before-completion is the EXTERNAL judge that breaks the convergence. It is not optional. It is not a polish step. It is the gate.
 
@@ -236,7 +236,7 @@ Service account `941997949640-compute@developer.gserviceaccount.com` AND `sinbad
 **Decision logic:**
 - `PASS` → orchestrator commits + pushes + advances cursor.
 - `NEEDS-WORK` → orchestrator commits but opens a follow-up task in `features.json` AND surfaces in /admin/review with 🎨 pre-marked.
-- `FAIL` → orchestrator does NOT commit. Re-dispatches the iteration's builder with `failure_modes` as input. Counts toward anti-stall (3-consecutive-FAIL fires META).
+- `FAIL` → orchestrator does NOT commit. Re-dispatches the iteration's builder with `failure_modes` as input. Counts toward anti-stall (3-consecutive-FAIL fires META). **HARD CAP: after 3 non-PASS verdicts on the same (loop, track) within 6h, the verify script itself refuses to run (exit 2, `bound: verify-cap-exceeded`). Do NOT re-dispatch Builder. Surface the accumulated `failure_modes` to Roham and STOP. The slot machine stops here — see dexter wiki/learnings/2026-07-25-unbounded-verification-retry-slot-machine.md.**
 
 The script uses the OpenAI API directly (gpt-5.5 model). API key from `OPENAI_API_KEY` env var. Output is parsed; non-parsing output = FAIL (assume worst case).
 

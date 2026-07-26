@@ -270,7 +270,8 @@ Read `loop/v7/state/iteration-<N>.verify.json`. Decision:
 
 - `verdict = PASS` → proceed to 2.8 (merge).
 - `verdict = NEEDS-WORK` → merge BUT open follow-up in `loop/v7/state/follow-ups.jsonl` + surface in /admin/review with 🎨 pre-marked.
-- `verdict = FAIL` → DO NOT merge. Write the verdict's `failure_modes` to `research/iterations/loop-a-<N>-failure.md`, re-dispatch Builder with this as additional input. Count toward anti-stall.
+- `verdict = FAIL` → DO NOT merge. Write the verdict's `failure_modes` to `research/iterations/loop-a-<N>-failure.md`, re-dispatch Builder with this as additional input. Count toward anti-stall. **HARD CAP (per CHARTER §8): after 3 non-PASS verdicts on this (loop, track) within 6h, the verify script refuses to run (`bound: verify-cap-exceeded`). When you see that, STOP. Do NOT re-dispatch Builder. Surface the accumulated `failure_modes` to Roham. The slot machine stops here.**
+- `bound: verify-cap-exceeded` → the verify script has hit the iteration cap. DO NOT re-dispatch, DO NOT retry, DO NOT merge. Surface to Roham and STOP. This is a hard stop, not a stall.
 - `error: ... openai api call failed` → /verification-before-completion is INOPERABLE. HALT loop (cannot proceed without the gate). Log + wait for human intervention. DO NOT silently skip; cross-vendor review is non-negotiable per CHARTER §8.
 
 ### 2.8 — Merge to main

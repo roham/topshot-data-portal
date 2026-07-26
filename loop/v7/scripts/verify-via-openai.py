@@ -3,7 +3,7 @@
 verify-via-openai.py — cross-vendor review for V7 loops.
 
 Invoked by the orchestrator after every iteration to get an INDEPENDENT verdict
-from a different model class (OpenAI gpt-5.5) than the Claude-driven loop.
+from a different model class (OpenAI gpt-5.6-sol) than the Claude-driven loop.
 The V4 failure was Claude judging Claude — converged on its own blind spots.
 Cross-vendor review breaks the convergence.
 
@@ -40,9 +40,12 @@ Exit codes:
 
 import argparse
 import base64
+import glob
+import hashlib
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 # OpenAI client. Requires `pip install openai`.
@@ -52,6 +55,77 @@ try:
 except ImportError:
     print(json.dumps({"verdict": "FAIL", "error": "openai package not installed — pip install openai"}), file=sys.stderr)
     sys.exit(3)
+
+# --- Iteration cap (cures the 15+ iteration slot machine) ---
+# The V7 loop's design is: FAIL -> re-dispatch Builder -> iterate -> verify again.
+# Without a cap, a stuck track churns 15+ iterations burning tokens and bloating
+# scope. The cap is per (loop, track) across all iterations within a rolling
+# window. After MAX_VERIFY_FAILS non-PASS verdicts on the same track, the script
+# refuses to verify and tells the orchestrator to surface to Roham and STOP.
+# See dexter wiki/learnings/2026-07-25-unbounded-verification-retry-slot-machine.md
+MAX_VERIFY_FAILS = 3          # non-PASS verdicts per (loop, track) in the window, then surface
+VERIFY_WINDOW_SECONDS = 6 * 3600  # rolling window; verifies older than this don't count
+
+
+def _cap_state_dir():
+    d = Path("loop/v7/state/.verify-cap")
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _cap_key(loop, track):
+    return f"{loop}-{track}"
+
+
+def _load_cap_state(loop, track):
+    f = _cap_state_dir() / f"{_cap_key(loop, track)}.json"
+    if not f.exists():
+        return {"loop": loop, "track": track, "fails": []}
+    try:
+        return json.loads(f.read_text())
+    except Exception:
+        return {"loop": loop, "track": track, "fails": []}
+
+
+def _save_cap_state(loop, track, state):
+    f = _cap_state_dir() / f"{_cap_key(loop, track)}.json"
+    f.write_text(json.dumps(state, indent=2))
+
+
+def _prune_fails(state, now=None):
+    now = now if now is not None else time.time()
+    state["fails"] = [x for x in state.get("fails", []) if now - x.get("ts", 0) < VERIFY_WINDOW_SECONDS]
+    return state["fails"]
+
+
+def check_verify_cap(loop, track):
+    """Return (ok, message). ok=False means refuse to verify — surface to Roham."""
+    state = _load_cap_state(loop, track)
+    recent = _prune_fails(state)
+    if len(recent) >= MAX_VERIFY_FAILS:
+        return False, (
+            f"BOUND: {len(recent)} non-PASS verdicts on loop {loop} track {track} in the last "
+            f"{VERIFY_WINDOW_SECONDS//3600}h (cap={MAX_VERIFY_FAILS}). The slot machine stops here. "
+            f"DO NOT re-dispatch Builder. Surface the failure_modes to Roham and STOP. "
+            f"See dexter wiki/learnings/2026-07-25-unbounded-verification-retry-slot-machine.md"
+        )
+    return True, ""
+
+
+def record_verify_result(loop, track, verdict):
+    """Record a verify result. Only non-PASS verdicts count toward the cap."""
+    if verdict == "PASS":
+        return  # PASS resets nothing; the cap is on consecutive fails
+    state = _load_cap_state(loop, track)
+    state.setdefault("fails", []).append({"verdict": verdict, "ts": time.time()})
+    _save_cap_state(loop, track, state)
+
+
+# --- Model cascade (rip out the no-fallback constraint per Roham 2026-07-25) ---
+# The 2026-05-17 "gpt-5.6-sol ONLY — NO FALLBACK" decision is reverted. The V4
+# failure (Claude judging Claude) is cured by cross-vendor, not by a single
+# model. A cascade gives resilience without losing cross-vendor independence.
+MODELS_TO_TRY = ["gpt-5.6-sol", "gpt-5.1", "gpt-4o"]
 
 
 def read_file(path: str | None) -> str:
@@ -373,7 +447,9 @@ def main():
     parser.add_argument("--comparable-name", default=None)
     parser.add_argument("--signature-move", default=None)
     parser.add_argument("--out-path", required=True)
-    parser.add_argument("--model", default="gpt-5.5", help="OpenAI model to use. NO FALLBACK — gpt-5.5 only per Roham 2026-05-17.")
+    parser.add_argument("--model", default=None,
+                        help="OpenAI model to use. If omitted, cascades: gpt-5.6-sol -> gpt-5.1 -> gpt-4o. "
+                             "(The 2026-05-17 'gpt-5.6-sol ONLY — NO FALLBACK' decision is reverted per Roham 2026-07-25.)")
     parser.add_argument("--seed", type=int, default=None, help="Optional OpenAI seed for reproducible voting (V8 P13).")
     parser.add_argument("--temperature", type=float, default=None, help="Optional temperature override (V8 P13).")
     args = parser.parse_args()
@@ -381,8 +457,20 @@ def main():
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         result = {"verdict": "FAIL", "error": "OPENAI_API_KEY env var not set"}
+        Path(args.out_path).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out_path).write_text(json.dumps(result, indent=2))
         sys.exit(3)
+
+    # --- Iteration cap: refuse after MAX_VERIFY_FAILS non-PASS on the same (loop, track) ---
+    iteration_state = json.loads(Path(args.iteration_state).read_text())
+    track = iteration_state.get("track", "UNKNOWN")
+    ok, cap_msg = check_verify_cap(args.loop, track)
+    if not ok:
+        result = {"verdict": "FAIL", "error": cap_msg, "bound": "verify-cap-exceeded"}
+        Path(args.out_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out_path).write_text(json.dumps(result, indent=2))
+        print(json.dumps({"verdict": "FAIL", "bound": "verify-cap-exceeded", "one_line": cap_msg}))
+        sys.exit(2)
 
     client = OpenAI(api_key=api_key)
 
@@ -391,44 +479,60 @@ def main():
     else:
         messages = build_loop_b_prompt(args)
 
-    try:
-        # NO FALLBACK — gpt-5.5 only per Roham 2026-05-17. If the model fails, the verdict fails.
-        kwargs = {
-            "model": args.model,
-            "messages": messages,
-            "max_completion_tokens": 16000,
-            "response_format": {"type": "json_object"},
-        }
-        if args.seed is not None:
-            kwargs["seed"] = args.seed
-        if args.temperature is not None:
-            kwargs["temperature"] = args.temperature
-        response = client.chat.completions.create(**kwargs)
-
-        content = response.choices[0].message.content
-        result = json.loads(content)
-        def _safe_usage(u):
-            if u is None:
-                return None
-            return {
-                "completion_tokens": getattr(u, "completion_tokens", None),
-                "prompt_tokens": getattr(u, "prompt_tokens", None),
-                "total_tokens": getattr(u, "total_tokens", None),
+    # --- Model cascade (replaces the no-fallback constraint) ---
+    models_to_try = [args.model] if args.model else MODELS_TO_TRY
+    result = None
+    last_err = None
+    for model in models_to_try:
+        try:
+            kwargs = {
+                "model": model,
+                "messages": messages,
+                "max_completion_tokens": 16000,
+                "response_format": {"type": "json_object"},
             }
+            if args.seed is not None:
+                kwargs["seed"] = args.seed
+            if args.temperature is not None:
+                kwargs["temperature"] = args.temperature
+            response = client.chat.completions.create(**kwargs)
 
-        result["_meta"] = {
-            "model_used": response.model,
-            "usage": _safe_usage(response.usage) if hasattr(response, "usage") else None,
-        }
+            content = response.choices[0].message.content
+            result = json.loads(content)
+            def _safe_usage(u):
+                if u is None:
+                    return None
+                return {
+                    "completion_tokens": getattr(u, "completion_tokens", None),
+                    "prompt_tokens": getattr(u, "prompt_tokens", None),
+                    "total_tokens": getattr(u, "total_tokens", None),
+                }
 
-    except Exception as e:
-        result = {"verdict": "FAIL", "error": f"openai api call failed (gpt-5.5 only, no fallback): {e}"}
+            result["_meta"] = {
+                "model_used": response.model,
+                "model_requested": model,
+                "usage": _safe_usage(response.usage) if hasattr(response, "usage") else None,
+            }
+            break  # success — stop the cascade
+        except Exception as e:
+            last_err = f"{model}: {e}"
+            continue
+
+    if result is None:
+        result = {"verdict": "FAIL", "error": f"all models failed in cascade: {last_err}"}
 
     Path(args.out_path).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out_path).write_text(json.dumps(result, indent=2))
 
     verdict = result.get("verdict", "FAIL")
     print(json.dumps({"verdict": verdict, "weighted_overall": result.get("weighted_overall"), "one_line": result.get("one_line_justification")}))
+
+    # Record for the iteration cap (only non-PASS counts).
+    record_verify_result(args.loop, track, verdict)
+    recent_fails = _prune_fails(_load_cap_state(args.loop, track))
+    if verdict != "PASS" and len(recent_fails) >= MAX_VERIFY_FAILS:
+        print(f"BOUND: {len(recent_fails)} non-PASS verdicts on loop {args.loop} track {track}. "
+              f"DO NOT re-dispatch Builder. Surface to Roham and STOP.", file=sys.stderr)
 
     if verdict == "PASS":
         sys.exit(0)

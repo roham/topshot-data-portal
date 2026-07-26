@@ -307,7 +307,7 @@ Spawn `claude --print` with the vision-judge prompt from rubric §3, attaching:
 
 Read structured JSON output to `loop/v7/state/iteration-<N>.vision-judge.json`.
 
-If `verdict = FAIL`: re-dispatch Builder with gaps as input. Don't proceed.
+If `verdict = FAIL`: re-dispatch Builder with gaps as input. Don't proceed. **HARD CAP (per CHARTER §8): after 3 non-PASS verdicts on this (loop, track) within 6h, the verify script refuses to run (`bound: verify-cap-exceeded`). When you see that, STOP. Do NOT re-dispatch Builder. Surface to Roham.**
 
 ### 2.9 — /verification-before-completion (gpt-5.5 — LOAD-BEARING GATE, NO FALLBACK)
 
@@ -334,7 +334,7 @@ OPENAI_API_KEY must be in env (pulled from GSM at boot per §0). If gpt-5.5 erro
 
 Decision logic (rubric §4):
 - Both vision-judge AND cross-vendor PASS → ship.
-- Both FAIL → re-dispatch Builder.
+- Both FAIL → re-dispatch Builder. **Subject to the 3-non-PASS cap per CHARTER §8 — if the verify script returns `bound: verify-cap-exceeded`, STOP and surface to Roham.**
 - Disagreement (1 PASS, 1 FAIL) → composite NEEDS-REVIEW → escalate to /admin/review with both verdicts attached. Roham breaks tie.
 
 ### 2.10 — Merge
